@@ -53,7 +53,7 @@ export class AuthController {
   @Post('register')
   async create(@Body() data: CreateUserDto) {
     try {
-      const name = data.name;
+      const name = data.last_name;
       const first_name = data.first_name;
       const last_name = data.last_name;
       const email = data.email;
@@ -107,25 +107,22 @@ export class AuthController {
   @ApiOperation({ summary: 'Login user' })
   @UseGuards(LocalAuthGuard)
   @Post('login')
-  async login(@Req() req: Request, @Res() res: Response) {
+  async login(@Req() req: Request) {
     try {
       const user_id = req.user.id;
-
       const user_email = req.user.email;
+      const isEmailVerified = req.user?.email_verified_at;
 
-      const response = await this.authService.login({
-        userId: user_id,
-        email: user_email,
-      });
-
-      // store to secure cookies
-      res.cookie('refresh_token', response.authorization.refresh_token, {
-        httpOnly: true,
-        secure: true,
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-      });
-
-      res.json(response);
+      let response: any;
+      if (!isEmailVerified) {
+        response = await this.authService.resendVerificationEmail(user_email);
+      } else {
+        response = await this.authService.login({
+          userId: user_id,
+          email: user_email,
+        });
+      }
+      return response;
     } catch (error) {
       return {
         success: false,

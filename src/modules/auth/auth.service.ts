@@ -54,7 +54,7 @@ export class AuthService {
 
       if (user.avatar) {
         user['avatar_url'] = SojebStorage.url(
-          appConfig().storageUrl.avatar + user.avatar,
+          appConfig().storageUrl.avatar+user.avatar,
         );
       }
 
@@ -133,7 +133,8 @@ export class AuthService {
         }
 
         // upload file
-        const fileName = `${StringHelper.randomString()}${image.originalname}`;
+        const originalName = image.originalname.replace(/\s+/g, '');
+        const fileName = `${StringHelper.randomString()}${originalName}`;
         await SojebStorage.put(
           appConfig().storageUrl.avatar + fileName,
           image.buffer,
@@ -389,39 +390,39 @@ export class AuthService {
       }
 
       // ----------------------------------------------------
-      // // create otp code
-      // const token = await UcodeRepository.createToken({
-      //   userId: user.data.id,
-      //   isOtp: true,
-      // });
+      // create otp code
+      const token = await UcodeRepository.createToken({
+        userId: user.data.id,
+        isOtp: true,
+      });
 
-      // // send otp code to email
-      // await this.mailService.sendOtpCodeToEmail({
-      //   email: email,
-      //   name: name,
-      //   otp: token,
-      // });
+      // send otp code to email
+      await this.mailService.sendOtpCodeToEmail({
+        email: email,
+        name: name,
+        otp: token,
+      });
 
-      // return {
-      //   success: true,
-      //   message: 'We have sent an OTP code to your email',
-      // };
+      return {
+        success: true,
+        message: 'We have sent an OTP code to your email',
+      };
 
       // ----------------------------------------------------
 
       // Generate verification token
-      const token = await UcodeRepository.createVerificationToken({
-        userId: user.data.id,
-        email: email,
-      });
+      // const token = await UcodeRepository.createVerificationToken({
+      //   userId: user.data.id,
+      //   email: email,
+      // });
 
-      // Send verification email with token
-      await this.mailService.sendVerificationLink({
-        email,
-        name: email,
-        token: token.token,
-        type: type,
-      });
+      // // Send verification email with token
+      // await this.mailService.sendVerificationLink({
+      //   email,
+      //   name: email,
+      //   token: token.token,
+      //   type: type,
+      // });
 
       return {
         success: true,
@@ -545,10 +546,10 @@ export class AuthService {
           });
 
           // delete otp code
-          // await UcodeRepository.deleteToken({
-          //   email: email,
-          //   token: token,
-          // });
+          await UcodeRepository.deleteToken({
+            email: email,
+            token: token,
+          });
 
           return {
             success: true,
