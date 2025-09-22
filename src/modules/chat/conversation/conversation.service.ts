@@ -67,6 +67,27 @@ export class ConversationService {
       });
 
       if (conversation) {
+        // if (conversation.deleted_by_creator) {
+        //   await this.prisma.conversation.update({
+        //     where: {
+        //       id: conversation.id,
+        //     },
+        //     data: {
+        //       deleted_by_creator: false,
+        //     },
+        //   });
+        // }
+
+        if (conversation.creator.avatar) {
+          conversation.creator['avatar_url'] = SojebStorage.url(
+            appConfig().storageUrl.avatar + conversation.creator.avatar,
+          );
+        }
+        if (conversation.participant.avatar) {
+          conversation.participant['avatar_url'] = SojebStorage.url(
+            appConfig().storageUrl.avatar + conversation.participant.avatar,
+          );
+        }
         return {
           success: false,
           message: 'Conversation already exists',

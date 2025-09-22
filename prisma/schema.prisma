@@ -276,11 +276,12 @@ model Message {
 
   conversation_id String?
   conversation    Conversation? @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  message         String?
 
   attachment_id String?
-  attachment    Attachment? @relation(fields: [attachment_id], references: [id])
+  attachment    Attachment?   @relation(fields: [attachment_id], references: [id])
 
-  message String?
+  last_message_conversation Conversation? @relation("last_message")
 
   @@map("messages")
 }
@@ -305,10 +306,7 @@ model Attachment {
 
 // this table stores conversation
 model Conversation {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-  deleted_at DateTime?
+  id String @id @default(cuid())
 
   creator_id String?
   creator    User?   @relation("creator", fields: [creator_id], references: [id])
@@ -316,7 +314,24 @@ model Conversation {
   participant_id String?
   participant    User?   @relation("participant", fields: [participant_id], references: [id])
 
+  last_message_id String?  @unique
+  last_message    Message? @relation("last_message", fields: [last_message_id], references: [id])
+
+  // deleted
+  deleted_by_creator        Boolean   @default(false)
+  deleted_by_participant    Boolean   @default(false)
+  deleted_by_creator_at     DateTime?
+  deleted_by_participant_at DateTime?
+
+  // blocked
+  blocked_by_creator     Boolean @default(false)
+  blocked_by_participant Boolean @default(false)
+
   messages Message[]
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
 
   @@map("conversations")
 }
