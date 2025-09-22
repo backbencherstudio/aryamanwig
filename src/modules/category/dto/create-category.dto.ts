@@ -12,7 +12,4 @@ export class CreateCategoryDto {
     @IsInt()
     status?: number;
 
-    @IsString()
-    category_owner: string;
-
 }

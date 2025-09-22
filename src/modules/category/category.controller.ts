@@ -11,33 +11,48 @@ export class CategoryController {
 
   constructor(private readonly categoryService: CategoryService) {}
 
+  // Create a new category
   @UseGuards(JwtAuthGuard)
   @Post('create')
-  create(@Body() createCategoryDto: CreateCategoryDto,
-         @Req() req: any  
-  ) {
-  const user = req.user;
-  console.log(user)
-  return this.categoryService.create(createCategoryDto);
+  async create(@Body() createCategoryDto: CreateCategoryDto, 
+              @Req() req: any) {
+    
+  const user = req.user.userId;
+  return await this.categoryService.create(createCategoryDto, user);
   }
 
-  @Get()
+  // Get all categories
+  @Get('allCategories')
   findAll() {
-    return this.categoryService.findAll();
+  return this.categoryService.findAll();
   }
 
-  @Get(':id')
+  // Get a category by ID
+  @Get('singlecategory/:id')
   findOne(@Param('id') id: string) {
-    return this.categoryService.findOne(+id);
+  return this.categoryService.findOne(id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto) {
-    return this.categoryService.update(+id, updateCategoryDto);
+  // Update a category
+  @UseGuards(JwtAuthGuard)
+  @Patch('updatebyid/:id')
+  update(@Param('id') id: string, 
+        @Body() updateCategoryDto: UpdateCategoryDto,
+        @Req() req: any) {
+  const user = req.user.userId;
+  console.log('Updating category:', id, 'by user:', user);
+  return this.categoryService.update(id, updateCategoryDto, user);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.categoryService.remove(+id);
+  // Delete a category
+  @UseGuards(JwtAuthGuard)
+  @Delete('deletebyid/:id')
+  Remove(@Param('id') id: string,
+         @Req() req: any
+  ) {
+  const user = req.user.userId;
+  return this.categoryService.remove(id,user);
   }
+
+ 
 }
