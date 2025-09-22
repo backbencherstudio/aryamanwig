@@ -49,9 +49,7 @@ export class CreateProductDto {
   @IsInt()
   status?: number;
 
-  @IsString()
-  user_id?: string;
-
+  
   @IsString()
   category_id?: string;
 }
