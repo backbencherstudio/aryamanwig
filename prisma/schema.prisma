@@ -83,7 +83,71 @@ model User {
   role_users           RoleUser[]
   payment_transactions PaymentTransaction[]
 
+  // relationship with product
+  products Product[]
+
+  // relationship with category
+  categories Category[]
+
   @@map("users")
+}
+
+/**
+ * add new schema models below
+ */
+
+enum Condition {
+  NEW
+  OLD
+}
+
+model Product {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  product_title       String
+  product_description String
+  stock               Int     @default(1)
+  price               Decimal @db.Decimal(10, 2)
+  photos              String[]
+
+  location String?
+  size     String?
+  color    String?
+  time     DateTime?
+
+  condition Condition? @default(NEW)
+  status    Int?       @default(1) @db.SmallInt
+
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id])
+
+  category_id String?
+  category    Category? @relation(fields: [category_id], references: [id])
+
+  @@map("products")
+}
+
+model Category {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  category_name        String @unique
+  category_description String?
+  status               Int?    @default(1) @db.SmallInt
+
+  // relationship with product
+  products Product[]
+
+  // category_Owner
+  category_owner String?
+  category       User?   @relation(fields: [category_owner], references: [id])
+
+  @@map("categories")
 }
 
 model Ucode {
@@ -418,19 +482,3 @@ model UserSetting {
 
   @@map("user_settings")
 }
-
-// this table stores example
-// model Note {
-//   id                String  @id @default(cuid())
-//   created_at DateTime  @default(now())
-//   updated_at DateTime  @default(now())
-//   deleted_at DateTime?
-//   status     Int?      @default(1) @db.SmallInt
-
-//   title String?
-//   body  String? @db.Text
-
-//   tenant_id Int?
-//   tenant    Organization? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-//   @@map("posts")
-// }
