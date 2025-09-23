@@ -30,6 +30,7 @@ export class ConversationController {
     @Req() req: any,
   ) {
     createConversationDto.creator_id = req.user.userId;
+    // console.log(createConversationDto);
     try {
       const conversation = await this.conversationService.create(
         createConversationDto,

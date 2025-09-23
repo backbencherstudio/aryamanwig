@@ -111,6 +111,7 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @Post('login')
   async login(@Req() req: Request) {
+    // console.log('req.user', req.user);
     try {
       const user_id = req.user.id;
       const user_email = req.user.email;
