@@ -1,16 +1,14 @@
 import { IsOptional, IsNumber, IsArray, IsString, Min } from 'class-validator';
-import { Type, Transform } from 'class-transformer'; // Transform ইম্পোর্ট করুন
+import { Type, Transform } from 'class-transformer'; 
 
 export class FilterProductDto {
   @IsOptional()
   @IsNumber()
-  @Type(() => Number)
   @Min(0)
   min_price?: number;
 
   @IsOptional()
   @IsNumber()
-  @Type(() => Number)
   @Min(0)
   max_price?: number;
 
@@ -24,4 +22,5 @@ export class FilterProductDto {
     return value;
   })
   categories?: string[];
+  
 }

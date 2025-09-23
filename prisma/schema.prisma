@@ -89,6 +89,9 @@ model User {
   // relationship with category
   categories Category[]
 
+  // relation with wishlist
+  wishlists Wishlist[]
+
   @@map("users")
 }
 
@@ -127,6 +130,8 @@ model Product {
   // relationship with category
   category_id String?
   category    Category? @relation(fields: [category_id], references: [id])
+  // relation with wishlist
+  wishlists Wishlist[]
 
   @@map("products")
 }
@@ -147,10 +152,29 @@ model Category {
   // category_Owner
   category_owner String?
   category       User?   @relation(fields: [category_owner], references: [id])
+  //  relation with wishlist
+  
+
 
   @@map("categories")
 }
 
+
+model Wishlist {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+
+
+  user_id String?
+  user    User?    @relation(fields: [user_id], references: [id])
+
+  product_id String?
+  product    Product? @relation(fields: [product_id], references: [id])
+
+  @@unique([user_id, product_id])
+  @@map("wishlists")
+}
 
 
 
