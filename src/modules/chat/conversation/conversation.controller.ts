@@ -6,6 +6,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { ConversationService } from './conversation.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -24,7 +25,12 @@ export class ConversationController {
 
   @ApiOperation({ summary: 'Create conversation' })
   @Post()
-  async create(@Body() createConversationDto: CreateConversationDto) {
+  async create(
+    @Body() createConversationDto: CreateConversationDto,
+    @Req() req: any,
+  ) {
+    createConversationDto.creator_id = req.user.userId;
+    // console.log(createConversationDto);
     try {
       const conversation = await this.conversationService.create(
         createConversationDto,

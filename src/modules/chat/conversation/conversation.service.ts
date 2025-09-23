@@ -34,6 +34,7 @@ export class ConversationService {
           participant_id: true,
           created_at: true,
           updated_at: true,
+          deleted_by_creator: true,
           creator: {
             select: {
               id: true,
@@ -61,12 +62,41 @@ export class ConversationService {
           },
         },
         where: {
-          creator_id: data.creator_id,
-          participant_id: data.participant_id,
+          OR: [
+            {
+              creator_id: data.creator_id,
+              participant_id: data.participant_id,
+            },
+            {
+              creator_id: data.participant_id,
+              participant_id: data.creator_id,
+            },
+          ],
         },
       });
 
       if (conversation) {
+        if (conversation.deleted_by_creator) {
+          await this.prisma.conversation.update({
+            where: {
+              id: conversation.id,
+            },
+            data: {
+              deleted_by_creator: false,
+            },
+          });
+        }
+
+        if (conversation.creator.avatar) {
+          conversation.creator['avatar_url'] = SojebStorage.url(
+            appConfig().storageUrl.avatar + conversation.creator.avatar,
+          );
+        }
+        if (conversation.participant.avatar) {
+          conversation.participant['avatar_url'] = SojebStorage.url(
+            appConfig().storageUrl.avatar + conversation.participant.avatar,
+          );
+        }
         return {
           success: false,
           message: 'Conversation already exists',
@@ -81,6 +111,7 @@ export class ConversationService {
           participant_id: true,
           created_at: true,
           updated_at: true,
+          deleted_by_creator: true,
           creator: {
             select: {
               id: true,
