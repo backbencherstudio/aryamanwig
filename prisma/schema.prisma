@@ -120,10 +120,11 @@ model Product {
 
   condition Condition? @default(NEW)
   status    Int?       @default(1) @db.SmallInt
-
+ 
+  // product_Owner
   user_id String?
   user    User?   @relation(fields: [user_id], references: [id])
-
+  // relationship with category
   category_id String?
   category    Category? @relation(fields: [category_id], references: [id])
 
@@ -149,6 +150,10 @@ model Category {
 
   @@map("categories")
 }
+
+
+
+
 
 model Ucode {
   id         String   @id @default(cuid())
