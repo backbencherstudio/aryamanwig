@@ -1,0 +1,118 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.chat-container {
+    width: 100%;
+    max-width: 800px;
+    background: white;
+    padding: 10px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.header h2 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+    color: #4361ee;
+}
+
+.section h4 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+    color: #4361ee;
+}
+
+.section {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+#chat {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e0e7ff;
+    border-radius: 12px;
+    padding: 15px;
+    background: #f9f9f9;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.message {
+    padding: 10px 14px;
+    border-radius: 8px;
+    line-height: 1.4;
+    font-size: 14px;
+    max-width: 80%;
+    position: relative;
+}
+
+.self {
+    background: #e0e7ff;
+    align-self: flex-end;
+    border-bottom-right-radius: 0;
+}
+
+.other {
+    background: white;
+    border: 1px solid #e0e7ff;
+    align-self: flex-start;
+    border-bottom-left-radius: 0;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #e0e7ff;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: #4361ee;
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+}
+
+button {
+    padding: 12px 20px;
+    background: #4361ee;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+button:hover {
+    background: #3f37c9;
+    transform: translateY(-1px);
+}
