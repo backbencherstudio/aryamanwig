@@ -17,6 +17,7 @@ export class CreateProductDto {
   @IsInt()
   stock: number;
 
+  @IsOptional()
   @IsDecimal({ decimal_digits: '0,2', force_decimal: true })
   price: number;
 
@@ -49,9 +50,7 @@ export class CreateProductDto {
   @IsInt()
   status?: number;
 
-  @IsString()
-  user_id?: string;
-
+  
   @IsString()
   category_id?: string;
 }
