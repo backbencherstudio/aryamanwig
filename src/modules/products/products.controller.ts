@@ -15,7 +15,7 @@ export class ProductsController {
   // create product
   @UseGuards(JwtAuthGuard)
   @Post('create')
-  async create(@Body() createProductDto: CreateProductDto,
+  create(@Body() createProductDto: CreateProductDto,
     @Req() req: any
   ) {
     const user = req.user.userId

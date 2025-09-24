@@ -97,6 +97,7 @@ export class ProductsService {
         product_description: product.product_description,
         price: product.price,
         stock: product.stock,
+        product_owner: product.user_id,
         category: {
           id: product.category.id,
           category_name: product.category.category_name,
@@ -126,6 +127,7 @@ export class ProductsService {
         product_description: product.product_description,
         price: product.price,
         stock: product.stock,
+        product_owner: product.user_id,
         category: {
           id: product.category.id,
           category_name: product.category.category_name,
@@ -153,6 +155,7 @@ export class ProductsService {
       price: product.price.toString(), // Convert price to string if needed
       size: product.size,
       condition: product.condition,
+      product_owner: product.user_id,
     }));
 
     return {
@@ -231,6 +234,7 @@ export class ProductsService {
         product_description: updatedProduct.product_description,
         price: updatedProduct.price,
         stock: updatedProduct.stock,
+        product_owner: updatedProduct.user_id,
       },
     };
   }
@@ -261,38 +265,39 @@ export class ProductsService {
   }
 
   // filter products by price range and categories
- async filterProducts(filterDto: FilterProductDto) {
-  
-  const { min_price, max_price, categories } = filterDto;
+  async filterProducts(filterDto: FilterProductDto) {
+    
+    const { min_price, max_price, categories } = filterDto;
 
-  const products = await this.prisma.product.findMany({
-    where: {
-      AND: [
-        min_price ? { price: { gte: min_price } } : {},
-        max_price ? { price: { lte: max_price } } : {},
-        categories && categories.length ? { category_id: { in: categories, mode: 'insensitive' } } : {},
-      ],
-    },
-  });
+    const products = await this.prisma.product.findMany({
+      where: {
+        AND: [
+          min_price ? { price: { gte: min_price } } : {},
+          max_price ? { price: { lte: max_price } } : {},
+          categories && categories.length ? { category_id: { in: categories, mode: 'insensitive' } } : {},
+        ],
+      },
+    });
 
-  // Use the map function outside of the data object
-  const filteredProducts = products.map(product => ({
-    id: product.id,
-    product_title: product.product_title,
-    price: product.price.toString(),
-    size: product.size,
-    condition: product.condition,
-  }));
+    // Use the map function outside of the data object
+    const filteredProducts = products.map(product => ({
+      id: product.id,
+      product_title: product.product_title,
+      price: product.price.toString(),
+      size: product.size,
+      condition: product.condition,
+      product_owner: product.user_id,
+    }));
 
-  return {
-    success: true,
-    message: 'Products filtered successfully',
-    data: {
-      products: filteredProducts, // Corrected this line
-      product_count: filteredProducts.length,
-    },
-  };
-}
+    return {
+      success: true,
+      message: 'Products filtered successfully',
+      data: {
+        products: filteredProducts, // Corrected this line
+        product_count: filteredProducts.length,
+      },
+    };
+  }
 
 
 
