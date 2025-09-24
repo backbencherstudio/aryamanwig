@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsInt, IsDecimal, IsArray, IsDate, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsDecimal, IsArray, IsDate, IsEnum, IsNotEmpty, IsNumber, IsPositive, Min } from 'class-validator';
 
 
 export enum Condition {
@@ -17,8 +17,10 @@ export class CreateProductDto {
   @IsInt()
   stock: number;
 
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,2', force_decimal: true })
+  @IsNotEmpty()
+  @IsNumber({maxDecimalPlaces:2}, {message: 'Stock must be number and can have maximum two decimal places'})
+  @IsPositive()
+  @Min(0, {message: 'Price must be a positive number'})
   price: number;
 
   @IsOptional()
@@ -50,7 +52,6 @@ export class CreateProductDto {
   @IsInt()
   status?: number;
 
-  
   @IsString()
   category_id?: string;
 }

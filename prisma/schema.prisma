@@ -89,6 +89,12 @@ model User {
   // relationship with category
   categories Category[]
 
+  // relation with wishlist
+  wishlists Wishlist[]
+
+  // relation with review
+  reviews Review[]
+
   @@map("users")
 }
 
@@ -120,12 +126,15 @@ model Product {
 
   condition Condition? @default(NEW)
   status    Int?       @default(1) @db.SmallInt
-
+ 
+  // product_Owner
   user_id String?
   user    User?   @relation(fields: [user_id], references: [id])
-
+  // relationship with category
   category_id String?
   category    Category? @relation(fields: [category_id], references: [id])
+  // relation with wishlist
+  wishlists Wishlist[]
 
   @@map("products")
 }
@@ -146,9 +155,49 @@ model Category {
   // category_Owner
   category_owner String?
   category       User?   @relation(fields: [category_owner], references: [id])
+  //  relation with wishlist
+  
+
 
   @@map("categories")
 }
+
+
+model Wishlist {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+
+
+  user_id String?
+  user    User?    @relation(fields: [user_id], references: [id])
+
+  product_id String?
+  product    Product? @relation(fields: [product_id], references: [id])
+
+  @@unique([user_id, product_id])
+  @@map("wishlists")
+}
+
+
+model Review {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+ 
+  rating  Int
+  comment String?
+  status  Int?    @default(1) @db.SmallInt
+
+  review_receiver String?    // যাকে রিভিউ দেওয়া হচ্ছে (User Id)
+  review_sender   String?   // যাকে রিভিউ দেওয়া হচ্ছে (User Id)
+  
+  user    User?   @relation(fields: [review_sender], references: [id])
+
+  @@map("reviews")
+}
+
+
 
 model Ucode {
   id         String   @id @default(cuid())

@@ -31,6 +31,7 @@ export class CategoryService {
       });
 
       return {
+        success: true,
         message: 'Category created successfully',
         data:{
           id: newCategory.id,
@@ -47,6 +48,7 @@ export class CategoryService {
     const categories = await this.prisma.category.findMany();
 
     return {
+      success: true,
       message: 'Categories retrieved successfully',
       data: categories.map(category => ({
         category_id: category.id,
@@ -57,6 +59,7 @@ export class CategoryService {
     };
   }
 
+  
   // Get a category by ID
   async findOne(id: string) {
 
@@ -69,6 +72,7 @@ export class CategoryService {
     }
 
     return {
+      success: true,
       message: 'Category retrieved successfully',
       data: {
         category_id: category.id,
@@ -115,6 +119,7 @@ export class CategoryService {
     });
 
     return{
+      success: true,
       message: 'Category updated successfully',
       data: { 
         category_id: updatedCategory.id,
@@ -126,7 +131,6 @@ export class CategoryService {
     }
   }
 
-  
   // Delete a category
   async remove(id: string, user: string) {
 
@@ -148,6 +152,7 @@ export class CategoryService {
     });
 
     return {
+      success: true,
       message: 'Category deleted successfully',
       data: {
         category_id: category.id,
@@ -155,6 +160,7 @@ export class CategoryService {
       },
     };
   }
+
 
 
   

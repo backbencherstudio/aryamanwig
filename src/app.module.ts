@@ -22,6 +22,8 @@ import { ChatModule } from './modules/chat/chat.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { ProductsModule } from './modules/products/products.module';
 import { CategoryModule } from './modules/category/category.module';
+import { WishlistModule } from './modules/wishlist/wishlist.module';
+import { ReviewModule } from './modules/review/review.module';
 
 @Module({
   imports: [
@@ -78,6 +80,8 @@ import { CategoryModule } from './modules/category/category.module';
     PaymentModule,
     ProductsModule,
     CategoryModule,
+    WishlistModule,
+    ReviewModule,
   ],
   controllers: [AppController],
   providers: [
