@@ -92,6 +92,9 @@ model User {
   // relation with wishlist
   wishlists Wishlist[]
 
+  // relation with review
+  reviews Review[]
+
   @@map("users")
 }
 
@@ -176,6 +179,23 @@ model Wishlist {
   @@map("wishlists")
 }
 
+
+model Review {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+ 
+  rating  Int
+  comment String?
+  status  Int?    @default(1) @db.SmallInt
+
+  review_receiver String?    // যাকে রিভিউ দেওয়া হচ্ছে (User Id)
+  review_sender   String?   // যাকে রিভিউ দেওয়া হচ্ছে (User Id)
+  
+  user    User?   @relation(fields: [review_sender], references: [id])
+
+  @@map("reviews")
+}
 
 
 

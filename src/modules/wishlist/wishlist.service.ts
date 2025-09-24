@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateWishlistDto } from './dto/create-wishlist.dto';
 import { UpdateWishlistDto } from './dto/update-wishlist.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -18,30 +18,148 @@ export class WishlistService {
     });
 
     if (!product) {
-      throw new Error('Product not found');
+      throw new ConflictException('Product not found');
     }
 
-    // const existingWishlistItem = await this.prisma.wishlist.findFirst({
-    //   where: { product_id, user_id: user },
-    // });
-    
+    const existingWishlistItem = await this.prisma.wishlist.findFirst({
+      where: { product_id, user_id: user },
+    });
+
+    if (existingWishlistItem) {
+      throw new ConflictException('Product already in wishlist');
+    }
+
+    const newWishlistItem = await this.prisma.wishlist.create({
+      data: {
+        product_id,
+        user_id: user,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Product added to wishlist successfully',
+      data: {
+        id: newWishlistItem.id,
+        product_id: newWishlistItem.product_id,
+        user_id: newWishlistItem.user_id,
+      }
+    }
   }
 
 
   // get all wishlist items
-  findAll() {
-    return `This action returns all wishlist`;
+  async findAll() {
+
+    const items = await this.prisma.wishlist.findMany({
+      include: {
+        product: true, 
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Wishlist items retrieved successfully',
+      data: items.map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        product_id: item.product_id,
+        product: {
+          product_title: item.product.product_title,
+          product_description: item.product.product_description,
+          stock: item.product.stock,
+          price: item.product.price,
+          photos: item.product.photos,
+        },
+      })),
+    };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} wishlist`;
+  // get all wishlist items for a user
+  async findAllUser(user: string) {
+
+    const items = await this.prisma.wishlist.findMany({
+      where: { user_id: user },
+      include: {
+        product: true, 
+      },
+    });
+
+    return {
+      success: true,
+      message: 'User wishlist items retrieved successfully',
+      data: items.map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        product_id: item.product_id,
+        product: {
+          product_title: item.product.product_title,
+          product_description: item.product.product_description,
+          stock: item.product.stock,
+          price: item.product.price,
+          photos: item.product.photos,
+        },
+      })),
+    };
   }
 
-  update(id: number, updateWishlistDto: UpdateWishlistDto) {
-    return `This action updates a #${id} wishlist`;
+
+  // get single wishlist item by id
+  async findOne(id: string) {
+
+    const item = await this.prisma.wishlist.findUnique({
+      where: { id },
+      include: {
+        product: true,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException('Wishlist item not found');
+    }
+
+    return {
+      success: true,
+      message: 'Wishlist item retrieved successfully',
+      data: {
+        id: item.id,
+        user_id: item.user_id,
+        product_id: item.product_id,
+        product: {
+          product_title: item.product.product_title,
+          product_description: item.product.product_description,
+          stock: item.product.stock,
+          price: item.product.price,
+          photos: item.product.photos,
+        },
+      },
+    };
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} wishlist`;
+  // delete wishlist item by id
+  async remove(id: string, user: string) {
+
+    const item = await this.prisma.wishlist.findUnique({
+      where: { id },
+    });
+
+    if (!item) {
+      throw new NotFoundException('Wishlist item not found');
+    }
+
+    if (item.user_id !== user) {
+      throw new ConflictException('You are not authorized to delete this item');
+    }
+
+    await this.prisma.wishlist.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+      message: 'Wishlist item removed successfully',
+    };
   }
+
+  
 }
