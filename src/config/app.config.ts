@@ -7,6 +7,8 @@ export default () => ({
     port: parseInt(process.env.PORT, 10) || 3000,
   },
 
+  baseUrl: process.env.BASE_URL?.trim(),
+
   fileSystems: {
     public: {},
     s3: {
@@ -85,6 +87,7 @@ export default () => ({
     destination: '/destination',
     blog: '/blog',
     avatar: '/avatar',
+    product: 'product',
     websiteInfo: '/website-info',
     // chat
     attachment: '/attachment',

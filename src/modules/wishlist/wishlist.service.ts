@@ -69,7 +69,7 @@ export class WishlistService {
           product_description: item.product.product_description,
           stock: item.product.stock,
           price: item.product.price,
-          photos: item.product.photos,
+          photo: item.product.photo,
         },
       })),
     };
@@ -97,7 +97,7 @@ export class WishlistService {
           product_description: item.product.product_description,
           stock: item.product.stock,
           price: item.product.price,
-          photos: item.product.photos,
+          photo: item.product.photo,
         },
       })),
     };
@@ -130,7 +130,7 @@ export class WishlistService {
           product_description: item.product.product_description,
           stock: item.product.stock,
           price: item.product.price,
-          photos: item.product.photos,
+          photo: item.product.photo,
         },
       },
     };
