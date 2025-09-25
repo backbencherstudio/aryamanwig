@@ -24,7 +24,9 @@ import { ProductsModule } from './modules/products/products.module';
 import { CategoryModule } from './modules/category/category.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { ReviewModule } from './modules/review/review.module';
-import { CartModule } from './modules/cart/cart.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { CronModule } from './modules/cron/cron.module';
+
 
 @Module({
   imports: [
@@ -32,6 +34,7 @@ import { CartModule } from './modules/cart/cart.module';
       isGlobal: true,
       load: [appConfig],
     }),
+    ScheduleModule.forRoot(),
     BullModule.forRoot({
       connection: {
         host: appConfig().redis.host,
@@ -83,7 +86,7 @@ import { CartModule } from './modules/cart/cart.module';
     CategoryModule,
     WishlistModule,
     ReviewModule,
-    CartModule,
+    CronModule
   ],
   controllers: [AppController],
   providers: [
