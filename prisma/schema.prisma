@@ -94,6 +94,7 @@ model User {
 
   // relation with review
   reviews Review[]
+  Cart    Cart[]
 
   @@map("users")
 }
@@ -126,20 +127,16 @@ model Product {
 
   condition Condition? @default(NEW)
   status    Int?       @default(1) @db.SmallInt
-
-  // boost product
-  boost_until        DateTime?   // প্রোডাক্ট বুস্ট শেষ হওয়ার সময়
-  is_boosted         Boolean  @default(false)
-
  
   // product_Owner
-  user_id String?
-  user    User?   @relation(fields: [user_id], references: [id])
+  user_id     String?
+  user        User?      @relation(fields: [user_id], references: [id])
   // relationship with category
   category_id String?
-  category    Category? @relation(fields: [category_id], references: [id])
+  category    Category?  @relation(fields: [category_id], references: [id])
   // relation with wishlist
-  wishlists Wishlist[]
+  wishlists   Wishlist[]
+  CartItem    CartItem[]
 
   @@map("products")
 }
@@ -150,7 +147,7 @@ model Category {
   updated_at DateTime  @default(now())
   deleted_at DateTime?
 
-  category_name        String @unique
+  category_name        String  @unique
   category_description String?
   status               Int?    @default(1) @db.SmallInt
 
@@ -162,18 +159,18 @@ model Category {
   category       User?   @relation(fields: [category_owner], references: [id])
   //  relation with wishlist
   
+
+
   @@map("categories")
 }
 
-
 model Wishlist {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
 
   user_id String?
-  user    User?    @relation(fields: [user_id], references: [id])
+  user    User?   @relation(fields: [user_id], references: [id])
 
   product_id String?
   product    Product? @relation(fields: [product_id], references: [id])
@@ -182,24 +179,52 @@ model Wishlist {
   @@map("wishlists")
 }
 
-
 model Review {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
- 
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
   rating  Int
   comment String?
   status  Int?    @default(1) @db.SmallInt
 
   review_receiver String?    // যাকে রিভিউ দেওয়া হচ্ছে (User Id)
   review_sender   String?   // যাকে রিভিউ দেওয়া হচ্ছে (User Id)
-
+  
   user    User?   @relation(fields: [review_sender], references: [id])
 
   @@map("reviews")
 }
 
+model Cart {
+  id        String     @id @default(cuid())
+  user_id   String
+  user      User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("carts")
+}
+
+model CartItem {
+  id String @id @default(cuid())
+
+  cart_id String
+  cart    Cart   @relation(fields: [cart_id], references: [id], onDelete: Cascade)
+
+  product_id String
+  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  quantity    Int     @default(1)
+  total_price Decimal @db.Decimal(10, 2)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("cart_items")
+}
 
 
 model Ucode {
@@ -395,7 +420,7 @@ model Message {
   message         String?
 
   attachment_id String?
-  attachment    Attachment?   @relation(fields: [attachment_id], references: [id])
+  attachment    Attachment? @relation(fields: [attachment_id], references: [id])
 
   last_message_conversation Conversation? @relation("last_message")
 

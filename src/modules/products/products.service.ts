@@ -352,8 +352,8 @@ async create(
     const updatedProduct = await this.prisma.product.update({
       where: { id: product_id },
       data: {
-        boost_until: boostUntil,
-        is_boosted: true,
+        // boost_until: boostUntil,
+        // is_boosted: true,
       },
     });
 
@@ -364,8 +364,8 @@ async create(
         id: updatedProduct.id,
         product_title: updatedProduct.product_title,
         product_owner: updatedProduct.user_id,
-        boost_until: updatedProduct.boost_until,
-        is_boosted: updatedProduct.is_boosted,
+        // boost_until: updatedProduct.boost_until,
+        // is_boosted: updatedProduct.is_boosted,
       },
     };
 
@@ -378,8 +378,8 @@ async create(
 
     const boostedProducts = await this.prisma.product.findMany({
       where: {
-        is_boosted: true,
-        boost_until: { gte: nowUTC },
+        // is_boosted: true,
+        // boost_until: { gte: nowUTC },
       },
     });
 
@@ -391,8 +391,8 @@ async create(
           id: product.id,
           product_title: product.product_title,
           product_owner: product.user_id,
-          boost_until: product.boost_until,
-          is_boosted: product.is_boosted,
+          // boost_until: product.boost_until,
+          // is_boosted: product.is_boosted,
         })),
         product_count: boostedProducts.length,
       },
