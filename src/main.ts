@@ -31,6 +31,7 @@ async function bootstrap() {
   //   }
   //   next();
   // });
+
   app.useStaticAssets(join(__dirname, '..', 'public'), {
     index: false,
     prefix: '/public',
@@ -39,6 +40,13 @@ async function bootstrap() {
     index: false,
     prefix: '/storage',
   });
+
+  // app.useStaticAssets(join(__dirname, '..', 'public'), {
+  // prefix: '/',  // কোনো extra /public লাগবে না
+  // });
+
+
+
 
 
   // Global validation pipe

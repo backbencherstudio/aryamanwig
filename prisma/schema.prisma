@@ -117,7 +117,7 @@ model Product {
   product_description String
   stock               Int     @default(1)
   price               Decimal @db.Decimal(10, 2)
-  photos              String[]
+  photo              String?
 
   location String?
   size     String?
@@ -126,6 +126,11 @@ model Product {
 
   condition Condition? @default(NEW)
   status    Int?       @default(1) @db.SmallInt
+
+  // boost product
+  boost_until        DateTime?   // প্রোডাক্ট বুস্ট শেষ হওয়ার সময়
+  is_boosted         Boolean  @default(false)
+
  
   // product_Owner
   user_id String?
@@ -157,8 +162,6 @@ model Category {
   category       User?   @relation(fields: [category_owner], references: [id])
   //  relation with wishlist
   
-
-
   @@map("categories")
 }
 
@@ -191,7 +194,7 @@ model Review {
 
   review_receiver String?    // যাকে রিভিউ দেওয়া হচ্ছে (User Id)
   review_sender   String?   // যাকে রিভিউ দেওয়া হচ্ছে (User Id)
-  
+
   user    User?   @relation(fields: [review_sender], references: [id])
 
   @@map("reviews")

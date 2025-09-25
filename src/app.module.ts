@@ -24,6 +24,9 @@ import { ProductsModule } from './modules/products/products.module';
 import { CategoryModule } from './modules/category/category.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { ReviewModule } from './modules/review/review.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { CronModule } from './modules/cron/cron.module';
+
 
 @Module({
   imports: [
@@ -31,6 +34,7 @@ import { ReviewModule } from './modules/review/review.module';
       isGlobal: true,
       load: [appConfig],
     }),
+    ScheduleModule.forRoot(),
     BullModule.forRoot({
       connection: {
         host: appConfig().redis.host,
@@ -82,6 +86,7 @@ import { ReviewModule } from './modules/review/review.module';
     CategoryModule,
     WishlistModule,
     ReviewModule,
+    CronModule
   ],
   controllers: [AppController],
   providers: [

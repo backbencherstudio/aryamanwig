@@ -1,10 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { filter } from 'rxjs';
 import { FilterProductDto } from './dto/filter-product.dto';
+import { BoostProductDto } from './dto/boost-product.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 @Controller('products')
 
@@ -14,12 +17,22 @@ export class ProductsController {
 
   // create product
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+     FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+        files: 1,
+      },
+    }),
+  )
   @Post('create')
   create(@Body() createProductDto: CreateProductDto,
-    @Req() req: any
+    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File
   ) {
     const user = req.user.userId
-    return this.productsService.create(createProductDto, user);
+    return this.productsService.create(createProductDto, user, file);
   }
 
   // get all products
@@ -65,5 +78,22 @@ export class ProductsController {
     return this.productsService.filterProducts(filterDto);
   }
 
-   
+
+  // Create Product Boost
+  @UseGuards(JwtAuthGuard)
+  @Post('create-boost')
+  boost(@Body() boostProductDto: BoostProductDto, 
+        @Req() req: any) {
+    const user = req.user.userId;
+    return this.productsService.boost(boostProductDto, user);
+  }
+
+  // get all boosted products
+  @Get('boosted-products')
+  async getBoostedProducts() {
+    return this.productsService.getBoostedProducts();
+  }
+
+
+
 }
