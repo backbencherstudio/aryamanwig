@@ -27,6 +27,9 @@ import { ReviewModule } from './modules/review/review.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CronModule } from './modules/cron/cron.module';
 import { CartModule } from './modules/cart/cart.module';
+import { OrderService } from './modules/order/order.service';
+import { OrderController } from './modules/order/order.controller';
+import { OrderModule } from './modules/order/order.module';
 
 
 @Module({
@@ -88,9 +91,10 @@ import { CartModule } from './modules/cart/cart.module';
     CategoryModule,
     WishlistModule,
     ReviewModule,
-    CronModule
+    CronModule,
+    OrderModule
   ],
-  controllers: [AppController],
+  controllers: [AppController, OrderController],
   providers: [
     // disabling throttling for dev
     // {
@@ -102,6 +106,7 @@ import { CartModule } from './modules/cart/cart.module';
     //   useClass: ThrottlerBehindProxyGuard,
     // },
     AppService,
+    OrderService,
   ],
 })
 export class AppModule {
