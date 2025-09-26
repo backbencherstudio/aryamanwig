@@ -26,6 +26,7 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { ReviewModule } from './modules/review/review.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CronModule } from './modules/cron/cron.module';
+import { CartModule } from './modules/cart/cart.module';
 
 
 @Module({
@@ -81,6 +82,7 @@ import { CronModule } from './modules/cron/cron.module';
     ApplicationModule,
     AdminModule,
     ChatModule,
+    CartModule,
     PaymentModule,
     ProductsModule,
     CategoryModule,
