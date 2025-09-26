@@ -78,8 +78,16 @@ export class CartService {
   // TODO: Get all items in a user's cart
 
   // Remove an item from the cart
-  async removeItemFromCart(cartItemId: string) {
+  async removeItemFromCart(userId: string, cartItemId: string) {
     try {
+      // Build logic that is cartItemId is belong to userId
+      const userCartItem = await this.prisma.cartItem.findFirst({
+        where: { id: cartItemId, cart: { user_id: userId } },
+      });
+      if (!userCartItem) {
+        throw new Error('Cart item does not belong to the user');
+      }
+
       const deletedCartItem = await this.prisma.cartItem.deleteMany({
         where: {
           id: cartItemId,
@@ -100,14 +108,18 @@ export class CartService {
   //   }
 
   // Clear all items in a user's cart
-  async clearCart(cartId: string) {
+  async clearCart(userId: string, cartId: string) {
     try {
+      // First, ensure the cart belongs to the user
+      const cart = await this.prisma.cart.findUnique({
+        where: { id: cartId },
+      });
+      if (!cart || cart.user_id !== userId) {
+        throw new Error('Cart not found or does not belong to the user');
+      }
       const deleteCart = await this.prisma.cart.delete({
         where: { id: cartId },
       });
-      if (!deleteCart) {
-        throw new Error('Cart not found or already deleted');
-      }
       return deleteCart;
     } catch (error) {
       throw new Error('Error clearing cart: ' + error.message);
