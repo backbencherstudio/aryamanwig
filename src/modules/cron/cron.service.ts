@@ -16,8 +16,8 @@ export class CronService {
 
     const expiredProducts = await this.prisma.product.findMany({
       where: {
-        // is_boosted: true,
-        // boost_until: { lte: nowUTC },
+        is_boosted: true,
+        boost_until: { lte: nowUTC },
       },
     });
 
@@ -25,8 +25,8 @@ export class CronService {
       await this.prisma.product.update({
         where: { id: product.id },
         data: {
-          // is_boosted: false,
-          // boost_until: null,
+          is_boosted: false,
+          boost_until: null,
         },
       });
       this.logger.log(` Product ID ${product.id} boost expired and reset.`);

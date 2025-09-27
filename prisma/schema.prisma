@@ -96,8 +96,8 @@ model User {
   reviews       Review[]
   Cart          Cart[]
   orders        Order[]
-  orders_buyer  Order[]        @relation("OrderBuyer")
-  orders_seller Order[]        @relation("OrderSeller")
+  orders_buyer  Order[]  @relation("OrderBuyer")
+  orders_seller Order[]  @relation("OrderSeller")
 
   @@map("users")
 }
@@ -127,11 +127,9 @@ model Product {
   size     String?
   color    String?
   time     DateTime?
- 
- boost_until        DateTime?   // প্রোডাক্ট বুস্ট শেষ হওয়ার সময়
-  is_boosted         Boolean  @default(false)
 
-
+  boost_until DateTime? // প্রোডাক্ট বুস্ট শেষ হওয়ার সময়
+  is_boosted  Boolean   @default(false)
 
   condition Condition? @default(NEW)
   status    Int?       @default(1) @db.SmallInt
@@ -256,7 +254,7 @@ model Order {
   seller_id    String // who is selling the product
   seller       User        @relation("OrderSeller", fields: [seller_id], references: [id], onDelete: Cascade)
   order_status OrderStatus @default(PENDING)
-  grand_total  Decimal        @db.Decimal(10, 2)
+  grand_total  Decimal     @db.Decimal(10, 2)
 
   shipping_name     String
   email             String
@@ -265,24 +263,24 @@ model Order {
   shipping_city     String
   shipping_zip_code String
   shipping_address  String
-  total_amount      Decimal        @db.Decimal(10, 2)
-  created_at        DateTime       @default(now())
-  updated_at        DateTime       @default(now())
+  total_amount      Decimal     @db.Decimal(10, 2)
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @default(now())
   order_items       OrderItem[]
-  User              User?          @relation(fields: [userId], references: [id])
+  User              User?       @relation(fields: [userId], references: [id])
   userId            String?
 
   @@map("orders")
 }
 
 model OrderItem {
-  id           String         @id @default(cuid())
-  order_id     String
-  order        Order          @relation(fields: [order_id], references: [id], onDelete: Cascade)
-  product_id   String
-  product      Product        @relation(fields: [product_id], references: [id], onDelete: Cascade)
-  quantity     Int
-  total_price  Decimal        @db.Decimal(10, 2)
+  id          String  @id @default(cuid())
+  order_id    String
+  order       Order   @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product_id  String
+  product     Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  quantity    Int
+  total_price Decimal @db.Decimal(10, 2)
 
   @@map("order_items")
 }
