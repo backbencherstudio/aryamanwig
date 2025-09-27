@@ -6,6 +6,9 @@ import {
   UseGuards,
   Get,
   Query,
+  UseInterceptors,
+  UploadedFile,
+  UploadedFiles,
 } from '@nestjs/common';
 import { MessageService } from './message.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -13,6 +16,8 @@ import { MessageGateway } from './message.gateway';
 import { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 @ApiBearerAuth()
 @ApiTags('Message')
@@ -26,12 +31,22 @@ export class MessageController {
 
   @ApiOperation({ summary: 'Send message' })
   @Post()
+  @UseInterceptors(
+    FilesInterceptor('attachments', 10, {
+      storage: memoryStorage(),
+    }),
+  )
   async create(
     @Req() req: Request,
-    @Body() createMessageDto: CreateMessageDto,
+    @Body() data: CreateMessageDto,
+    @UploadedFiles() attachments: Express.Multer.File[],
   ) {
     const user_id = req.user.userId;
-    const message = await this.messageService.create(user_id, createMessageDto);
+    console.log('user_id', user_id);
+    console.log('createMessageDto', data);
+    console.log('attachments', attachments);
+
+    const message = await this.messageService.create(user_id, data);
     if (message.success) {
       const messageData = {
         message: {
@@ -61,7 +76,7 @@ export class MessageController {
     }
   }
 
-  @ApiOperation({ summary: 'Get all messages' })
+  @ApiOperation({ summary: 'Get specific conversation all messages' })
   @Get()
   async findAll(
     @Req() req: Request,

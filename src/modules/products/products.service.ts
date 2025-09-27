@@ -423,8 +423,8 @@ export class ProductsService {
     const updatedProduct = await this.prisma.product.update({
       where: { id: product_id },
       data: {
-        boost_until: boostUntil,
-        is_boosted: true,
+        // boost_until: boostUntil,
+        // is_boosted: true,
       },
     });
 
@@ -435,10 +435,14 @@ export class ProductsService {
         id: updatedProduct.id,
         product_title: updatedProduct.product_title,
         product_owner: updatedProduct.user_id,
+
         boost_until: updatedProduct.boost_until,
         is_boosted: updatedProduct.is_boosted,
         photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`),
         photo: updatedProduct.photo,
+         boost_until: updatedProduct.boost_until,
+        is_boosted: updatedProduct.is_boosted,
+
       },
     };
 
@@ -451,8 +455,8 @@ export class ProductsService {
 
     const boostedProducts = await this.prisma.product.findMany({
       where: {
-        is_boosted: true,
-        boost_until: { gte: nowUTC },
+        // is_boosted: true,
+        // boost_until: { gte: nowUTC },
       },
     });
 
@@ -464,10 +468,14 @@ export class ProductsService {
           id: product.id,
           product_title: product.product_title,
           product_owner: product.user_id,
+
           boost_until: product.boost_until,
           is_boosted: product.is_boosted,
           photo: product.photo,
           photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`),
+
+           boost_until: product.boost_until,
+           is_boosted: product.is_boosted,
         })),
         product_count: boostedProducts.length,
       },

@@ -178,6 +178,82 @@ export class ConversationService {
     }
   }
 
+  // find all conversation for a specific user
+  async findAllByUserId(userId: string, type?: string) {
+    try {
+      const conversations = await this.prisma.conversation.findMany({
+        where: {
+          OR: [{ creator_id: userId }, { participant_id: userId }],
+        },
+        orderBy: {
+          updated_at: 'desc', // Order by the most recent updated conversation
+        },
+        select: {
+          id: true,
+          creator_id: true,
+          participant_id: true,
+          created_at: true,
+          updated_at: true,
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+          participant: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+          messages: {
+            orderBy: {
+              created_at: 'desc',
+            },
+            take: 1,
+            select: {
+              id: true,
+              message: true,
+              created_at: true,
+            },
+          },
+        },
+      });
+
+      // Add image URLs for avatars
+      for (const conversation of conversations) {
+        if (conversation.creator.avatar) {
+          conversation.creator['avatar_url'] = SojebStorage.url(
+            appConfig().storageUrl.avatar + conversation.creator.avatar,
+          );
+        }
+        if (conversation.participant.avatar) {
+          conversation.participant['avatar_url'] = SojebStorage.url(
+            appConfig().storageUrl.avatar + conversation.participant.avatar,
+          );
+        }
+        if (userId === conversation.participant_id) {
+          const tempCreator = conversation.creator;
+          const tempParticipant = conversation.participant;
+          conversation.participant = tempCreator;
+          conversation.creator = tempParticipant;
+        }
+      }
+
+      return {
+        success: true,
+        data: conversations,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
   async findAll() {
     try {
       const conversations = await this.prisma.conversation.findMany({
