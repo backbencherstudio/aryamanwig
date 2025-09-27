@@ -127,6 +127,11 @@ model Product {
   size     String?
   color    String?
   time     DateTime?
+ 
+ boost_until        DateTime?   // প্রোডাক্ট বুস্ট শেষ হওয়ার সময়
+  is_boosted         Boolean  @default(false)
+
+
 
   condition Condition? @default(NEW)
   status    Int?       @default(1) @db.SmallInt

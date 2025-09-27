@@ -435,9 +435,6 @@ export class ProductsService {
         id: updatedProduct.id,
         product_title: updatedProduct.product_title,
         product_owner: updatedProduct.user_id,
-
-        boost_until: updatedProduct.boost_until,
-        is_boosted: updatedProduct.is_boosted,
         photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`),
         photo: updatedProduct.photo,
          boost_until: updatedProduct.boost_until,
@@ -469,8 +466,7 @@ export class ProductsService {
           product_title: product.product_title,
           product_owner: product.user_id,
 
-          boost_until: product.boost_until,
-          is_boosted: product.is_boosted,
+          
           photo: product.photo,
           photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`),
 
