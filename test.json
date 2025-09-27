@@ -1,0 +1,17 @@
+{
+  "buyer_id": "this_id_get_from_jwt",
+  "seller_id": "seller456",
+  "shipping_info": {
+    "shipping_name": "John Doe",
+    "email": "john.doe@example.com",
+    "shipping_country": "USA",
+    "shipping_state": "California",
+    "shipping_city": "San Francisco",
+    "shipping_zip_code": "94105",
+    "shipping_address": "123 Market St"
+  },
+  "order_products": [
+    { "product_id": "product1", "quantity": 2, "total_price": 50.0 },
+    { "product_id": "product2", "quantity": 1, "total_price": 25.0 }
+  ]
+}
