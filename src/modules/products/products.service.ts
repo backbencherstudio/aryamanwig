@@ -423,8 +423,8 @@ export class ProductsService {
     const updatedProduct = await this.prisma.product.update({
       where: { id: product_id },
       data: {
-        // boost_until: boostUntil,
-        // is_boosted: true,
+         boost_until: boostUntil,
+         is_boosted: true,
       },
     });
 
@@ -455,8 +455,8 @@ export class ProductsService {
 
     const boostedProducts = await this.prisma.product.findMany({
       where: {
-        // is_boosted: true,
-        // boost_until: { gte: nowUTC },
+         is_boosted: true,
+         boost_until: { gte: nowUTC },
       },
     });
 
