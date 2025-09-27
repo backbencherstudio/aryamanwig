@@ -21,10 +21,9 @@ export class OrderService {
     orderProducts: {
       product_id: string;
       quantity: number;
-      total_price: number;
     }[],
   ) {
-    return await this.prisma.$transaction(async (prisma) => {
+    const order = await this.prisma.$transaction(async (prisma) => {
       let grandTotal = new Prisma.Decimal(0);
 
       const order = await prisma.order.create({
@@ -45,25 +44,46 @@ export class OrderService {
       });
 
       for (const product of orderProducts) {
-        const itemTotal = new Prisma.Decimal(product.total_price);
-        grandTotal = grandTotal.add(itemTotal);
+        const prod = await prisma.product.findUnique({
+          where: { id: product.product_id },
+        });
+        if (sellerId !== prod?.user_id) {
+          throw new Error(
+            `Order create only for specific one seller. Product with Title: '${prod.product_title}' does not belong to the given seller_id`,
+          );
+        }
+        if (!prod) {
+          throw new Error(`Product with ID ${product.product_id} not found`);
+        }
+        if (prod.stock < product.quantity) {
+          throw new Error(
+            `Insufficient stock for product ID ${product.product_id}`,
+          );
+        }
+
+        // Ensure proper type conversion for multiplication
+        const productTotalPrice = prod.price.mul(
+          new Prisma.Decimal(product.quantity),
+        );
+        grandTotal = grandTotal.add(productTotalPrice);
 
         await prisma.orderItem.create({
           data: {
             order: { connect: { id: order.id } },
             product: { connect: { id: product.product_id } },
             quantity: product.quantity,
-            total_price: itemTotal,
+            total_price: productTotalPrice,
           },
         });
       }
 
-      await prisma.order.update({
+      const updatedOrder = await prisma.order.update({
         where: { id: order.id },
         data: { grand_total: grandTotal, total_amount: grandTotal },
       });
 
-      return order;
+      return updatedOrder;
     });
+    return order;
   }
 }

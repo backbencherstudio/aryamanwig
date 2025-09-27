@@ -1,35 +1,20 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards, Logger } from '@nestjs/common';
 import { OrderService } from './order.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CreateOrderDto } from './dto/create-order.dto';
 
 @Controller('order')
 export class OrderController {
+//   private readonly logger = new Logger(OrderController.name);
   constructor(private readonly orderService: OrderService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post('place')
-  async placeOrder(
-    @Body()
-    body: {
-      buyer_id: string;
-      seller_id: string;
-      shipping_info: {
-        shipping_name: string;
-        email: string;
-        shipping_country: string;
-        shipping_state: string;
-        shipping_city: string;
-        shipping_zip_code: string;
-        shipping_address: string;
-      };
-      order_products: {
-        product_id: string;
-        quantity: number;
-        total_price: number;
-      }[];
-    },
-  ) {
+  async placeOrder(@Req() req: any, @Body() body: CreateOrderDto) {
     try {
+      const buyer_id = req.user.userId;
       const result = await this.orderService.placeOrder(
-        body.buyer_id,
+        buyer_id,
         body.seller_id,
         body.shipping_info,
         body.order_products,
@@ -40,7 +25,11 @@ export class OrderController {
         data: result,
       };
     } catch (error) {
-      return { success: false, message: 'Error placing order', error };
+      // this.logger.error('Error placing order', error.stack);
+      return {
+        success: false,
+        message: `Error placing order : ${error.message}`,
+      };
     }
   }
 }
