@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-class ShippingInfoDto {
+export class ShippingInfoDto {
   @IsNotEmpty()
   @IsString()
   shipping_name: string;
@@ -37,7 +37,7 @@ class ShippingInfoDto {
   shipping_address: string;
 }
 
-class OrderProductDto {
+export class OrderProductDto {
   @IsNotEmpty()
   @IsString()
   product_id: string;
