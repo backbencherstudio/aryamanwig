@@ -55,12 +55,20 @@ export class ProductsController {
 
   // update product by id
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+  FileInterceptor('image', {
+    storage: memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  }),
+  )
   @Patch('updatebyid/:id')
   update(@Param('id') id: string, 
          @Body() updateProductDto: UpdateProductDto, 
-         @Req() req: any) {
+         @Req() req: any,
+         @UploadedFile() file?: Express.Multer.File
+         ) {
     const user = req.user.userId;
-    return this.productsService.update(id, updateProductDto, user);
+    return this.productsService.update(id, updateProductDto, user, file);
   }
 
   // delete product by id
