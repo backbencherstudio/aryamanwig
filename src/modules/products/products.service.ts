@@ -7,7 +7,7 @@ import { BoostProductDto } from './dto/boost-product.dto';
 import { StringHelper } from 'src/common/helper/string.helper';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
-import { date } from 'zod';
+
 
 @Injectable()
 export class ProductsService {
@@ -17,123 +17,138 @@ export class ProductsService {
   ) {}
 
   // create product
-  // ProductsService.ts (create function)
-async create(
-  createProductDto: CreateProductDto,
-  user: string,
-  image?: Express.Multer.File,
-) {
-  const {
-    product_title,
-    product_description,
-    stock,
-    price,
-    location,
-    size,
-    color,
-    time,
-    condition,
-    status,
-    category_id,
-  } = createProductDto;
-
-  // Check duplicate product
-  const existingProduct = await this.prisma.product.findFirst({
-    where: { product_title, user_id: user },
-  });
-  if (existingProduct) {
-    throw new ConflictException('Product with this title already exists');
-  }
-
-  // Check category
-  const category = await this.prisma.category.findUnique({
-    where: { id: category_id },
-  });
-  if (!category) {
-    throw new ConflictException('Category does not exist');
-  }
-
-  // Image upload
-  let photo: string | null = null;
-  if (image) {
-    const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
-    await SojebStorage.put(
-      `${appConfig().storageUrl.product}/${fileName}`,
-      image.buffer,
-    );
-    photo = fileName;
-  }
-
-  // Create product in DB
-  const newProduct = await this.prisma.product.create({
-    data: {
+  async create(
+    createProductDto: CreateProductDto,
+    user: string,
+    image?: Express.Multer.File,
+  ) {
+    const {
       product_title,
       product_description,
-      price,
       stock,
-      photo,
+      price,
       location,
       size,
       color,
       time,
       condition,
       status,
-      user_id: user,
       category_id,
-    },
-  });
+    } = createProductDto;
 
-  // Generate full image URL
-  const photoUrl = photo
-    ? `${appConfig().baseUrl}/${appConfig().storageUrl.product}/${photo}`
-    : null;
 
-  return {
-    success: true,
-    message: 'Product created successfully',
-    data: {
-      id: newProduct.id,
-      product_title: newProduct.product_title,
-      product_description: newProduct.product_description,
-      price: newProduct.price,
-      stock: newProduct.stock,
-      photo: newProduct.photo,
-      photoUrl,
-    },
-  };
-}
+    const existingProduct = await this.prisma.product.findFirst({
+      where: { product_title, user_id: user },
+    });
 
+    if (existingProduct) {
+      throw new ConflictException('Product with this title already exists');
+    }
+
+    
+    const category = await this.prisma.category.findUnique({
+      where: { id: category_id },
+    });
+    if (!category) {
+      throw new ConflictException('Category does not exist');
+    }
+
+   
+    let photo: string | null = null;
+    if (image) {
+      const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
+      
+      await SojebStorage.put(
+        appConfig().storageUrl.product + '/' + fileName,
+        image.buffer,
+      );
+
+      photo = fileName; 
+    }
+
+    // Create product in DB
+    const newProduct = await this.prisma.product.create({
+      data: {
+        product_title,
+        product_description,
+        price,
+        stock,
+        photo,
+        location,
+        size,
+        color,
+        time,
+        condition,
+        status,
+        user_id: user,
+        category_id,
+      },
+    });
+
+    let photoUrl = null;
+    if(newProduct.photo) {
+       photoUrl = SojebStorage.url(`${appConfig().storageUrl.product}/${newProduct.photo}`);
+    }
+
+    
+    // const photoUrl = photo
+    //   ? `${appConfig().baseUrl}${appConfig().storageUrl.rootUrlPublic}/${appConfig().storageUrl.product}/${photo}`
+    //   : null;
+
+
+    return {
+      success: true,
+      message: 'Product created successfully',
+      data: {
+        id: newProduct.id,
+        product_title: newProduct.product_title,
+        product_description: newProduct.product_description,
+        price: newProduct.price,
+        stock: newProduct.stock,
+        photo: newProduct.photo,
+        photoUrl,
+      },
+    };
+  }
 
   // Get all products
   async findAll() {
+
     const products = await this.prisma.product.findMany({
       include: {
         category: true, 
       },
     });
 
-    // Check if no products are found
-    if (products.length === 0) {
-      throw new Error('No products found');
-    }
+    if (products.length === 0) throw new Error('No products found');
+    
 
     return {
-      success: true,
-      message: 'Products retrieved successfully',
-      data: products.map(product => ({
+    success: true,
+    message: 'Products retrieved successfully',
+    data: products.map(product => {
+      const photoUrl = product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : 'https://example.com/default-product.png'; 
+
+      return {
         id: product.id,
         product_title: product.product_title,
         product_description: product.product_description,
         price: product.price,
         stock: product.stock,
+        photo: product.photo,
+        photoUrl,
         product_owner: product.user_id,
         category: {
           id: product.category.id,
           category_name: product.category.category_name,
-        }
-      })),
+        },
+        };
+      }),
     };
   }
+
 
   // Get a product by ID
   async findOne(id: string) {
@@ -147,6 +162,10 @@ async create(
       throw new NotFoundException(`Product with ID ${id} not found`);
     }
 
+    const photoUrl = product.photo
+      ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+      : 'https://example.com/default-product.png';
+
     return {
       success: true,
       message: 'Product retrieved successfully',
@@ -156,6 +175,8 @@ async create(
         product_description: product.product_description,
         price: product.price,
         stock: product.stock,
+        photo: product.photo,
+        photoUrl,
         product_owner: product.user_id,
         category: {
           id: product.category.id,
@@ -177,22 +198,39 @@ async create(
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
+    if (category.products.length === 0) {
+      return {
+        success: true,
+        message: 'No products found in this category',
+        data: [],
+      };
+    }
+
     // Map products to only include required fields
-    const productDetails = category.products.map(product => ({
-      id: product.id,
-      product_title: product.product_title,
-      price: product.price.toString(), // Convert price to string if needed
-      size: product.size,
-      condition: product.condition,
-      product_owner: product.user_id,
-    }));
+    const productDetails = category.products.map(product => {
+      const photoUrl = product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : 'https://example.com/default-product.png';
+
+      return {
+        photo: product.photo,
+        id: product.id,
+        product_title: product.product_title,
+        price: product.price.toString(), 
+        size: product.size,
+        condition: product.condition,
+        product_owner: product.user_id,
+        photoUrl,
+      };
+    });
+
 
     return {
       success: true,
       message: 'Products retrieved successfully',
       data: {
         products: productDetails,
-        product_count: category.products.length, // Count of products in category
+        product_count: category.products.length, 
       },
     };
   }
@@ -200,19 +238,40 @@ async create(
   // update product
   async update(id: string, 
          updateProductDto: UpdateProductDto,
-         user: string) {
+         user: string,
+         image?: Express.Multer.File) {
 
     const product = await this.prisma.product.findUnique({
       where: { id },
     });
 
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
-    }
+    if (!product) throw new NotFoundException(`Product with ID ${id} not found`);
+    if (product.user_id !== user) throw new ConflictException('You are not allowed to update this product');
+    
+     
+    // handle new image
+     let photo: string | null = null;
 
-    if (product.user_id !== user) {
-      throw new ConflictException('You are not allowed to update this product');
-    }
+      if (image) {
+        
+        // Delete old image if exists
+        if (product.photo) {
+          await SojebStorage.delete(`${appConfig().storageUrl.product}/${product.photo}`);
+        }
+
+        const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
+
+        await SojebStorage.put(
+        appConfig().storageUrl.product + '/' + fileName,
+        image.buffer,
+        );
+
+        await SojebStorage.put(`${appConfig().storageUrl.product}/${fileName}`, image.buffer);
+
+        photo = fileName;
+      }
+
+
 
     if(updateProductDto.category_id) {
       const category = await this.prisma.category.findUnique({
@@ -251,8 +310,16 @@ async create(
 
     const updatedProduct = await this.prisma.product.update({
       where: { id },
-      data: updateProductDto,
+      data: {
+        ...updateProductDto,
+        photo: photo ? photo : product.photo, // Update photo if new one is provided
+      },
     });
+
+    let photoUrl = null;
+    if(updatedProduct.photo) {
+       photoUrl = SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`);
+    }
 
     return {
       success: true,
@@ -263,6 +330,8 @@ async create(
         product_description: updatedProduct.product_description,
         price: updatedProduct.price,
         stock: updatedProduct.stock,
+        photo: updatedProduct.photo,
+        photoUrl,
         product_owner: updatedProduct.user_id,
       },
     };
@@ -310,6 +379,8 @@ async create(
 
     // Use the map function outside of the data object
     const filteredProducts = products.map(product => ({
+      photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`),
+      photo: product.photo,
       id: product.id,
       product_title: product.product_title,
       price: product.price.toString(),
@@ -364,8 +435,14 @@ async create(
         id: updatedProduct.id,
         product_title: updatedProduct.product_title,
         product_owner: updatedProduct.user_id,
-        // boost_until: updatedProduct.boost_until,
-        // is_boosted: updatedProduct.is_boosted,
+
+        boost_until: updatedProduct.boost_until,
+        is_boosted: updatedProduct.is_boosted,
+        photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`),
+        photo: updatedProduct.photo,
+         boost_until: updatedProduct.boost_until,
+        is_boosted: updatedProduct.is_boosted,
+
       },
     };
 
@@ -391,8 +468,14 @@ async create(
           id: product.id,
           product_title: product.product_title,
           product_owner: product.user_id,
-          // boost_until: product.boost_until,
-          // is_boosted: product.is_boosted,
+
+          boost_until: product.boost_until,
+          is_boosted: product.is_boosted,
+          photo: product.photo,
+          photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`),
+
+           boost_until: product.boost_until,
+           is_boosted: product.is_boosted,
         })),
         product_count: boostedProducts.length,
       },
