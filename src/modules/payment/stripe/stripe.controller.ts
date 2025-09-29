@@ -1,11 +1,71 @@
-import { Controller, Post, Req, Headers } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Req,
+  Headers,
+  UseGuards,
+  Body,
+} from '@nestjs/common';
 import { StripeService } from './stripe.service';
 import { Request } from 'express';
 import { TransactionRepository } from '../../../common/repository/transaction/transaction.repository';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { OrderService } from 'src/modules/order/order.service';
+import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
+import { CreateOrderDto } from 'src/modules/order/dto/create-order.dto';
+import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
 
 @Controller('payment/stripe')
 export class StripeController {
-  constructor(private readonly stripeService: StripeService) {}
+  constructor(
+    private readonly stripeService: StripeService,
+    private readonly prisma: PrismaService,
+    private readonly orderService: OrderService,
+  ) {}
+
+  @Post('pay')
+  @UseGuards(JwtAuthGuard)
+  async pay(@Req() req: any, @Body() body: CreateOrderDto) {
+    try {
+      const buyer_id = req.user.userId;
+      // here i want to create order after payment is successful
+      const result = await this.orderService.placeOrder(
+        buyer_id,
+        body.seller_id,
+        body.shipping_info,
+        body.order_products,
+      );
+      const customer = await this.prisma.user.findUnique({
+        where: { id: result.buyer_id },
+      });
+
+      const payment = await StripePayment.createPaymentIntent({
+        customer_id: customer.billing_id,
+        amount: Number(result.grand_total),
+        currency: 'usd',
+        metadata: {
+          order_id: `Order_${result.id}`,
+          buyer_id: result.buyer_id,
+          seller_id: result.seller_id,
+          total_pay: Number(result.grand_total),
+        },
+      });
+
+      console.log('PaymentIntent Created:', payment.client_secret);
+      console.log('Metadata:', payment.metadata);
+
+      return {
+        clientSecret: payment.client_secret,
+        message: 'PaymentIntent created successfully',
+        totalAmount: Number(result.grand_total),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error placing order : ${error.message}`,
+      };
+    }
+  }
 
   @Post('webhook')
   async handleWebhook(
