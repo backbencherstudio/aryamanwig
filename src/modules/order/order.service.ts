@@ -22,8 +22,8 @@ export class OrderService {
           buyer: { connect: { id: buyerId } },
           seller: { connect: { id: sellerId } },
           order_status: 'PENDING',
+          // total_amount: new Prisma.Decimal(0),
           grand_total: grandTotal,
-          total_amount: new Prisma.Decimal(0),
           shipping_name: shippingInfo.shipping_name,
           email: shippingInfo.email,
           shipping_country: shippingInfo.shipping_country,
@@ -83,7 +83,7 @@ export class OrderService {
 
       const updatedOrder = await prisma.order.update({
         where: { id: order.id },
-        data: { grand_total: grandTotal, total_amount: grandTotal },
+        data: { grand_total: grandTotal, },
       });
       if (!updatedOrder) {
         throw new Error('Failed to update order totals');
@@ -181,7 +181,7 @@ export class OrderService {
         shipping_zip_code: order.shipping_zip_code,
         shipping_address: order.shipping_address,
       },
-      total_amount: order.total_amount,
+      total_amount: order.grand_total,
       created_at: order.created_at,
       updated_at: order.updated_at,
       seller: order.seller,
@@ -282,7 +282,7 @@ export class OrderService {
         shipping_zip_code: order.shipping_zip_code,
         shipping_address: order.shipping_address,
       },
-      total_amount: order.total_amount,
+      total_amount: order.grand_total,
       created_at: order.created_at,
       updated_at: order.updated_at,
       buyer: order.buyer,
