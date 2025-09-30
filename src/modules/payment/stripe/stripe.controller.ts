@@ -14,6 +14,7 @@ import { OrderService } from 'src/modules/order/order.service';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { CreateOrderDto } from 'src/modules/order/dto/create-order.dto';
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
+import { OrderStatus, PaymentStatus } from '@prisma/client';
 
 @Controller('payment/stripe')
 export class StripeController {
@@ -41,10 +42,11 @@ export class StripeController {
 
       const payment = await StripePayment.createPaymentIntent({
         customer_id: customer.billing_id,
-        amount: Number(result.grand_total),
+        amount: Number(result.grand_total) * 100,
         currency: 'usd',
         metadata: {
-          order_id: `Order_${result.id}`,
+          order_name: `Order_${result.id}`,
+          order_id: result.id,
           buyer_id: result.buyer_id,
           seller_id: result.seller_id,
           total_pay: Number(result.grand_total),
@@ -84,11 +86,19 @@ export class StripeController {
           break;
         case 'payment_intent.succeeded':
           const paymentIntent = event.data.object;
+          const successMetadata = paymentIntent.metadata;
           // create tax transaction
           // await StripePayment.createTaxTransaction(
           //   paymentIntent.metadata['tax_calculation'],
           // );
           // Update transaction status in database
+
+          // here update order status to paid
+          await this.prisma.order.update({
+            where: { id: successMetadata.order_id },
+            data: { payment_status: PaymentStatus.PAID },
+          });
+
           await TransactionRepository.updateTransaction({
             reference_number: paymentIntent.id,
             status: 'succeeded',
@@ -99,6 +109,17 @@ export class StripeController {
           break;
         case 'payment_intent.payment_failed':
           const failedPaymentIntent = event.data.object;
+          const failedMetadata = failedPaymentIntent.metadata;
+
+          // here update order status to cancelled and payment status to failed
+          await this.prisma.order.update({
+            where: { id: failedMetadata.order_id },
+            data: {
+              payment_status: PaymentStatus.FAILED,
+              order_status: OrderStatus.CANCELLED,
+            },
+          });
+
           // Update transaction status in database
           await TransactionRepository.updateTransaction({
             reference_number: failedPaymentIntent.id,
