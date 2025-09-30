@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { OrderProductDto, ShippingInfoDto } from './dto/create-order.dto';
 import { Or } from '@prisma/client/runtime/library';
 
@@ -83,7 +83,7 @@ export class OrderService {
 
       const updatedOrder = await prisma.order.update({
         where: { id: order.id },
-        data: { grand_total: grandTotal, },
+        data: { grand_total: grandTotal },
       });
       if (!updatedOrder) {
         throw new Error('Failed to update order totals');
@@ -95,9 +95,13 @@ export class OrderService {
   }
 
   // for buyer
-  async trackOrdersByBuyer(buyerId: string) {
+  async trackOrdersByBuyer(buyerId: string, status?: string) {
     const orders = await this.prisma.order.findMany({
-      where: { buyer_id: buyerId },
+      // add condition if status is provided
+      where: {
+        buyer_id: buyerId,
+        ...(status && { order_status: status as OrderStatus }),
+      },
       // only select order_id, created_at, updated_at
       select: {
         id: true,
@@ -197,9 +201,12 @@ export class OrderService {
   }
 
   // TODO: for seller
-  async trackOrdersBySeller(sellerId: string) {
+  async trackOrdersBySeller(sellerId: string, status?: string) {
     const orders = await this.prisma.order.findMany({
-      where: { seller_id: sellerId },
+      where: {
+        seller_id: sellerId,
+        ...(status && { order_status: status as OrderStatus }),
+      },
       // only select order_id, created_at, updated_at
       select: {
         id: true,
