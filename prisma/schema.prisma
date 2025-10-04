@@ -247,14 +247,22 @@ enum OrderStatus {
   RETURNED
 }
 
+enum PaymentStatus {
+  DUE
+  PAID
+  FAILED
+  REFUNDED
+}
+
 model Order {
-  id           String      @id @default(cuid())
-  buyer_id     String // who is buying the product
-  buyer        User        @relation("OrderBuyer", fields: [buyer_id], references: [id], onDelete: Cascade)
-  seller_id    String // who is selling the product
-  seller       User        @relation("OrderSeller", fields: [seller_id], references: [id], onDelete: Cascade)
-  order_status OrderStatus @default(PENDING)
-  grand_total  Decimal     @db.Decimal(10, 2)
+  id             String        @id @default(cuid())
+  buyer_id       String // who is buying the product
+  buyer          User          @relation("OrderBuyer", fields: [buyer_id], references: [id], onDelete: Cascade)
+  seller_id      String // who is selling the product
+  seller         User          @relation("OrderSeller", fields: [seller_id], references: [id], onDelete: Cascade)
+  order_status   OrderStatus   @default(PENDING)
+  payment_status PaymentStatus @default(DUE)
+  grand_total    Decimal       @db.Decimal(10, 2)
 
   shipping_name     String
   email             String
@@ -263,7 +271,6 @@ model Order {
   shipping_city     String
   shipping_zip_code String
   shipping_address  String
-  total_amount      Decimal     @db.Decimal(10, 2)
   created_at        DateTime    @default(now())
   updated_at        DateTime    @default(now())
   order_items       OrderItem[]

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { OrderProductDto, ShippingInfoDto } from './dto/create-order.dto';
 import { Or } from '@prisma/client/runtime/library';
 
@@ -22,8 +22,8 @@ export class OrderService {
           buyer: { connect: { id: buyerId } },
           seller: { connect: { id: sellerId } },
           order_status: 'PENDING',
+          // total_amount: new Prisma.Decimal(0),
           grand_total: grandTotal,
-          total_amount: new Prisma.Decimal(0),
           shipping_name: shippingInfo.shipping_name,
           email: shippingInfo.email,
           shipping_country: shippingInfo.shipping_country,
@@ -83,7 +83,7 @@ export class OrderService {
 
       const updatedOrder = await prisma.order.update({
         where: { id: order.id },
-        data: { grand_total: grandTotal, total_amount: grandTotal },
+        data: { grand_total: grandTotal },
       });
       if (!updatedOrder) {
         throw new Error('Failed to update order totals');
@@ -95,9 +95,13 @@ export class OrderService {
   }
 
   // for buyer
-  async trackOrdersByBuyer(buyerId: string) {
+  async trackOrdersByBuyer(buyerId: string, status?: string) {
     const orders = await this.prisma.order.findMany({
-      where: { buyer_id: buyerId },
+      // add condition if status is provided
+      where: {
+        buyer_id: buyerId,
+        ...(status && { order_status: status as OrderStatus }),
+      },
       // only select order_id, created_at, updated_at
       select: {
         id: true,
@@ -181,7 +185,7 @@ export class OrderService {
         shipping_zip_code: order.shipping_zip_code,
         shipping_address: order.shipping_address,
       },
-      total_amount: order.total_amount,
+      total_amount: order.grand_total,
       created_at: order.created_at,
       updated_at: order.updated_at,
       seller: order.seller,
@@ -197,9 +201,12 @@ export class OrderService {
   }
 
   // TODO: for seller
-  async trackOrdersBySeller(sellerId: string) {
+  async trackOrdersBySeller(sellerId: string, status?: string) {
     const orders = await this.prisma.order.findMany({
-      where: { seller_id: sellerId },
+      where: {
+        seller_id: sellerId,
+        ...(status && { order_status: status as OrderStatus }),
+      },
       // only select order_id, created_at, updated_at
       select: {
         id: true,
@@ -282,7 +289,7 @@ export class OrderService {
         shipping_zip_code: order.shipping_zip_code,
         shipping_address: order.shipping_address,
       },
-      total_amount: order.total_amount,
+      total_amount: order.grand_total,
       created_at: order.created_at,
       updated_at: order.updated_at,
       buyer: order.buyer,

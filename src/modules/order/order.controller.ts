@@ -7,14 +7,17 @@ import {
   Logger,
   Get,
   Param,
+  Query,
 } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { log } from 'node:console';
+import { OrderStatus } from '@prisma/client';
 
 @Controller('order')
 export class OrderController {
-  //   private readonly logger = new Logger(OrderController.name);
+  // private readonly logger = new Logger(OrderController.name);
   constructor(private readonly orderService: OrderService) {}
 
   @UseGuards(JwtAuthGuard)
@@ -42,15 +45,37 @@ export class OrderController {
     }
   }
 
-   
+  // See client controller for order tracking (buyer and seller)
 
   // TODO: for buyer
   @UseGuards(JwtAuthGuard)
   @Get('track/buyer')
-  async trackOrdersByBuyer(@Req() req: any) {
+  async trackOrdersByBuyer(
+    @Req() req: any,
+    @Query() query: { status?: string },
+  ) {
     try {
       const buyer_id = req.user.userId;
-      const result = await this.orderService.trackOrdersByBuyer(buyer_id);
+      const status = query.status;
+      if (
+        status &&
+        ![
+          'PENDING',
+          'PROCESSING',
+          'SHIPPED',
+          'DELIVERED',
+          'CANCELLED',
+        ].includes(status)
+      ) {
+        return {
+          success: false,
+          message: `Invalid status value. Allowed values are PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED.`,
+        };
+      }
+      const result = await this.orderService.trackOrdersByBuyer(
+        buyer_id,
+        status,
+      );
       return {
         success: true,
         message: 'Orders retrieved successfully',
@@ -91,13 +116,35 @@ export class OrderController {
     }
   }
 
-  // TODO: for seller
+  // for seller
   @UseGuards(JwtAuthGuard)
   @Get('track/seller')
-  async trackOrdersBySeller(@Req() req: any) {
+  async trackOrdersBySeller(
+    @Req() req: any,
+    @Query() query: { status?: string },
+  ) {
     try {
       const seller_id = req.user.userId;
-      const result = await this.orderService.trackOrdersBySeller(seller_id);
+      const status = query.status;
+      if (
+        status &&
+        ![
+          'PENDING',
+          'PROCESSING',
+          'SHIPPED',
+          'DELIVERED',
+          'CANCELLED',
+        ].includes(status)
+      ) {
+        return {
+          success: false,
+          message: `Invalid status value. Allowed values are PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED.`,
+        };
+      }
+      const result = await this.orderService.trackOrdersBySeller(
+        seller_id,
+        status,
+      );
       return {
         success: true,
         message: 'Orders retrieved successfully',
@@ -112,7 +159,6 @@ export class OrderController {
     }
   }
 
-  
   @UseGuards(JwtAuthGuard)
   @Get('track/seller/:orderId')
   async trackSpecificOrderBySeller(
