@@ -42,7 +42,7 @@ export class OrderController {
     }
   }
 
-  // See client controller for order tracking (buyer and seller)
+   
 
   // TODO: for buyer
   @UseGuards(JwtAuthGuard)
