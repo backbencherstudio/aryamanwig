@@ -30,6 +30,7 @@ import { CartModule } from './modules/cart/cart.module';
 import { OrderService } from './modules/order/order.service';
 import { OrderController } from './modules/order/order.controller';
 import { OrderModule } from './modules/order/order.module';
+import { DashboradModule } from './modules/dashborad/dashborad.module';
 
 
 @Module({
@@ -51,6 +52,8 @@ import { OrderModule } from './modules/order/order.module';
       //   port: +appConfig().redis.port,
       // },
     }),
+    
+  
     RedisModule.forRoot({
       type: 'single',
       options: {
@@ -92,7 +95,8 @@ import { OrderModule } from './modules/order/order.module';
     WishlistModule,
     ReviewModule,
     CronModule,
-    OrderModule
+    OrderModule,
+    DashboradModule
   ],
   controllers: [AppController, OrderController],
   providers: [

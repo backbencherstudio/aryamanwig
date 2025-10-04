@@ -274,7 +274,8 @@ model Order {
   shipping_address  String
   created_at        DateTime    @default(now())
   updated_at        DateTime    @default(now())
-  delivary_date     DateTime?   @db.Timestamp(6)
+  delivery_date     DateTime?  
+
   order_items       OrderItem[]
   User              User?       @relation(fields: [userId], references: [id])
   userId            String?
