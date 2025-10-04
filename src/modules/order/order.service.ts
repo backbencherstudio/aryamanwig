@@ -15,8 +15,13 @@ export class OrderService {
     orderProducts: OrderProductDto[],
   ) {
     const order = await this.prisma.$transaction(async (prisma) => {
+
       let grandTotal = new Prisma.Decimal(0);
 
+      // অর্ডারের ডেলিভারি তারিখ অটো ৭ দিনের পর
+      const deliveryDate = new Date();
+      deliveryDate.setDate(deliveryDate.getDate() + 7);
+ 
       const order = await prisma.order.create({
         data: {
           buyer: { connect: { id: buyerId } },
@@ -31,6 +36,7 @@ export class OrderService {
           shipping_city: shippingInfo.shipping_city,
           shipping_zip_code: shippingInfo.shipping_zip_code,
           shipping_address: shippingInfo.shipping_address,
+          delivery_date: deliveryDate,
         },
       });
 
