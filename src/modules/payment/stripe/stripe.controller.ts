@@ -42,7 +42,7 @@ export class StripeController {
 
       const payment = await StripePayment.createPaymentIntent({
         customer_id: customer.billing_id,
-        amount: Number(result.grand_total) * 100,
+        amount: Number(result.grand_total),
         currency: 'usd',
         metadata: {
           order_name: `Order_${result.id}`,
