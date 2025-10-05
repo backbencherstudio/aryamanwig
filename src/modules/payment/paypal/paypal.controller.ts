@@ -44,6 +44,7 @@ export class PaypalController {
 
         // STEP 3: Return approval URL to frontend
         return {
+            success: true,
             approvalUrl,
             message: 'Redirect user to this URL to complete payment',
         };
