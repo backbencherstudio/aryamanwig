@@ -35,7 +35,7 @@ export class ProductsController {
     return this.productsService.create(createProductDto, user, file);
   }
 
-  // get all products
+  // get all products wit
   @Get('allproducts')
   async findAll() {
     return this.productsService.findAll();
@@ -85,7 +85,6 @@ export class ProductsController {
   async filterProducts(@Query() filterDto: FilterProductDto) {
     return this.productsService.filterProducts(filterDto);
   }
-
 
   // Create Product Boost
   @UseGuards(JwtAuthGuard)

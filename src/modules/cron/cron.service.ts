@@ -9,9 +9,9 @@ export class CronService {
 
   constructor(private prisma: PrismaService) {}
 
-  // প্রতি মিনিটে চেক করে Boost শেষ হওয়া প্রোডাক্ট reset করবে
   @Cron(CronExpression.EVERY_MINUTE)
   async handleBoostExpiration() {
+
     const nowUTC = new Date();
 
     const expiredProducts = await this.prisma.product.findMany({

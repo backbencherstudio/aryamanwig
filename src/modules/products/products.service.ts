@@ -7,6 +7,7 @@ import { BoostProductDto } from './dto/boost-product.dto';
 import { StringHelper } from 'src/common/helper/string.helper';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
+import { subHours } from 'date-fns';
 
 
 @Injectable()
@@ -90,12 +91,6 @@ export class ProductsService {
        photoUrl = SojebStorage.url(`${appConfig().storageUrl.product}/${newProduct.photo}`);
     }
 
-    
-    // const photoUrl = photo
-    //   ? `${appConfig().baseUrl}${appConfig().storageUrl.rootUrlPublic}/${appConfig().storageUrl.product}/${photo}`
-    //   : null;
-
-
     return {
       success: true,
       message: 'Product created successfully',
@@ -115,69 +110,66 @@ export class ProductsService {
   async findAll() {
 
     const products = await this.prisma.product.findMany({
-      include: {
-        category: true, 
+      select: {
+        product_title: true,
+        size: true,
+        condition: true,
+        created_at: true,
+        boost_until: true,
+        price: true,
+        photo: true,
       },
     });
 
-    if (products.length === 0) throw new Error('No products found');
-    
+    if (products.length === 0) {
+      throw new NotFoundException('No products found');
+    }
 
     return {
-    success: true,
-    message: 'Products retrieved successfully',
-    data: products.map(product => {
-      const photoUrl = product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : 'https://example.com/default-product.png'; 
-
-      return {
-        id: product.id,
-        product_title: product.product_title,
-        product_description: product.product_description,
-        price: product.price,
-        stock: product.stock,
-        photo: product.photo,
-        photoUrl,
-        product_owner: product.user_id,
-        category: {
-          id: product.category.id,
-          category_name: product.category.category_name,
-        },
-        };
-      }),
+      success: true,
+      message: 'Products retrieved successfully',
+      data: {
+        products: products.map(product => ({
+          photo: SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`),
+          title: product.product_title,
+          size: product.size,
+          condition: product.condition,
+          created_time: product.created_at,
+          boost_time: product.boost_until,
+          price: product.price,
+        })),
+        product_count: products.length,
+      },
     };
   }
 
 
   // Get a product by ID
   async findOne(id: string) {
-
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { category: true },
+      include: {
+        category: true,
+      },
     });
-    
+
     if (!product) {
       throw new NotFoundException(`Product with ID ${id} not found`);
     }
-
-    const photoUrl = product.photo
-      ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-      : 'https://example.com/default-product.png';
 
     return {
       success: true,
       message: 'Product retrieved successfully',
       data: {
-        id: product.id,
-        product_title: product.product_title, 
-        product_description: product.product_description,
+        photo: product.photo
+          ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+          : null,
+        title: product.product_title,
+        size: product.size,
+        condition: product.condition,
+        created_time: product.created_at,
+        boost_time: product.boost_until,
         price: product.price,
-        stock: product.stock,
-        photo: product.photo,
-        photoUrl,
-        product_owner: product.user_id,
         category: {
           id: product.category.id,
           category_name: product.category.category_name,
@@ -186,9 +178,9 @@ export class ProductsService {
     };
   }
 
+
   // get all products in a category
   async findAllProductsInCategory(categoryId: string) {
-
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
       include: { products: true },
@@ -202,35 +194,32 @@ export class ProductsService {
       return {
         success: true,
         message: 'No products found in this category',
-        data: [],
+        data: {
+          products: [],
+          product_count: 0,
+        },
       };
     }
 
-    // Map products to only include required fields
-    const productDetails = category.products.map(product => {
-      const photoUrl = product.photo
+    // 🔹 Map only required fields
+    const productDetails = category.products.map(product => ({
+      photo: product.photo
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : 'https://example.com/default-product.png';
-
-      return {
-        photo: product.photo,
-        id: product.id,
-        product_title: product.product_title,
-        price: product.price.toString(), 
-        size: product.size,
-        condition: product.condition,
-        product_owner: product.user_id,
-        photoUrl,
-      };
-    });
-
+        : 'https://example.com/default-product.png',
+      title: product.product_title,
+      size: product.size,
+      condition: product.condition,
+      created_time: product.created_at,
+      boost_time: product.boost_until,
+      price: product.price,
+    }));
 
     return {
       success: true,
       message: 'Products retrieved successfully',
       data: {
         products: productDetails,
-        product_count: category.products.length, 
+        product_count: category.products.length,
       },
     };
   }
@@ -244,6 +233,8 @@ export class ProductsService {
     const product = await this.prisma.product.findUnique({
       where: { id },
     });
+
+    console.log(product);
 
     if (!product) throw new NotFoundException(`Product with ID ${id} not found`);
     if (product.user_id !== user) throw new ConflictException('You are not allowed to update this product');
@@ -330,7 +321,9 @@ export class ProductsService {
         product_description: updatedProduct.product_description,
         price: updatedProduct.price,
         stock: updatedProduct.stock,
+        condition: updatedProduct.condition,
         photo: updatedProduct.photo,
+        boost_time: updatedProduct.boost_until,
         photoUrl,
         product_owner: updatedProduct.user_id,
       },
@@ -364,45 +357,76 @@ export class ProductsService {
 
   // filter products by price range and categories
   async filterProducts(filterDto: FilterProductDto) {
-    
-    const { min_price, max_price, categories } = filterDto;
 
+    const { min_price, max_price, categories, location, time_in_hours } = filterDto;
+
+    // 🔹 Time filter 
+    let timeFilter: any = {};
+    if (time_in_hours) {
+      const timeThreshold = subHours(new Date(), time_in_hours);
+      timeFilter = { created_at: { gte: timeThreshold } };
+    }
+
+    // Database get products
     const products = await this.prisma.product.findMany({
       where: {
         AND: [
           min_price ? { price: { gte: min_price } } : {},
           max_price ? { price: { lte: max_price } } : {},
-          categories && categories.length ? { category_id: { in: categories, mode: 'insensitive' } } : {},
+          categories && categories.length ? { category_id: { in: categories } } : {},
+          location ? { location: { contains: location, mode: 'insensitive' } } : {},
+          timeFilter,
         ],
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+      select: {
+        id: true,
+        product_title: true,
+        size: true,
+        condition: true,
+        created_at: true,
+        boost_until: true,
+        price: true,
+        photo: true,
       },
     });
 
-    // Use the map function outside of the data object
-    const filteredProducts = products.map(product => ({
-      photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`),
-      photo: product.photo,
-      id: product.id,
-      product_title: product.product_title,
-      price: product.price.toString(),
-      size: product.size,
-      condition: product.condition,
-      product_owner: product.user_id,
-    }));
+    
+     // Check if products exist
+    if (!products.length) {
+        return {
+            total: 0,
+            message: "No products found",
+            data: [],
+        };
+    }
 
-    return {
-      success: true,
-      message: 'Products filtered successfully',
-      data: {
-        products: filteredProducts, // Corrected this line
-        product_count: filteredProducts.length,
-      },
-    };
+  // 🔹 Format data (same as getBoostedProducts)
+  return {
+    success: true,
+    message: 'Products retrieved successfully',
+    data: {
+      products: products.map(product => ({
+        photo: product.photo
+          ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+          : null,
+        title: product.product_title,
+        size: product.size,
+        condition: product.condition,
+        created_time: product.created_at,
+        boost_time: product.boost_until,
+        price: product.price,
+      })),
+      product_count: products.length,
+    },
+  };
+
   }
-
 
   // boost product
   async boost(boostProductDto: BoostProductDto, user: string) {
-
     const { product_id, days } = boostProductDto;
 
     const product = await this.prisma.product.findUnique({
@@ -423,8 +447,8 @@ export class ProductsService {
     const updatedProduct = await this.prisma.product.update({
       where: { id: product_id },
       data: {
-         boost_until: boostUntil,
-         is_boosted: true,
+        boost_until: boostUntil,
+        is_boosted: true,
       },
     });
 
@@ -432,28 +456,35 @@ export class ProductsService {
       success: true,
       message: 'Product boosted successfully',
       data: {
-        id: updatedProduct.id,
-        product_title: updatedProduct.product_title,
-        product_owner: updatedProduct.user_id,
-        photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`),
-        photo: updatedProduct.photo,
-         boost_until: updatedProduct.boost_until,
-        is_boosted: updatedProduct.is_boosted,
-
+        photo: SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`),
+        title: updatedProduct.product_title,
+        size: updatedProduct.size,
+        condition: updatedProduct.condition,
+        created_time: updatedProduct.created_at,
+        boost_time: updatedProduct.boost_until,
+        price: updatedProduct.price,
       },
     };
-
   }
 
-
-  // product boosted products
+  // product boosted produc
   async getBoostedProducts() {
     const nowUTC = new Date();
 
     const boostedProducts = await this.prisma.product.findMany({
       where: {
-         is_boosted: true,
-         boost_until: { gte: nowUTC },
+        is_boosted: true,
+        boost_until: { gte: nowUTC },
+      },
+      select: {
+        id: true,
+        product_title: true,
+        size: true,
+        condition: true,
+        created_at: true,
+        boost_until: true,
+        price: true,
+        photo: true,
       },
     });
 
@@ -462,20 +493,19 @@ export class ProductsService {
       message: 'Boosted products retrieved successfully',
       data: {
         products: boostedProducts.map(product => ({
-          id: product.id,
-          product_title: product.product_title,
-          product_owner: product.user_id,
-
-          
-          photo: product.photo,
-          photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`),
-
-           boost_until: product.boost_until,
-           is_boosted: product.is_boosted,
+          photo: SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`),
+          title: product.product_title,
+          size: product.size,
+          condition: product.condition,
+          created_time: product.created_at,
+          boost_time: product.boost_until,
+          price: product.price,
         })),
         product_count: boostedProducts.length,
       },
     };
-  
   }
+
+  
+
 }
