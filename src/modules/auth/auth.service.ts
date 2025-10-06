@@ -228,8 +228,8 @@ export class AuthService {
     try {
       const payload = { email: email, sub: userId, type: 'user' };
 
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '10d' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
       const user = await UserRepository.getUserDetails(userId);
 

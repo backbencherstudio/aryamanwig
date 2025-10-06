@@ -16,8 +16,9 @@ import { MessageGateway } from './message.gateway';
 import { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
+import { FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage, memoryStorage } from 'multer';
+import appConfig from 'src/config/app.config';
 
 @ApiBearerAuth()
 @ApiTags('Message')
@@ -29,51 +30,80 @@ export class MessageController {
     private readonly messageGateway: MessageGateway,
   ) {}
 
+
   @ApiOperation({ summary: 'Send message' })
   @Post()
   @UseInterceptors(
-    FilesInterceptor('attachments', 10, {
-      storage: memoryStorage(),
+    FileFieldsInterceptor([{ name: 'attachments', maxCount: 10 }], {
+      storage: diskStorage({
+        destination: appConfig().storageUrl.rootUrl + appConfig().storageUrl.attachment,
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          return cb(
+            null,
+            `${randomName}_${file.originalname.replace(/\s+/g, '-')}`,
+          );
+        },
+      }),
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
   )
   async create(
     @Req() req: Request,
     @Body() data: CreateMessageDto,
-    @UploadedFiles() attachments: Express.Multer.File[],
+    @UploadedFiles() files: { attachments?: Express.Multer.File[] },
   ) {
     const user_id = req.user.userId;
-    console.log('user_id', user_id);
-    console.log('createMessageDto', data);
-    console.log('attachments', attachments);
-
-    const message = await this.messageService.create(user_id, data);
-    if (message.success) {
-      const messageData = {
-        message: {
-          id: message.data.id,
-          message_id: message.data.id,
-          body_text: message.data.message,
-          from: message.data.sender_id,
-          conversation_id: message.data.conversation_id,
-          created_at: message.data.created_at,
-        },
-      };
-      this.messageGateway.server
-        .to(message.data.conversation_id)
-        .emit('message', {
-          from: message.data.sender_id,
-          data: messageData,
-        });
+    // console.log('user_id', user_id);
+    // console.log('createMessageDto', data);
+    // console.log('attachments', attachments);
+    if (!files?.attachments?.length && !data.message) {
       return {
-        success: message.success,
-        message: message.message,
-      };
-    } else {
-      return {
-        success: message.success,
-        message: message.message,
+        success: false,
+        message: 'Message or attachment is required',
       };
     }
+    const attachments = files?.attachments?.map(file => ({
+      name: file.originalname,
+      type: file.mimetype,
+      size: file.size,
+      file: file.filename,
+    }));
+
+    console.log('Attachments received:', attachments);
+    
+
+    // const message = await this.messageService.create(user_id, data);
+    // if (message.success) {
+    //   const messageData = {
+    //     message: {
+    //       id: message.data.id,
+    //       message_id: message.data.id,
+    //       body_text: message.data.message,
+    //       from: message.data.sender_id,
+    //       conversation_id: message.data.conversation_id,
+    //       created_at: message.data.created_at,
+    //     },
+    //   };
+    //   this.messageGateway.server
+    //     .to(message.data.conversation_id)
+    //     .emit('message', {
+    //       from: message.data.sender_id,
+    //       data: messageData,
+    //     });
+    //   return {
+    //     success: message.success,
+    //     message: message.message,
+    //   };
+    // } else {
+    //   return {
+    //     success: message.success,
+    //     message: message.message,
+    //   };
+    // }
   }
 
   @ApiOperation({ summary: 'Get specific conversation all messages' })
