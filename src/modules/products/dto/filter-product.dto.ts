@@ -22,5 +22,15 @@ export class FilterProductDto {
     return value;
   })
   categories?: string[];
+
+  @IsOptional()
+  @IsString()
+  location?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  time_in_hours?: number;
+
   
 }
