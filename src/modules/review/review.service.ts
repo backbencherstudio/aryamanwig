@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { formatDistanceToNowStrict, differenceInWeeks, differenceInMonths, differenceInYears } from 'date-fns';
+import { enUS } from 'date-fns/locale';
 import { use } from 'passport';
 
 
@@ -181,28 +183,78 @@ export class ReviewService {
 
   // get all reviws for a user
   async getAllReviewsForUser(id: string) {
-
     const reviews = await this.prisma.review.findMany({
       where: { review_receiver: id },
       orderBy: { id: 'desc' },
       include: {
-        user: true, 
+        user: true,
       },
     });
 
-    console.log(reviews);
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+      },
+    });
 
-    return reviews.map(review => ({
+    if (!user) throw new NotFoundException('User not found');
+
+    const aggregate = await this.prisma.review.aggregate({
+      where: { review_receiver: id },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+
+  
+    const getTimeAgo = (date: Date): string => {
+      const now = new Date();
+      const years = differenceInYears(now, date);
+      const months = differenceInMonths(now, date);
+      const weeks = differenceInWeeks(now, date);
+
+      if (years > 0) return `${years} year${years > 1 ? 's' : ''} ago`;
+      if (months > 0) return `${months} month${months > 1 ? 's' : ''} ago`;
+      if (weeks > 0) return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+
+      return formatDistanceToNowStrict(date, {
+        addSuffix: true,
+        locale: enUS,
+      });
+    };
+
+    const formattedReviews = reviews.map((review) => ({
       id: review.id,
-      rating: review.rating,  
+      rating: review.rating,
       comment: review.comment,
-      review_receiver: review.review_receiver,
-      review_sender: review.review_sender,
-      status: review.status,
-      user: { id: review.user.id, 
-              name: review.user.name, 
-              email: review.user.email }
+      name: review.user.name,
+      avatar: review.user.avatar,
+      created_ago: getTimeAgo(new Date(review.created_at)),
     }));
+
+    return {
+      success: true,
+      message: 'Reviews retrieved successfully',
+      data: {
+        user: {
+          id: user.id,
+          name: user.name,
+          avatar: user.avatar,
+        },
+        totalReviews: aggregate._count.rating,
+        averageRating: Number(aggregate._avg.rating?.toFixed(2)) || 0,
+        reviews: formattedReviews,
+      },
+    };
   }
 
-}
+
+
+
+
+
+
+    
+  }

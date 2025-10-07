@@ -31,6 +31,7 @@ import { OrderService } from './modules/order/order.service';
 import { OrderController } from './modules/order/order.controller';
 import { OrderModule } from './modules/order/order.module';
 import { DashboradModule } from './modules/dashborad/dashborad.module';
+import { ProfileModule } from './modules/profile/profile.module';
 
 
 @Module({
@@ -96,7 +97,8 @@ import { DashboradModule } from './modules/dashborad/dashborad.module';
     ReviewModule,
     CronModule,
     OrderModule,
-    DashboradModule
+    DashboradModule,
+    ProfileModule
   ],
   controllers: [AppController, OrderController],
   providers: [

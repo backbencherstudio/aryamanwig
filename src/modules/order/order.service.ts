@@ -130,6 +130,24 @@ export class OrderService {
       },
     });
 
+    // order_items এর length 0 হলে error throw কর
+    if(orders.length === 0) {
+      throw new Error('No orders found for this buyer');
+    }
+
+    // order_items এর length 0 হলে error throw কর
+    orders.forEach((order) => {
+      if (order.order_items.length === 0) {
+        throw new Error(`No items found for order ID ${order.id}`);
+      }
+    });
+    
+
+    orders.splice(0, 0); // to make orders not readonly array
+
+
+
+
     if (!orders) {
       throw new Error('No orders found for this buyer');
     }
@@ -309,4 +327,8 @@ export class OrderService {
 
     return transformedOrder;
   }
+
+
+  // get all orders - only for admin
+
 }

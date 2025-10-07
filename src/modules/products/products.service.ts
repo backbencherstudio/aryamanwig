@@ -7,6 +7,7 @@ import { BoostProductDto } from './dto/boost-product.dto';
 import { StringHelper } from 'src/common/helper/string.helper';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
+import { subHours } from 'date-fns';
 
 
 @Injectable()
@@ -90,12 +91,6 @@ export class ProductsService {
        photoUrl = SojebStorage.url(`${appConfig().storageUrl.product}/${newProduct.photo}`);
     }
 
-    
-    // const photoUrl = photo
-    //   ? `${appConfig().baseUrl}${appConfig().storageUrl.rootUrlPublic}/${appConfig().storageUrl.product}/${photo}`
-    //   : null;
-
-
     return {
       success: true,
       message: 'Product created successfully',
@@ -115,124 +110,240 @@ export class ProductsService {
   async findAll() {
 
     const products = await this.prisma.product.findMany({
-      include: {
-        category: true, 
+      select: {
+        product_title: true,
+        size: true,
+        condition: true,
+        created_at: true,
+        boost_until: true,
+        price: true,
+        photo: true,
       },
     });
 
-    if (products.length === 0) throw new Error('No products found');
+    if (products.length === 0) {
+      throw new NotFoundException('No products found');
+    }
+
+    const formatDate = (dateInput: string | Date): string => {
+      const date = new Date(dateInput);
+      const options: Intl.DateTimeFormatOptions = {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      };
+      return date.toLocaleString('en-US', options).replace(',', '');
+    };
+
+    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
+      if (!boostTime) return null;
+
+      const now = new Date().getTime();
+      const end = new Date(boostTime).getTime();
+      const diff = end - now;
+
+      if (diff <= 0) return '(Expired)';
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      return `(${hours}h :${minutes}m :${seconds}s)`;
+    };
+
     
+    const formattedProducts = products.map(product => ({
+      photo: product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : null,
+      title: product.product_title,
+      size: product.size,
+      condition: product.condition,
+      created_time: formatDate(product.created_at),
+      boost_time: getBoostTimeLeft(product.boost_until),
+      price: product.price,
+    }));
 
     return {
-    success: true,
-    message: 'Products retrieved successfully',
-    data: products.map(product => {
-      const photoUrl = product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : 'https://example.com/default-product.png'; 
-
-      return {
-        id: product.id,
-        product_title: product.product_title,
-        product_description: product.product_description,
-        price: product.price,
-        stock: product.stock,
-        photo: product.photo,
-        photoUrl,
-        product_owner: product.user_id,
-        category: {
-          id: product.category.id,
-          category_name: product.category.category_name,
-        },
-        };
-      }),
+      success: true,
+      message: 'Products retrieved successfully',
+      data: {
+        products: formattedProducts,
+        product_count: products.length,
+      },
     };
   }
-
 
   // Get a product by ID
   async findOne(id: string) {
 
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { category: true },
+      include: {
+        category: true,
+        user: true,
+      },
     });
-    
+
+
     if (!product) {
       throw new NotFoundException(`Product with ID ${id} not found`);
     }
+    
+    // Seller er total product count
+    const totalItems = await this.prisma.product.count({
+      where: { user_id: product.user_id },
+    });
 
-    const photoUrl = product.photo
-      ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-      : 'https://example.com/default-product.png';
+    console.log(`Total products by seller ${product.user_id}: ${totalItems}`);
+
+
+    const formatDate = (dateInput: string | Date): string => {
+      const date = new Date(dateInput);
+      const options: Intl.DateTimeFormatOptions = {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      };
+      return date.toLocaleDateString('en-US', options);
+    };
+
+    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
+      if (!boostTime) return null;
+
+      const now = new Date().getTime();
+      const end = new Date(boostTime).getTime();
+      const diff = end - now;
+
+      if (diff <= 0) return '(Expired)';
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      return `${hours}h :${minutes}m :${seconds}s`;
+    };
 
     return {
       success: true,
       message: 'Product retrieved successfully',
       data: {
-        id: product.id,
-        product_title: product.product_title, 
-        product_description: product.product_description,
+        title: product.product_title,
         price: product.price,
-        stock: product.stock,
-        photo: product.photo,
-        photoUrl,
-        product_owner: product.user_id,
+        description: product.product_description,
+        location: product.location,
+        photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`): null,
+        condition: product.condition === 'NEW' ? 'Like New' : product.condition,
+        size: product.size,
+        color: product.color || 'Not Specified',
+        uploaded: formatDate(product.created_at),
+        remaining_time: getBoostTimeLeft(product.boost_until),
+
         category: {
           id: product.category.id,
           category_name: product.category.category_name,
+        },
+
+        seller: {
+          name: product.user.name ,
+          profile_photo: product.user.avatar,
+          total_items: totalItems,
         },
       },
     };
   }
 
-  // get all products in a category
-  async findAllProductsInCategory(categoryId: string) {
 
-    const category = await this.prisma.category.findUnique({
-      where: { id: categoryId },
-      include: { products: true },
+  // get all products for a user
+  async getAllProductsForUser(user: string) {
+    
+    const products = await this.prisma.product.findMany({
+      where: { user_id: user },
+      select: { 
+        id: true,
+        product_title: true,
+        product_description: true, 
+        location: true,            
+        size: true,
+        color: true,              
+        condition: true,
+        created_at: true,
+        boost_until: true,
+        price: true,
+        photo: true,
+      },
+      orderBy: { created_at: 'desc' },
     });
 
-    if (!category) {
-      throw new NotFoundException(`Category with ID ${categoryId} not found`);
-    }
-
-    if (category.products.length === 0) {
+    if (products.length === 0) {
       return {
         success: true,
-        message: 'No products found in this category',
-        data: [],
+        message: 'No products found for this user',
+        data: {
+          products: [],
+          product_count: 0,
+        },
       };
     }
 
-    // Map products to only include required fields
-    const productDetails = category.products.map(product => {
-      const photoUrl = product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : 'https://example.com/default-product.png';
-
+    if (!products.length) {
       return {
-        photo: product.photo,
-        id: product.id,
-        product_title: product.product_title,
-        price: product.price.toString(), 
-        size: product.size,
-        condition: product.condition,
-        product_owner: product.user_id,
-        photoUrl,
+        success: true,
+        message: 'No products found for this user',
+        data: {
+          products: [],
+          product_count: 0,
+        },
       };
-    });
+    }
 
+    const formatDate = (dateInput: string | Date): string => {
+      const date = new Date(dateInput);
+      const options: Intl.DateTimeFormatOptions = { 
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      };
+      return date.toLocaleString('en-US', options).replace(',', '');
+    }
 
-    return {
+    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
+      if (!boostTime) return null;  
+      const now = new Date().getTime();
+      const end = new Date(boostTime).getTime();
+      const diff = end - now;
+      if (diff <= 0) return '(Expired)';
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      return `(${hours}h :${minutes}m :${seconds}s)`;
+    }
+
+    const formattedProducts = products.map(product => ({
+      photo: product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : null,
+      title: product.product_title,
+      price: product.price,
+      description: product.product_description,
+      location: product.location,
+      condition: product.condition === 'NEW' ? 'Like New' : product.condition,
+      size: product.size,
+      color: product.color || 'Not Specified',
+      uploaded: formatDate(product.created_at),
+      remaining_time: getBoostTimeLeft(product.boost_until),
+    }));
+
+    return {  
       success: true,
-      message: 'Products retrieved successfully',
       data: {
-        products: productDetails,
-        product_count: category.products.length, 
+        products: formattedProducts,
+        product_count: products.length,
       },
     };
+
   }
 
   // update product
@@ -244,6 +355,8 @@ export class ProductsService {
     const product = await this.prisma.product.findUnique({
       where: { id },
     });
+
+    console.log(product);
 
     if (!product) throw new NotFoundException(`Product with ID ${id} not found`);
     if (product.user_id !== user) throw new ConflictException('You are not allowed to update this product');
@@ -330,7 +443,9 @@ export class ProductsService {
         product_description: updatedProduct.product_description,
         price: updatedProduct.price,
         stock: updatedProduct.stock,
+        condition: updatedProduct.condition,
         photo: updatedProduct.photo,
+        boost_time: updatedProduct.boost_until,
         photoUrl,
         product_owner: updatedProduct.user_id,
       },
@@ -362,47 +477,8 @@ export class ProductsService {
     };
   }
 
-  // filter products by price range and categories
-  async filterProducts(filterDto: FilterProductDto) {
-    
-    const { min_price, max_price, categories } = filterDto;
-
-    const products = await this.prisma.product.findMany({
-      where: {
-        AND: [
-          min_price ? { price: { gte: min_price } } : {},
-          max_price ? { price: { lte: max_price } } : {},
-          categories && categories.length ? { category_id: { in: categories, mode: 'insensitive' } } : {},
-        ],
-      },
-    });
-
-    // Use the map function outside of the data object
-    const filteredProducts = products.map(product => ({
-      photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`),
-      photo: product.photo,
-      id: product.id,
-      product_title: product.product_title,
-      price: product.price.toString(),
-      size: product.size,
-      condition: product.condition,
-      product_owner: product.user_id,
-    }));
-
-    return {
-      success: true,
-      message: 'Products filtered successfully',
-      data: {
-        products: filteredProducts, // Corrected this line
-        product_count: filteredProducts.length,
-      },
-    };
-  }
-
-
   // boost product
   async boost(boostProductDto: BoostProductDto, user: string) {
-
     const { product_id, days } = boostProductDto;
 
     const product = await this.prisma.product.findUnique({
@@ -423,8 +499,8 @@ export class ProductsService {
     const updatedProduct = await this.prisma.product.update({
       where: { id: product_id },
       data: {
-         boost_until: boostUntil,
-         is_boosted: true,
+        boost_until: boostUntil,
+        is_boosted: true,
       },
     });
 
@@ -432,50 +508,391 @@ export class ProductsService {
       success: true,
       message: 'Product boosted successfully',
       data: {
-        id: updatedProduct.id,
-        product_title: updatedProduct.product_title,
-        product_owner: updatedProduct.user_id,
-        photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`),
-        photo: updatedProduct.photo,
-         boost_until: updatedProduct.boost_until,
-        is_boosted: updatedProduct.is_boosted,
-
+        photo: SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`),
+        title: updatedProduct.product_title,
+        size: updatedProduct.size,
+        condition: updatedProduct.condition,
+        created_time: updatedProduct.created_at,
+        boost_time: updatedProduct.boost_until,
+        price: updatedProduct.price,
       },
     };
-
   }
-
 
   // product boosted products
   async getBoostedProducts() {
+  
     const nowUTC = new Date();
 
     const boostedProducts = await this.prisma.product.findMany({
       where: {
-         is_boosted: true,
-         boost_until: { gte: nowUTC },
+        is_boosted: true,
+        boost_until: { gte: nowUTC },
+      },
+      select: {
+        id: true,
+        product_title: true,
+        size: true,
+        condition: true,
+        created_at: true,
+        boost_until: true,
+        price: true,
+        photo: true,
       },
     });
+
+    // Helper functions
+    const formatDate = (dateInput: string | Date): string => {
+      const date = new Date(dateInput);
+      const options: Intl.DateTimeFormatOptions = {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      };
+      return date.toLocaleString('en-US', options).replace(',', '');
+    };
+
+    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
+      if (!boostTime) return null;
+
+      const now = new Date().getTime();
+      const end = new Date(boostTime).getTime();
+      const diff = end - now;
+
+      if (diff <= 0) return '(Expired)';
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      return `(${hours}h :${minutes}m :${seconds}s)`;
+    };
+
+    const formattedProducts = boostedProducts.map(product => ({
+      photo: product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : null,
+      title: product.product_title,
+      size: product.size,
+      condition: product.condition,
+      created_time: formatDate(product.created_at),
+      boost_time: getBoostTimeLeft(product.boost_until),
+      price: product.price,
+    }));
 
     return {
       success: true,
       message: 'Boosted products retrieved successfully',
       data: {
-        products: boostedProducts.map(product => ({
-          id: product.id,
-          product_title: product.product_title,
-          product_owner: product.user_id,
-
-          
-          photo: product.photo,
-          photoUrl: SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`),
-
-           boost_until: product.boost_until,
-           is_boosted: product.is_boosted,
-        })),
+        products: formattedProducts,
         product_count: boostedProducts.length,
       },
     };
-  
   }
+
+  // filter products by price range and categories
+  async filterProducts(filterDto: FilterProductDto) {
+  
+    const { min_price, max_price, categories, location, time_in_hours } = filterDto;
+
+    // 🔹 Time filter 
+    let timeFilter: any = {};
+    if (time_in_hours) {
+      const timeThreshold = subHours(new Date(), time_in_hours);
+      timeFilter = { created_at: { gte: timeThreshold } };
+    }
+
+    // 🔹 Fetch from DB
+    const products = await this.prisma.product.findMany({
+      where: {
+        AND: [
+          min_price ? { price: { gte: min_price } } : {},
+          max_price ? { price: { lte: max_price } } : {},
+          categories && categories.length ? { category_id: { in: categories } } : {},
+          location ? { location: { contains: location, mode: 'insensitive' } } : {},
+          timeFilter,
+        ],
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+      select: {
+        id: true,
+        product_title: true,
+        size: true,
+        condition: true,
+        created_at: true,
+        boost_until: true,
+        price: true,
+        photo: true,
+      },
+    });
+
+    if (!products.length) {
+      return {
+        success: false,
+        total: 0,
+        message: 'No products found',
+        data: [],
+      };
+    }
+
+
+    const formatDate = (dateInput: string | Date): string => {
+      const date = new Date(dateInput);
+      const options: Intl.DateTimeFormatOptions = {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      };
+      return date.toLocaleString('en-US', options).replace(',', '');
+    };
+
+    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
+      if (!boostTime) return null;
+
+      const now = new Date().getTime();
+      const end = new Date(boostTime).getTime();
+      const diff = end - now;
+
+      if (diff <= 0) return '(Expired)';
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      return `(${hours}h :${minutes}m :${seconds}s)`;
+    };
+
+
+    const formattedProducts = products.map(product => ({
+      photo: product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : null,
+      title: product.product_title,
+      size: product.size,
+      condition: product.condition,
+      created_time: formatDate(product.created_at),
+      boost_time: getBoostTimeLeft(product.boost_until),
+      price: product.price,
+    }));
+
+    return {
+      success: true,
+      message: 'Products retrieved successfully',
+      data: {
+        products: formattedProducts,
+        product_count: products.length,
+      },
+    };
+  }
+
+  // get all products in a category
+  async findAllProductsInCategory(categoryId: string) {
+
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      include: { products: true },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID ${categoryId} not found`);
+    }
+
+    if (category.products.length === 0) {
+      return {
+        success: true,
+        message: 'No products found in this category',
+        data: {
+          products: [],
+          product_count: 0,
+        },
+      };
+    }
+
+
+    const formatDate = (dateInput: string | Date): string => {
+      const date = new Date(dateInput);
+      const options: Intl.DateTimeFormatOptions = {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      };
+      return date.toLocaleString('en-US', options).replace(',', '');
+    };
+
+    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
+      if (!boostTime) return null;
+
+      const now = new Date().getTime();
+      const end = new Date(boostTime).getTime();
+      const diff = end - now;
+
+      if (diff <= 0) return '(Expired)';
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      return `(${hours}h :${minutes}m :${seconds}s)`;
+    };
+
+
+    const productDetails = category.products.map(product => ({
+      photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
+      title: product.product_title,
+      size: product.size,
+      condition: product.condition,
+      created_time: formatDate(product.created_at),
+      boost_time_left: getBoostTimeLeft(product.boost_until),
+      price: product.price,
+    }));
+
+    return {
+      success: true,
+      message: 'Products retrieved successfully',
+      data: {
+        products: productDetails,
+        product_count: category.products.length,
+      },
+    };
+  }
+
+  // get category based latest products
+  async findLatestProductsInCategory(categoryId: string) {
+
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      include: { products: { orderBy: { created_at: 'desc' } } },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID ${categoryId} not found`);
+    }
+    if (category.products.length === 0) {
+      return {
+        success: true,
+        message: 'No products found in this category',
+        data: {
+          products: [],
+          product_count: 0,
+        },
+      };
+    }
+
+    const formatDate = (dateInput: string | Date): string => {
+      const date = new Date(dateInput);
+      const options: Intl.DateTimeFormatOptions = {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      };
+      return date.toLocaleString('en-US', options).replace(',', '');
+    }
+
+    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
+      if (!boostTime) return null;  
+      const now = new Date().getTime();
+      const end = new Date(boostTime).getTime();
+      const diff = end - now;
+      if (diff <= 0) return '(Expired)';
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      return `(${hours}h :${minutes}m :${seconds}s)`;
+    }
+
+    const productDetails = category.products.map(product => ({
+      photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
+      title: product.product_title,
+      size: product.size,
+      condition: product.condition,
+      created_time: formatDate(product.created_at),
+      boost_time_left: getBoostTimeLeft(product.boost_until),
+      price: product.price,
+    }));
+
+    return {
+      success: true,
+      message: 'Latest products retrieved successfully',
+      data: {
+        products: productDetails,
+        product_count: category.products.length,
+      },
+    };
+  }
+
+  // get category based oldest products
+  async findOldestProductsInCategory(categoryId: string) {
+   
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      include: { products: { orderBy: { created_at: 'asc' } } },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID ${categoryId} not found`);
+    }
+
+    if (category.products.length === 0) {
+      return {
+        success: true,
+        message: 'No products found in this category',
+        data: {
+          products: [],
+          product_count: 0,
+        },
+      };
+    }
+
+    const formatDate = (dateInput: string | Date): string => {
+      const date = new Date(dateInput);
+      const options: Intl.DateTimeFormatOptions = {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      };
+      return date.toLocaleString('en-US', options).replace(',', '');
+    }
+
+    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
+      if (!boostTime) return null;
+      const now = new Date().getTime();
+      const end = new Date(boostTime).getTime();
+      const diff = end - now;
+      if (diff <= 0) return '(Expired)';
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      return `(${hours}h :${minutes}m :${seconds}s)`;
+    }
+
+    const productDetails = category.products.map(product => ({
+      photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
+      title: product.product_title,
+      size: product.size,
+      condition: product.condition,
+      created_time: formatDate(product.created_at),
+      boost_time_left: getBoostTimeLeft(product.boost_until),
+      price: product.price,
+    }));
+
+    return {
+      success: true,
+      message: 'Oldest products retrieved successfully',
+      data: {
+        products: productDetails,
+        product_count: category.products.length,
+      },
+    };
+  }
+
+
+
+
 }
