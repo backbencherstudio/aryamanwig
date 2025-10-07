@@ -16,8 +16,10 @@ import { MessageGateway } from './message.gateway';
 import { Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
+import { FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage, memoryStorage } from 'multer';
+import appConfig from 'src/config/app.config';
+import { log } from 'node:console';
 
 @ApiBearerAuth()
 @ApiTags('Message')
@@ -27,26 +29,28 @@ export class MessageController {
   constructor(
     private readonly messageService: MessageService,
     private readonly messageGateway: MessageGateway,
-  ) {}
+  ) { }
 
+
+  // FileFieldsInterceptor([{ name: 'attachments', maxCount: 10 }], {
   @ApiOperation({ summary: 'Send message' })
   @Post()
   @UseInterceptors(
-    FilesInterceptor('attachments', 10, {
+    FileInterceptor('attachment', {
       storage: memoryStorage(),
     }),
   )
   async create(
     @Req() req: Request,
     @Body() data: CreateMessageDto,
-    @UploadedFiles() attachments: Express.Multer.File[],
+    @UploadedFile() attachment: Express.Multer.File,
   ) {
     const user_id = req.user.userId;
-    console.log('user_id', user_id);
+    // console.log('user_id', user_id);
     console.log('createMessageDto', data);
-    console.log('attachments', attachments);
+    console.log('Controller attachment : ', attachment);
 
-    const message = await this.messageService.create(user_id, data);
+    const message = await this.messageService.create(user_id, data, attachment);
     if (message.success) {
       const messageData = {
         message: {

@@ -9,7 +9,7 @@ import appConfig from 'src/config/app.config';
 export class PaypalService {
   private readonly paypal = new PaypalPayment();
   private readonly api = appConfig().payment.paypal.api;
-  private readonly webhookId = appConfig().payment.paypal.webhook_secret;
+  private readonly webhookId = appConfig().payment.paypal.webhook_id;
 
   constructor(private readonly prisma: PrismaService) {}
 

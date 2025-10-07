@@ -15,6 +15,7 @@ import { SojebStorage } from '../../common/lib/Disk/SojebStorage';
 import { DateHelper } from '../../common/helper/date.helper';
 import { StripePayment } from '../../common/lib/Payment/stripe/StripePayment';
 import { StringHelper } from '../../common/helper/string.helper';
+import { log } from 'node:console';
 
 @Injectable()
 export class AuthService {
@@ -23,7 +24,7 @@ export class AuthService {
     private prisma: PrismaService,
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
-  ) {}
+  ) { }
 
   async me(userId: string) {
     try {
@@ -54,7 +55,7 @@ export class AuthService {
 
       if (user.avatar) {
         user['avatar_url'] = SojebStorage.url(
-          appConfig().storageUrl.avatar+user.avatar,
+          appConfig().storageUrl.avatar + user.avatar,
         );
       }
 
@@ -227,8 +228,8 @@ export class AuthService {
     try {
       const payload = { email: email, sub: userId, type: 'user' };
 
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '10d' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
       const user = await UserRepository.getUserDetails(userId);
 
@@ -396,12 +397,16 @@ export class AuthService {
         isOtp: true,
       });
 
+      console.log("Cteate token : ", token);
+
+
       // send otp code to email
-      await this.mailService.sendOtpCodeToEmail({
+      const sndOtp = await this.mailService.sendOtpCodeToEmail({
         email: email,
         name: name,
         otp: token,
       });
+      console.log("Send Otp : ", sndOtp);
 
       return {
         success: true,
@@ -424,10 +429,10 @@ export class AuthService {
       //   type: type,
       // });
 
-      return {
-        success: true,
-        message: 'We have sent a verification link to your email',
-      };
+      // return {
+      //   success: true,
+      //   message: 'We have sent a verification link to your email',
+      // };
     } catch (error) {
       return {
         success: false,
@@ -587,11 +592,12 @@ export class AuthService {
         });
 
         // send otp code to email
-        await this.mailService.sendOtpCodeToEmail({
+        const sndOtp = await this.mailService.sendOtpCodeToEmail({
           email: email,
           name: user.name,
           otp: token,
         });
+        console.log("Resend Otp : ", sndOtp);
 
         return {
           success: true,
