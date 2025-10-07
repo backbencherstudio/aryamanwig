@@ -10,6 +10,7 @@ import { MessageGateway } from './message.gateway';
 import { UserRepository } from '../../../common/repository/user/user.repository';
 import { Role } from '../../../common/guard/role/role.enum';
 import { AttachmentDto } from './dto/attachment.dto';
+import { StringHelper } from 'src/common/helper/string.helper';
 
 @Injectable()
 export class MessageService {
@@ -21,7 +22,7 @@ export class MessageService {
   async create(
     user_id: string,
     createMessageDto: CreateMessageDto,
-    attachments: AttachmentDto[] = []
+    attachment?: Express.Multer.File,
   ) {
     try {
       const data: any = {};
@@ -73,6 +74,26 @@ export class MessageService {
           success: false,
           message: 'Receiver not found',
         };
+      }
+
+      // here handle attachment upload
+      // console.log('Service attachment : ', attachment);
+      let attachmentData: AttachmentDto = null;
+      if (attachment) {
+        const originalName = attachment.originalname.replace(/\s+/g, '');
+        const fileName = `${StringHelper.randomString()}-${Date.now()}-${originalName}`;
+        await SojebStorage.disk('local').put(appConfig().storageUrl.attachment + fileName, attachment.buffer);
+
+        attachmentData = {
+          name: originalName,
+          type: attachment.mimetype,
+          size: attachment.size,
+          file: fileName,
+        };
+        const newAttachment = await this.prisma.attachment.create({
+          data: attachmentData,
+        });
+        data.attachment_id = newAttachment.id;
       }
 
       const message = await this.prisma.message.create({
