@@ -231,12 +231,6 @@ model CartItem {
   @@map("cart_items")
 }
 
-/**
- * Order Model(order_id, buyerId, shipping_address, total_amount, created at, updated at)
- * Shipping_Address Model (order_id {reference}, shipping_address)
- * Ordered_Product owner Model (order_id, buyerId, shipping_address,OrderItems, product owner_id, total_price)
- * OrderItems (buyerId, product id, quantity, price)
- */
 
 enum OrderStatus {
   PENDING

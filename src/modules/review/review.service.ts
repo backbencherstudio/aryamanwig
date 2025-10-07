@@ -184,25 +184,66 @@ export class ReviewService {
 
     const reviews = await this.prisma.review.findMany({
       where: { review_receiver: id },
-      orderBy: { id: 'desc' },
-      include: {
-        user: true, 
-      },
+      orderBy: { id: 'desc' }
     });
 
     console.log(reviews);
 
-    return reviews.map(review => ({
-      id: review.id,
-      rating: review.rating,  
-      comment: review.comment,
-      review_receiver: review.review_receiver,
-      review_sender: review.review_sender,
-      status: review.status,
-      user: { id: review.user.id, 
-              name: review.user.name, 
-              email: review.user.email }
-    }));
+    // if (reviews.length === 0) {
+    //   return {
+    //     success: true,
+    //     message: 'No reviews found for this user',
+    //     data: [],
+    //   };
+    // }
+
+    // const totalReviews = reviews.length;
+    // const averageRating = reviews.reduce((acc, cur) => acc + cur.rating, 0) / totalReviews;
+   
+
+  const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+        city: true,
+        country: true,
+      },
+    });
+
+    console.log(user);
+
+    // return {
+    //   success: true,
+    //   message: 'Reviews retrieved successfully',
+    //   data: {
+    //     user: { 
+    //       id: user.id, 
+    //       name: user.name,
+    //       avatar: user.avatar,
+    //       city: user.city,
+    //       country: user.country,
+    //       totalReviews,
+    //       averageRating: parseFloat(averageRating.toFixed(2)),
+    //     },
+    //     reviews: reviews.map(review => ({
+    //       id: review.id,
+    //       rating: review.rating,
+    //       comment: review.comment,
+    //       review_receiver: review.review_receiver,
+    //       review_sender: review.review_sender,
+    //       status: review.status,
+          
+    //     })),
+    //   },
+    // };
   }
 
-}
+
+
+
+
+
+    
+  }
