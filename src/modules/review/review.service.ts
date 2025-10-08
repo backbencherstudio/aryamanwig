@@ -1,10 +1,11 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { formatDistanceToNowStrict, differenceInWeeks, differenceInMonths, differenceInYears } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { use } from 'passport';
+import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 
 
 @Injectable()
@@ -117,7 +118,9 @@ export class ReviewService {
         status: review.status,
         user: { id: review.user.id, 
                 name: review.user.name, 
-                email: review.user.email }
+                email: review.user.email,
+                avatar: review.user.avatar ? SojebStorage.url(`${process.env.STORAGE_URL}/avatar/${review.user.avatar}`) : null
+              }
       }))
     }
 
@@ -150,27 +153,30 @@ export class ReviewService {
         user: { 
           id: review.user.id, 
           name: review.user.name, 
-          email: review.user.email 
+          email: review.user.email,
+          avatar: review.user.avatar ? SojebStorage.url(`${process.env.STORAGE_URL}/avatar/${review.user.avatar}`) : null
         }
       }
     }
   }
 
   // update review by id
-  async update(id: string, updateReviewDto: UpdateReviewDto, userId: string) {  
+  async update(id: string, updateReviewDto: UpdateReviewDto, userId: string) {
+
     const { rating, comment, status } = updateReviewDto;
 
-    const existingReview = await this.prisma.review.findUnique({
+     const review = await this.prisma.review.findUnique({
       where: { id },
-    });
+     });
 
-    if (!existingReview) {
-      throw new NotFoundException('Review not found');
-    }
+     if (!review) {
+       throw new NotFoundException('Review not found');
+     }
+    
 
-    if (existingReview.review_sender !== userId) {
-      throw new NotFoundException('You are not authorized to update this review');
-    }
+     if (review.review_sender !== userId) {
+      throw new ForbiddenException('You are not allowed to update this review');
+     }
 
     const updatedReview = await this.prisma.review.update({
       where: { id },
@@ -193,6 +199,7 @@ export class ReviewService {
 
    // delete review by id
    async remove(id: string, userId: string) {
+
     const existingReview = await this.prisma.review.findUnique({
       where: { id },
     });
@@ -265,7 +272,7 @@ export class ReviewService {
       rating: review.rating,
       comment: review.comment,
       name: review.user.name,
-      avatar: review.user.avatar,
+      avatar: review.user.avatar ? SojebStorage.url(`${process.env.STORAGE_URL}/avatar/${review.user.avatar}`) : null,
       created_ago: getTimeAgo(new Date(review.created_at)),
     }));
 
@@ -276,7 +283,7 @@ export class ReviewService {
         user: {
           id: user.id,
           name: user.name,
-          avatar: user.avatar,
+          avatar: user.avatar ? SojebStorage.url(`${process.env.STORAGE_URL}/avatar/${user.avatar}`) : null,
         },
         totalReviews: aggregate._count.rating,
         averageRating: Number(aggregate._avg.rating?.toFixed(2)) || 0,

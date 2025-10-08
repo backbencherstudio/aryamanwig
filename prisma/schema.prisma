@@ -95,6 +95,9 @@ model User {
   orders_buyer  Order[]  @relation("OrderBuyer")
   orders_seller Order[]  @relation("OrderSeller")
 
+  // relation with bid
+  bids Bid[] @relation("UserBids")
+
   approved_at DateTime?
   created_at  DateTime  @default(now())
   updated_at  DateTime  @default(now())
@@ -145,6 +148,10 @@ model Product {
   wishlists   Wishlist[]
   CartItem    CartItem[]
   OrderItem   OrderItem[]
+
+
+  // relation with bid
+  bids Bid[] @relation("ProductBids")
 
   @@map("products")
 }
@@ -299,6 +306,35 @@ model OrderItem {
 
   @@map("order_items")
 }
+
+
+model Bid {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  // কে বিড করলো
+  user_id String
+  user    User   @relation("UserBids", fields: [user_id], references: [id], onDelete: Cascade)
+
+  // কোন প্রোডাক্টে বিড করলো
+  product_id String
+  product    Product @relation("ProductBids", fields: [product_id], references: [id], onDelete: Cascade)
+
+  bid_amount Decimal   @db.Decimal(10, 2)
+  status     BidStatus @default(PENDING)
+
+  @@map("bids")
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+
+
 
 model Ucode {
   id         String   @id @default(cuid())
