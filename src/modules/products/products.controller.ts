@@ -55,7 +55,6 @@ export class ProductsController {
     return this.productsService.getAllProductsForUser(user);
   }
 
-
   // update product by id
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(

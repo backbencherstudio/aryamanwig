@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -15,34 +15,70 @@ export class ReviewService {
   ) {}
 
   // create review
-  async create( createReviewDto: CreateReviewDto, userId: string) {
+  async create( createReviewDto: CreateReviewDto, buyerId: string) {
 
     const { rating, 
             comment, 
             review_receiver, 
-            status } = createReviewDto;
+            status,
+            order_id } = createReviewDto;
 
-    const existing_receiver = await this.prisma.user.findUnique({
-      where: { id: review_receiver },
-    });        
 
-    if (!existing_receiver) {
-      throw new NotFoundException('Review receiver does not exist');
+    const order = await this.prisma.order.findUnique({
+      where: { id: order_id },
+      select: {
+        id: true,
+        buyer_id: true,
+        seller_id: true,
+        order_status: true,
+      },
+    });
+
+
+    if (!order) throw new NotFoundException('Order not found');
+
+
+    if (order.buyer_id !== buyerId) {
+      throw new ConflictException('You are not authorized to review for this order');
     }
 
-    if (review_receiver === userId) {
-      throw new NotFoundException('You cannot review yourself');
+    if (order.order_status !== 'DELIVERED') {
+      throw new ConflictException('You can only review after the order is delivered');
+    }
+
+    if (order.seller_id !== review_receiver) {
+      throw new ConflictException('You can only review the seller of this order');
+    }
+
+    if(review_receiver === buyerId){
+      throw new ConflictException('You cannot review yourself');
+    }
+
+     const existingReview = await this.prisma.review.findFirst({
+      where: {
+        review_sender: buyerId,
+        review_receiver,
+        order_id,
+      },
+    });
+
+    if (existingReview) {
+      throw new ConflictException('You have already reviewed for this order');
     }
 
     const newReview = await this.prisma.review.create({
       data: {
-        rating, 
-        comment, 
-        review_receiver, 
-        review_sender: userId,
-        status
+        rating,
+        comment,
+        review_receiver,
+        review_sender: buyerId,
+        order_id
       },
+      include: {
+        order: true,
+      }
     });
+
 
     return {
       success: true,
@@ -51,13 +87,12 @@ export class ReviewService {
         id: newReview.id,
         rating: newReview.rating,
         comment: newReview.comment,
+        order_id: newReview.order_id,
         review_receiver: newReview.review_receiver,
         review_sender: newReview.review_sender,
         status: newReview.status
       }
     }
-
-
   }
 
   // get all reviews
