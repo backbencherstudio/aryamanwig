@@ -14,19 +14,19 @@ export class DashboradService {
 
   // fetch order demo list
 
-   private async fetchOrders( userId: string, role: 'buyer' | 'seller', status?: OrderStatus){  
-
+   private async fetchOrders( userId: string, role: 'buyer' | 'seller', status?: OrderStatus) {
+  
     const whereCondition: any = {};
 
-    if(role === 'buyer'){
+    if (role === 'buyer') {
       whereCondition.buyer_id = userId;
     }
 
-    if(role === 'seller'){
+    if (role === 'seller') {
       whereCondition.seller_id = userId;
     }
 
-    if(status){
+    if (status) {
       whereCondition.order_status = status;
     }
 
@@ -35,6 +35,22 @@ export class DashboradService {
       select: {
         id: true,
         order_status: true,
+        buyer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
+        seller: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
         order_items: {
           select: {
             quantity: true,
@@ -52,9 +68,28 @@ export class DashboradService {
       },
     });
 
-
     return orderList.map((order) => ({
-      id: order.id,
+      order_id: order.id,
+      order_status: order.order_status,
+    
+      order_owner:
+        role === 'buyer'
+          ? {
+              id: order.seller?.id,
+              name: order.seller?.name,
+              email: order.seller?.email,
+              avatar: order.seller?.avatar
+                ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${order.seller.avatar}`)
+                : null,
+            }
+          : {
+              id: order.buyer?.id,
+              name: order.buyer?.name,
+              email: order.buyer?.email,
+              avatar: order.buyer?.avatar
+                ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${order.buyer.avatar}`)
+                : null,
+            },
       items: order.order_items.map((item) => ({
         quantity: item.quantity,
         total_price: item.total_price,
@@ -67,6 +102,7 @@ export class DashboradService {
       })),
     }));
   }
+
 
 
 

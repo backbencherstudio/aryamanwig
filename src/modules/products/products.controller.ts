@@ -35,6 +35,8 @@ export class ProductsController {
     return this.productsService.create(createProductDto, user, file);
   }
 
+
+
   // get all products 
   @Get('allproducts')
   async findAll() {
@@ -82,6 +84,8 @@ export class ProductsController {
     return this.productsService.remove(id, user);
   }
 
+  /*=================( Boosting Area Start)=================*/
+
   // Create Product Boost
   @UseGuards(JwtAuthGuard)
   @Post('create-boost')
@@ -97,12 +101,17 @@ export class ProductsController {
     return this.productsService.getBoostedProducts();
   }
 
+  /*=================( Filter Area Start)=================*/
 
   // get products by filter with price range and categories
   @Get('filter')
   async filterProducts(@Query() filterDto: FilterProductDto) {
     return this.productsService.filterProducts(filterDto);
   }
+
+  
+  /*=================( Category Area Start)=================*/
+
 
   // get all products in a category
   @Get('category/:id/products')
@@ -121,6 +130,10 @@ export class ProductsController {
   async findOldestProductsInCategory(@Param('id') id: string) {
     return this.productsService.findOldestProductsInCategory(id);
   }
+
+
+  /*=================( Biding Area Start)=================*/
+
 
 
 
