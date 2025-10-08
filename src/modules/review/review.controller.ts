@@ -14,8 +14,8 @@ export class ReviewController {
   create(@Body() createReviewDto: CreateReviewDto,
          @Req() req: any
   ) {
-    const user = req.user.userId;
-    return this.reviewService.create(createReviewDto, user);
+    const buyerId = req.user.userId;
+    return this.reviewService.create(createReviewDto, buyerId);
   }
 
   // get all reviews

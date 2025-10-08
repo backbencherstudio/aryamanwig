@@ -194,10 +194,16 @@ model Review {
   comment String?
   status  Int?    @default(1) @db.SmallInt
 
-  review_receiver String? // যাকে রিভিউ দেওয়া হচ্ছে (User Id)
-  review_sender   String? // যাকে রিভিউ দেওয়া হচ্ছে (User Id)
+  // 🔗 Relation with Order
+  order_id String?
+  order    Order?  @relation("OrderToReview", fields: [order_id], references: [id])
+
+  review_receiver String? 
+  review_sender   String? 
 
   user User? @relation(fields: [review_sender], references: [id])
+
+  @@unique([order_id])
 
   @@map("reviews")
 }
@@ -269,6 +275,11 @@ model Order {
   created_at        DateTime    @default(now())
   updated_at        DateTime    @default(now())
   delivery_date     DateTime?  
+
+
+  // 🔗 Relation with Review
+  reviews Review[] @relation("OrderToReview")
+
 
   order_items       OrderItem[]
   User              User?       @relation(fields: [userId], references: [id])
