@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -12,102 +13,55 @@ import {
 } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CreateCartDto } from './dto/create-cart.dto';
+import { UpdateCartDto } from './dto/update-cart.dto';
 
 @Controller('cart')
 export class CartController {
+
   constructor(private readonly cartService: CartService) {}
 
-  // If already has cart then update, if not then create and then add an item to the cart
+  // create cart 
   @UseGuards(JwtAuthGuard)
-  @Put('add-item')
-  async addItemToCart(
-    @Req() req: any,
-    @Body() data: { productId: string; quantity: number },
-  ) {
-    console.log(req.user.userId, data.productId, data.quantity);
-
-    const { productId, quantity } = data;
-    try {
-      const userId = req.user.userId;
-
-      const result = await this.cartService.addItemToCart(
-        userId,
-        productId,
-        quantity,
-      );
-      return {
-        success: true,
-        data: result,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || 'Failed to add item to cart',
-      };
-    }
+  @Post('create')
+  addToCart(
+    @Req() req, @Body() dto: CreateCartDto) {
+    const user = req.user.userId;
+    return this.cartService.addToCart(user, dto);
   }
 
-  // Remove an item from the cart
+
+  // update cart item
   @UseGuards(JwtAuthGuard)
-  @Delete('remove-item/:cartItemId')
-  async removeItemFromCart(
-    @Req() req: any,
+  @Patch('update/:cartItemId')
+  updateCartItem(
     @Param('cartItemId') cartItemId: string,
+    @Body() dto: UpdateCartDto,
   ) {
-    try {
-      const userId = req.user.userId;
-      const result = await this.cartService.removeItemFromCart(
-        userId,
-        cartItemId,
-      );
-      return {
-        success: true,
-        data: 'Cart item removed successfully',
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || 'Failed to remove item from cart',
-      };
-    }
+    return this.cartService.updateCartItem(cartItemId, dto);
   }
 
-  // Clear all items in a user's cart
+  // My cart list
   @UseGuards(JwtAuthGuard)
-  @Delete('clear/:cartId')
-  async clearCart(@Req() req: any, @Param('cartId') cartId: string) {
-    try {
-      const userId = req.user.userId;
-      const result = await this.cartService.clearCart(userId, cartId);
-      return {
-        success: true,
-        data: 'Cart cleared successfully',
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || 'Failed to clear cart',
-      };
-    }
+  @Get('my-cart')
+  getMyCart(@Req() req) {
+    const user = req.user.userId;
+    return this.cartService.getMyCart(user);
   }
 
-  // Get all items in a user's cart grouped by product owner
+  // my cart with sellers id
   @UseGuards(JwtAuthGuard)
-  @Get('cart-items')
-  async getCartItemsGroupedByOwner(@Req() req: any) {
-    try {
-      const userId = req.user.userId;
-      const cartItems =
-        await this.cartService.getCartItemsGroupedByOwner(userId);
-      return {
-        success: true,
-        data: cartItems,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message || 'Failed to retrieve cart items',
-      };
-    }
+  @Get('my-cart/:sellerId')
+  getMyCartBySeller(
+      @Req() req, 
+      @Param('sellerId') sellerId: string) {
+    const userId = req.user.userId;
+    return this.cartService.getMyCartBySeller(userId, sellerId);
   }
+
+  
+
+
+
+
 }
