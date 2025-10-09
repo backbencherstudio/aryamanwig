@@ -32,6 +32,7 @@ import { OrderController } from './modules/order/order.controller';
 import { OrderModule } from './modules/order/order.module';
 import { DashboradModule } from './modules/dashborad/dashborad.module';
 import { ProfileModule } from './modules/profile/profile.module';
+import { BidModule } from './modules/bid/bid.module';
 
 
 @Module({
@@ -98,7 +99,8 @@ import { ProfileModule } from './modules/profile/profile.module';
     CronModule,
     OrderModule,
     DashboradModule,
-    ProfileModule
+    ProfileModule,
+    BidModule
   ],
   controllers: [AppController, OrderController],
   providers: [
