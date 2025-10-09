@@ -57,7 +57,6 @@ export class DashboradController {
   }
   
   
-  
   // selling pending item  for user
   @UseGuards(JwtAuthGuard)
   @Get('selling-pending-item')

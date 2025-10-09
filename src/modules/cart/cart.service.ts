@@ -12,7 +12,6 @@ export class CartService {
 
   constructor(private prisma: PrismaService) {}
 
- 
   // add to cart
   async addToCart(userId: string, dto: CreateCartDto) {
 
@@ -102,6 +101,20 @@ export class CartService {
 
   }
 
+  // remove cart item
+  async removeCartItem(cartItemId: string) {
+
+    const cartItem = await this.prisma.cartItem.findUnique({
+      where: { id: cartItemId },
+    });
+
+    if (!cartItem) throw new NotFoundException('Cart item not found');
+
+    await this.prisma.cartItem.delete({ where: { id: cartItemId } });
+
+    return { success: true, message: 'Item deleted from cart' };
+  }
+  
   // my cart list
    async getMyCart(userId: string) {
 
@@ -271,5 +284,4 @@ export class CartService {
   }
 
   
-
 }
