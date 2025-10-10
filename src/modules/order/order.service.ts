@@ -1,334 +1,258 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderStatus, Prisma } from '@prisma/client';
-import { OrderProductDto, ShippingInfoDto } from './dto/create-order.dto';
-import { Or } from '@prisma/client/runtime/library';
+// import { OrderProductDto, ShippingInfoDto } from './dto/create-order.dto';
+import { Decimal, Or } from '@prisma/client/runtime/library';
+import { CreateOrderDto } from './dto/create-order.dto';
+import appConfig from 'src/config/app.config';
+import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 
 @Injectable()
 export class OrderService {
+
   constructor(private prisma: PrismaService) {}
 
-  async placeOrder(
-    buyerId: string,
-    sellerId: string,
-    shippingInfo: ShippingInfoDto,
-    orderProducts: OrderProductDto[],
-  ) {
-    const order = await this.prisma.$transaction(async (prisma) => {
 
-      let grandTotal = new Prisma.Decimal(0);
+  // create order
+  async createOrder(buyerId: string, sellerId: string, dto: CreateOrderDto) {
 
-      // অর্ডারের ডেলিভারি তারিখ অটো ৭ দিনের পর
-      const deliveryDate = new Date();
-      deliveryDate.setDate(deliveryDate.getDate() + 7);
- 
-      const order = await prisma.order.create({
-        data: {
-          buyer: { connect: { id: buyerId } },
-          seller: { connect: { id: sellerId } },
-          order_status: 'PENDING',
-          // total_amount: new Prisma.Decimal(0),
-          grand_total: grandTotal,
-          shipping_name: shippingInfo.shipping_name,
-          email: shippingInfo.email,
-          shipping_country: shippingInfo.shipping_country,
-          shipping_state: shippingInfo.shipping_state,
-          shipping_city: shippingInfo.shipping_city,
-          shipping_zip_code: shippingInfo.shipping_zip_code,
-          shipping_address: shippingInfo.shipping_address,
-          delivery_date: deliveryDate,
-        },
-      });
-
-      for (const product of orderProducts) {
-        const prod = await prisma.product.findUnique({
-          where: { id: product.product_id },
-        });
-        if (sellerId !== prod?.user_id) {
-          throw new Error(
-            `Order create only for specific one seller. Product with Title: '${prod.product_title}' does not belong to the given seller_id`,
-          );
-        }
-        if (!prod) {
-          throw new Error(`Product with ID ${product.product_id} not found`);
-        }
-        if (prod.stock < product.quantity) {
-          throw new Error(
-            `Insufficient stock for product ID ${product.product_id}`,
-          );
-        }
-
-        // Ensure proper type conversion for multiplication
-        const productTotalPrice = prod.price.mul(
-          new Prisma.Decimal(product.quantity),
-        );
-        grandTotal = grandTotal.add(productTotalPrice);
-
-        const orderItem = await prisma.orderItem.create({
-          data: {
-            order: { connect: { id: order.id } },
-            product: { connect: { id: product.product_id } },
-            quantity: product.quantity,
-            total_price: productTotalPrice,
-          },
-        });
-        if (!orderItem) {
-          throw new Error('Failed to create order item');
-        }
-        // also reduce the stock of the product
-        const updatedProduct = await prisma.product.update({
-          where: { id: product.product_id },
-          data: {
-            stock: { decrement: product.quantity },
-          },
-        });
-        if (!updatedProduct) {
-          throw new Error('Failed to update product stock');
-        }
-      }
-
-      const updatedOrder = await prisma.order.update({
-        where: { id: order.id },
-        data: { grand_total: grandTotal },
-      });
-      if (!updatedOrder) {
-        throw new Error('Failed to update order totals');
-      }
-
-      return updatedOrder;
-    });
-    return order;
-  }
-
-  // for buyer
-  async trackOrdersByBuyer(buyerId: string, status?: string) {
-    const orders = await this.prisma.order.findMany({
-      // add condition if status is provided
-      where: {
-        buyer_id: buyerId,
-        ...(status && { order_status: status as OrderStatus }),
-      },
-      // only select order_id, created_at, updated_at
-      select: {
-        id: true,
-        seller_id: true,
-        grand_total: true,
-        order_status: true,
-        created_at: true,
-        updated_at: true,
-        order_items: {
-          // only select orderItem_id, productId, product_title, photo, quantity, total_price
-          select: {
-            id: true,
+  
+    const cart = await this.prisma.cart.findFirst({
+      where: { user_id: buyerId },
+      include: {
+        cartItems: {
+          include: {
             product: {
-              select: { product_title: true, photo: true },
+              include: { user: true },
             },
-            quantity: true,
-            total_price: true,
           },
         },
       },
     });
 
-    // order_items এর length 0 হলে error throw কর
-    if(orders.length === 0) {
-      throw new Error('No orders found for this buyer');
+    if (!cart) throw new NotFoundException('Cart not found');
+
+    const items = cart.cartItems.filter(
+      (i) => i.product.user.id === sellerId,
+    );
+
+    if (items.length === 0) {
+      throw new NotFoundException('No products found for this seller');
     }
 
-    // order_items এর length 0 হলে error throw কর
-    orders.forEach((order) => {
-      if (order.order_items.length === 0) {
-        throw new Error(`No items found for order ID ${order.id}`);
+    const grandTotal = items.reduce(
+      (sum, i) => sum + parseFloat(i.total_price.toString()),
+      0,
+    );
+
+    // ✅ Transaction শুরু
+    const result = await this.prisma.$transaction(async (tx) => {
+
+      
+      const order = await tx.order.create({
+        data: {
+          buyer_id: buyerId,
+          seller_id: sellerId,
+          grand_total: new Decimal(grandTotal),
+          order_status: 'PENDING',
+          payment_status: 'DUE',
+          shipping_name: dto.shipping_name,
+          email: dto.email,
+          shipping_country: dto.shipping_country,
+          shipping_state: dto.shipping_state,
+          shipping_city: dto.shipping_city,
+          shipping_zip_code: dto.shipping_zip_code,
+          shipping_address: dto.shipping_address,
+        },
+      });
+
+      
+      for (const item of items) {
+        await tx.orderItem.create({
+          data: {
+            order_id: order.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            total_price: item.total_price,
+          },
+        });
       }
+
+      // 3️⃣ ওই seller এর কার্ট থেকে পণ্য ডিলিট করা হচ্ছে
+      await tx.cartItem.deleteMany({
+        where: {
+          cart_id: cart.id,
+          product: { user_id: sellerId },
+        },
+      });
+
+      return order;
     });
-    
 
-    orders.splice(0, 0); // to make orders not readonly array
-
-
-
-
-    if (!orders) {
-      throw new Error('No orders found for this buyer');
-    }
-    // make additional field named order_name -> first product name before space + (n-1) more (max 30 char)
-    orders.forEach((order) => {
-      if (order.order_items.length > 0) {
-        const firstProductName = order.order_items[0].product.product_title;
-        const additionalProductsCount = order.order_items.length - 1;
-        order['order_name'] =
-          `${firstProductName} + ${additionalProductsCount} more`;
-      }
-    });
-    return orders;
+   
+    return {
+      success: true,
+      message: 'Order created successfully',
+      data: {
+        order_id: result.id,
+        seller_id: sellerId,
+        total: grandTotal,
+        items: items.map((i) => ({
+          product_id: i.product.id,
+          title: i.product.product_title,
+          price: i.product.price,
+          quantity: i.quantity,
+          total_price: i.total_price,
+        })),
+      },
+    };
   }
 
-  async trackSpecificOrderByBuyer(buyerId: string, orderId: string) {
-    const order = await this.prisma.order.findFirst({
-      where: { buyer_id: buyerId, id: orderId },
+
+  // get my all orders
+  async getMyOrders(userId: string) {
+
+    const orders = await this.prisma.order.findMany({
+      where: { buyer_id: userId },
       include: {
         seller: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            avatar: true,
-            email: true,
-            address: true,
-            zip_code: true,
-            city: true,
-            state: true,
-            country: true,
-          },
+          select: { id: true, name: true, avatar: true },
         },
         order_items: {
           include: {
             product: {
-              select: { id: true, product_title: true, photo: true },
+              select: {
+                id: true,
+                product_title: true,
+                price: true,
+                photo: true,
+              },
             },
           },
         },
       },
+      orderBy: { created_at: 'desc' },
     });
 
-    if (!order) {
-      throw new Error('No orders found for this buyer');
+    if (orders.length === 0) {
+      return { success: true, message: 'No orders found', data: [] };
     }
 
-    // Transform the response to match the desired structure
-    const transformedOrder = {
-      id: order.id,
-      order_status: order.order_status,
-      grand_total: order.grand_total,
-      shipping_details: {
-        shipping_name: order.shipping_name,
-        email: order.email,
-        shipping_country: order.shipping_country,
-        shipping_state: order.shipping_state,
-        shipping_city: order.shipping_city,
-        shipping_zip_code: order.shipping_zip_code,
-        shipping_address: order.shipping_address,
-      },
-      total_amount: order.grand_total,
-      created_at: order.created_at,
-      updated_at: order.updated_at,
-      seller: order.seller,
-      order_items: order.order_items.map((item) => ({
-        id: item.id,
-        quantity: item.quantity,
-        total_price: item.total_price,
-        product: item.product,
+    const baseUrl = appConfig().storageUrl.product;
+
+    return {
+      success: true,
+      message: 'Orders fetched successfully',
+      data: orders.map((o) => ({
+        order_id: o.id,
+        seller: {
+          id: o.seller.id,
+          name: o.seller.name,
+          avatar: o.seller.avatar
+            ? SojebStorage.url(`${baseUrl}/${o.seller.avatar}`)
+            : null,
+        },
+        total: o.grand_total,
+        status: o.order_status,
+        created_at: o.created_at,
+        items: o.order_items.map((i) => ({
+          product_id: i.product.id,
+          title: i.product.product_title,
+          price: i.product.price,
+          photo: i.product.photo
+            ? SojebStorage.url(`${baseUrl}/${i.product.photo}`)
+            : null,
+          quantity: i.quantity,
+          total_price: i.total_price,
+        })),
       })),
     };
-
-    return transformedOrder;
   }
 
-  // TODO: for seller
-  async trackOrdersBySeller(sellerId: string, status?: string) {
-    const orders = await this.prisma.order.findMany({
-      where: {
-        seller_id: sellerId,
-        ...(status && { order_status: status as OrderStatus }),
-      },
-      // only select order_id, created_at, updated_at
-      select: {
-        id: true,
-        buyer_id: true,
-        grand_total: true,
-        order_status: true,
-        created_at: true,
-        updated_at: true,
-        order_items: {
-          // only select orderItem_id, productId, product_title, photo, quantity, total_price
-          select: {
-            id: true,
-            product: {
-              select: { product_title: true, photo: true },
-            },
-            quantity: true,
-            total_price: true,
-          },
-        },
-      },
-    });
 
-    if (!orders) {
-      throw new Error('No orders found for this seller');
-    }
-    // make additional field named order_name -> first product name before space + (n-1) more (max 30 char)
-    orders.forEach((order) => {
-      if (order.order_items.length > 0) {
-        const firstProductName = order.order_items[0].product.product_title;
-        const additionalProductsCount = order.order_items.length - 1;
-        order['order_name'] =
-          `${firstProductName} + ${additionalProductsCount} more`;
-      }
-    });
-    return orders;
-  }
-
-  async trackSpecificOrderBySeller(sellerId: string, orderId: string) {
-    const order = await this.prisma.order.findFirst({
-      where: { seller_id: sellerId, id: orderId },
+  // get single order
+  async getSingleOrder(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
       include: {
-        buyer: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-            address: true,
-            city: true,
-            state: true,
-            country: true,
-            zip_code: true,
-          },
-        },
+        buyer: { select: { id: true, name: true, email: true, avatar: true } },
+        seller: { select: { id: true, name: true, email: true, avatar: true } },
         order_items: {
           include: {
             product: {
-              select: { id: true, product_title: true, photo: true },
+              select: {
+                id: true,
+                product_title: true,
+                price: true,
+                photo: true,
+              },
             },
           },
         },
       },
     });
 
-    if (!order) {
-      throw new Error('No orders found for this seller');
-    }
+    if (!order) throw new NotFoundException('Order not found');
 
-    // Transform the response to match the desired structure
-    const transformedOrder = {
-      id: order.id,
-      order_status: order.order_status,
-      grand_total: order.grand_total,
-      shipping_details: {
-        shipping_name: order.shipping_name,
-        email: order.email,
-        shipping_country: order.shipping_country,
-        shipping_state: order.shipping_state,
-        shipping_city: order.shipping_city,
-        shipping_zip_code: order.shipping_zip_code,
-        shipping_address: order.shipping_address,
+    const baseUrl = appConfig().storageUrl.product;
+
+   
+    const sellerAvatar = order.seller?.avatar
+      ? SojebStorage.url(`${baseUrl}/${order.seller.avatar}`)
+      : null;
+
+    const buyerAvatar = order.buyer?.avatar
+      ? SojebStorage.url(`${baseUrl}/${order.buyer.avatar}`)
+      : null;
+
+    
+    const products = order.order_items.map((item) => ({
+      product_id: item.product.id,
+      product_title: item.product.product_title,
+      price: item.product.price,
+      photo: item.product.photo
+        ? SojebStorage.url(`${baseUrl}/${item.product.photo}`)
+        : null,
+      quantity: item.quantity,
+      total_price: item.total_price,
+    }));
+
+    
+    return {
+      success: true,
+      message: 'Order details fetched successfully',
+      data: {
+        order_id: order.id,
+        grand_total: order.grand_total,
+        status: order.order_status,
+        payment_status: order.payment_status,
+        created_at: order.created_at,
+        seller: {
+          id: order.seller.id,
+          name: order.seller.name,
+          email: order.seller.email,
+          avatar: sellerAvatar,
+        },
+        buyer: {
+          id: order.buyer.id,
+          name: order.buyer.name,
+          email: order.buyer.email,
+          avatar: buyerAvatar,
+        },
+        shipping_info: {
+          name: order.shipping_name,
+          country: order.shipping_country,
+          state: order.shipping_state,
+          city: order.shipping_city,
+          zip_code: order.shipping_zip_code,
+          address: order.shipping_address,
+        },
+        products,
       },
-      total_amount: order.grand_total,
-      created_at: order.created_at,
-      updated_at: order.updated_at,
-      buyer: order.buyer,
-      order_items: order.order_items.map((item) => ({
-        id: item.id,
-        quantity: item.quantity,
-        total_price: item.total_price,
-        product: item.product,
-      })),
     };
-
-    return transformedOrder;
   }
 
 
-  // get all orders - only for admin
+  
 
 }

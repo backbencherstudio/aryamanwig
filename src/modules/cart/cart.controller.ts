@@ -41,6 +41,15 @@ export class CartController {
     return this.cartService.updateCartItem(cartItemId, dto);
   }
 
+  // remove cart item
+   // 🗑 Remove a cart item
+  @UseGuards(JwtAuthGuard)
+  @Delete('delete/:cartItemId')
+  removeCartItem(@Param('cartItemId') cartItemId: string) {
+    return this.cartService.removeCartItem(cartItemId);
+  }
+
+
   // My cart list
   @UseGuards(JwtAuthGuard)
   @Get('my-cart')
@@ -58,6 +67,8 @@ export class CartController {
     const userId = req.user.userId;
     return this.cartService.getMyCartBySeller(userId, sellerId);
   }
+
+
 
   
 

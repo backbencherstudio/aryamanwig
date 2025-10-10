@@ -36,7 +36,6 @@ export class ProductsController {
   }
 
 
-
   // get all products 
   @Get('allproducts')
   async findAll() {

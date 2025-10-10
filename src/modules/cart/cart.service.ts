@@ -12,12 +12,12 @@ export class CartService {
 
   constructor(private prisma: PrismaService) {}
 
- 
   // add to cart
   async addToCart(userId: string, dto: CreateCartDto) {
-
+    
     const { product_id, quantity } = dto;
 
+    // 🔍 Step 1: Product খুঁজে বের করো
     const product = await this.prisma.product.findUnique({
       where: { id: product_id },
       select: { id: true, price: true },
@@ -25,6 +25,20 @@ export class CartService {
 
     if (!product) throw new NotFoundException('Product not found');
 
+    // 🔍 Step 2: User এর bid চেক করো
+    const checkBid = await this.prisma.bid.findFirst({
+      where: {
+        product_id: product_id,
+        user_id: userId,
+        status: 'ACCEPTED',
+      },
+    });
+
+    const priceToUse = checkBid
+      ? new Decimal(checkBid.bid_amount)
+      : new Decimal(product.price);
+
+    // 🔍 Step 3: Cart খুঁজে বের করো, না থাকলে তৈরি করো
     let cart = await this.prisma.cart.findFirst({
       where: { user_id: userId },
     });
@@ -35,6 +49,7 @@ export class CartService {
       });
     }
 
+    // 🔍 Step 4: আগেই cart item আছে কিনা চেক করো
     const existingItem = await this.prisma.cartItem.findFirst({
       where: {
         cart_id: cart.id,
@@ -42,32 +57,47 @@ export class CartService {
       },
     });
 
-    if (existingItem) {
-      const newQty = existingItem.quantity + quantity;
-      const newTotal = new Decimal(product.price).mul(newQty);
-      await this.prisma.cartItem.update({
-        where: { id: existingItem.id },
-        data: {
-          quantity: newQty,
-          total_price: newTotal,
-        },
-      });
-    } else {
-      await this.prisma.cartItem.create({
-        data: {
-          cart_id: cart.id,
-          product_id,
-          quantity,
-          total_price: new Decimal(product.price).mul(quantity),
-        },
-      });
-    }
+    // 🔒 Step 5: সব write অপারেশন transaction এর ভিতরে করো
+    await this.prisma.$transaction(async (tx) => {
+      if (existingItem) {
+        const newQty = existingItem.quantity + quantity;
+        const newTotal = priceToUse.mul(newQty);
 
-    return { 
+        await tx.cartItem.update({
+          where: { id: existingItem.id },
+          data: {
+            quantity: newQty,
+            total_price: newTotal,
+          },
+        });
+      } else {
+        await tx.cartItem.create({
+          data: {
+            cart_id: cart.id,
+            product_id,
+            quantity,
+            total_price: priceToUse.mul(quantity),
+          },
+        });
+      }
+
+      // 🔥 যদি bid থাকে → delete করে দাও
+      if (checkBid) {
+        await tx.bid.delete({
+          where: { id: checkBid.id },
+        });
+      }
+    });
+
+    // ✅ সব কাজ শেষ
+    return {
       success: true,
-       message: 'Product added to cart'
+      message: checkBid
+        ? 'Winning bid product added to cart successfully'
+        : 'Product added to cart',
     };
   }
+
 
   // update cart item
   async updateCartItem(cartItemId: string, dto: UpdateCartDto) {
@@ -102,6 +132,20 @@ export class CartService {
 
   }
 
+  // remove cart item
+  async removeCartItem(cartItemId: string) {
+
+    const cartItem = await this.prisma.cartItem.findUnique({
+      where: { id: cartItemId },
+    });
+
+    if (!cartItem) throw new NotFoundException('Cart item not found');
+
+    await this.prisma.cartItem.delete({ where: { id: cartItemId } });
+
+    return { success: true, message: 'Item deleted from cart' };
+  }
+  
   // my cart list
    async getMyCart(userId: string) {
 
@@ -271,5 +315,4 @@ export class CartService {
   }
 
   
-
 }
