@@ -89,10 +89,12 @@ export default () => ({
     blog: '/blog',
     avatar: '/avatar',
     product: 'product',
+    category: 'category',
     websiteInfo: '/website-info',
     // chat
     attachment: '/attachment',
   },
+
 
   defaultUser: {
     system: {

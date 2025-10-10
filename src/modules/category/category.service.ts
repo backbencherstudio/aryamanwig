@@ -2,6 +2,9 @@ import { ConflictException, ForbiddenException, Injectable, NotFoundException } 
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { StringHelper } from 'src/common/helper/string.helper';
+import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
+import appConfig from 'src/config/app.config';
 
 @Injectable()
 export class CategoryService {
@@ -9,7 +12,11 @@ export class CategoryService {
   constructor(private prisma: PrismaService) {}
 
   // Create a new category
-  async create(createCategoryDto: CreateCategoryDto, user: string) {
+  async create(
+     createCategoryDto: CreateCategoryDto, 
+     user: string,
+     image?: Express.Multer.File
+    ) {
 
     const { category_name, category_description, status } = createCategoryDto;
 
@@ -21,12 +28,26 @@ export class CategoryService {
         throw new ConflictException('Category with this name already exists');
       }
 
+      // 📸 Handle photo upload if provided
+      let photo: string | null = null;
+
+      if (image) {
+      const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
+      await SojebStorage.put(
+        appConfig().storageUrl.category + '/' + fileName,
+        image.buffer,
+      );
+      photo = fileName;
+    }
+
+
       const newCategory = await this.prisma.category.create({
         data: {
           category_name,
           category_description,
           status,
           category_owner: user,
+          photo,
         },
       });
 
@@ -37,9 +58,10 @@ export class CategoryService {
           id: newCategory.id,
           category_name: newCategory.category_name,
           category_description: newCategory.category_description, 
+          status: newCategory.status,
+          photo: newCategory.photo ? SojebStorage.url(`${appConfig().storageUrl.category}/${newCategory.photo}`) : null,
         }
       };
-  
   }
 
   // Get all categories
@@ -55,11 +77,11 @@ export class CategoryService {
         category_name: category.category_name,
         category_description: category.category_description,
         status: category.status,
+        photo: category.photo ? SojebStorage.url(`${appConfig().storageUrl.category}/${category.photo}`) : null,
       })),
     };
   }
 
-  
   // Get a category by ID
   async findOne(id: string) {
 
@@ -84,7 +106,12 @@ export class CategoryService {
   }
 
   // Update a category
-  async update(id: string, updateCategoryDto: UpdateCategoryDto, user: string) {
+  async update(
+     id: string, 
+     updateCategoryDto: UpdateCategoryDto, 
+     user: string,
+     image?: Express.Multer.File
+   ) {
 
     const { category_name, category_description, status } = updateCategoryDto;
 
@@ -95,8 +122,6 @@ export class CategoryService {
     if (!category) {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
-
-    console.log('Category found:', category);
 
     if (category.category_owner !== user) {
       throw new ForbiddenException('You are not allowed to update this category');
@@ -113,9 +138,26 @@ export class CategoryService {
       } 
     }
 
+
+    // 📸 Handle photo upload if provided
+    let photo = category.photo;
+
+    if (image) {
+      const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
+      await SojebStorage.put(
+        appConfig().storageUrl.category + '/' + fileName,
+        image.buffer,
+      );
+      photo = fileName;
+    }
+
+
     const updatedCategory = await this.prisma.category.update({
       where: { id },
-      data: updateCategoryDto
+      data: {
+        ...updateCategoryDto,
+        photo,
+      },
     });
 
     return{
@@ -126,6 +168,7 @@ export class CategoryService {
         category_name: updatedCategory.category_name,
         category_description: updatedCategory.category_description,
         status: updatedCategory.status,
+        photo: updatedCategory.photo ? SojebStorage.url(`${appConfig().storageUrl.category}/${updatedCategory.photo}`) : null,
 
       }
     }

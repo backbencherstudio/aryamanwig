@@ -254,7 +254,6 @@ export class ProductsService {
     };
   }
 
-
   // get all products for a user
   async getAllProductsForUser(user: string) {
     

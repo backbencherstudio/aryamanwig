@@ -164,6 +164,7 @@ model Category {
 
   category_name        String  @unique
   category_description String?
+  photo                String?
   status               Int?    @default(1) @db.SmallInt
 
   // relationship with product
