@@ -76,5 +76,11 @@ export class CategoryController {
   return this.categoryService.remove(id,user);
   }
 
+  // Get all categories for a user
+  @UseGuards(JwtAuthGuard)
+  @Get('user-all-categories')
+  getAllCategoriesForUser(@Req() req: any) {
+    const user = req.user.userId;
+    return this.categoryService.getAllCategoriesForUser(user);}
  
 }

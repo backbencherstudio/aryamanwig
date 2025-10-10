@@ -205,6 +205,24 @@ export class CategoryService {
   }
 
 
+  // Get all categories for a user
+  async getAllCategoriesForUser(user: string) {
+    const categories = await this.prisma.category.findMany({
+      where: { category_owner: user },
+    });
+    return {
+      success: true,
+      message: 'User categories retrieved successfully',
+      data: categories.map(category => ({   
+        category_id: category.id,
+        category_name: category.category_name,
+        category_description: category.category_description,  
+        status: category.status,
+        photo: category.photo ? SojebStorage.url(`${appConfig().storageUrl.category}/${category.photo}`) : null,
+      })),
+    };
+  }
+
 
   
 }
