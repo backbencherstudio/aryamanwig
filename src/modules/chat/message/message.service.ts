@@ -9,37 +9,47 @@ import { DateHelper } from '../../../common/helper/date.helper';
 import { MessageGateway } from './message.gateway';
 import { UserRepository } from '../../../common/repository/user/user.repository';
 import { Role } from '../../../common/guard/role/role.enum';
+import { AttachmentDto } from './dto/attachment.dto';
+import { StringHelper } from 'src/common/helper/string.helper';
 
 @Injectable()
 export class MessageService {
   constructor(
     private prisma: PrismaService,
     private readonly messageGateway: MessageGateway,
-  ) {}
+  ) { }
 
-  async create(user_id: string, createMessageDto: CreateMessageDto) {
+  async create(
+    user_id: string,
+    createMessageDto: CreateMessageDto,
+    attachment?: Express.Multer.File,
+  ) {
     try {
       const data: any = {};
 
       if (createMessageDto.conversation_id) {
         data.conversation_id = createMessageDto.conversation_id;
       }
-
-      if (createMessageDto.receiver_id) {
-        data.receiver_id = createMessageDto.receiver_id;
-      }
-
       if (createMessageDto.message) {
         data.message = createMessageDto.message;
       }
 
       // check if conversation exists
-      const conversation = await this.prisma.conversation.findFirst({
-        where: {
-          id: data.conversation_id,
+      const conversation = await this.prisma.conversation.findUnique({
+        where: { id: createMessageDto.conversation_id },
+        select: {
+          id: true,
+          participant_id: true,
+          creator_id: true,
+          deleted_by_creator: true,
+          deleted_by_participant: true,
         },
       });
-
+      // const conversation = await this.prisma.conversation.findFirst({
+      //   where: {
+      //     id: data.conversation_id,
+      //   },
+      // });
       if (!conversation) {
         return {
           success: false,
@@ -47,10 +57,15 @@ export class MessageService {
         };
       }
 
+      const receiver_id = conversation.creator_id === user_id ? conversation.participant_id : conversation.creator_id;
+      if (receiver_id) {
+        data.receiver_id = receiver_id;
+      }
+
       // check if receiver exists
       const receiver = await this.prisma.user.findFirst({
         where: {
-          id: data.receiver_id,
+          id: receiver_id,
         },
       });
 
@@ -61,6 +76,26 @@ export class MessageService {
         };
       }
 
+      // here handle attachment upload
+      // console.log('Service attachment : ', attachment);
+      let attachmentData: AttachmentDto = null;
+      if (attachment) {
+        const originalName = attachment.originalname.replace(/\s+/g, '');
+        const fileName = `${StringHelper.randomString()}-${Date.now()}-${originalName}`;
+        await SojebStorage.disk('local').put(appConfig().storageUrl.attachment + fileName, attachment.buffer);
+
+        attachmentData = {
+          name: originalName,
+          type: attachment.mimetype,
+          size: attachment.size,
+          file: fileName,
+        };
+        const newAttachment = await this.prisma.attachment.create({
+          data: attachmentData,
+        });
+        data.attachment_id = newAttachment.id;
+      }
+
       const message = await this.prisma.message.create({
         data: {
           ...data,
@@ -68,6 +103,33 @@ export class MessageService {
           sender_id: user_id,
         },
       });
+
+      // Check if this is the first message sent to the receiver by the sender
+      const existingNotification = await this.prisma.notification.findFirst({
+        where: {
+          sender_id: user_id,
+          receiver_id: data.receiver_id,
+        },
+      });
+
+      const userDetails = await UserRepository.getUserDetails(user_id);
+      // If no notification exists, create one
+      if (!existingNotification) {
+        const notificationEvent = await this.prisma.notificationEvent.create({
+          data: {
+            type: 'New Message',
+            text: `You have received a new message from ${userDetails.last_name}`,
+          },
+        });
+        // Create the notification
+        await this.prisma.notification.create({
+          data: {
+            sender_id: user_id,
+            receiver_id: data.receiver_id,
+            notification_event_id: notificationEvent.id,
+          },
+        });
+      }
 
       // update conversation updated_at
       await this.prisma.conversation.update({
@@ -96,6 +158,8 @@ export class MessageService {
       };
     }
   }
+
+
 
   async findAll({
     user_id,
