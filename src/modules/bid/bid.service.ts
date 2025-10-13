@@ -76,6 +76,7 @@ export class BidService {
         created_at: true,
         boost_until: true,
         condition: true,
+        location: true,
         size: true,
       },
     });
@@ -119,6 +120,7 @@ export class BidService {
       product: {
         id: product.id,
         product_title: product.product_title,
+        location:product.location,
         price: product.price,
         photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
         condition: product.condition,

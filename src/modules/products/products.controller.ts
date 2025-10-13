@@ -35,7 +35,6 @@ export class ProductsController {
     return this.productsService.create(createProductDto, user, file);
   }
 
-
   // get all products 
   @Get('allproducts')
   async findAll() {
@@ -46,14 +45,6 @@ export class ProductsController {
   @Get('singleproduct/:id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);
-  }
-
-  // get all products for a user
-  @UseGuards(JwtAuthGuard)
-  @Get('user-all-products')
-  getAllProductsForUser(@Req() req: any) {
-    const user = req.user.userId;
-    return this.productsService.getAllProductsForUser(user);
   }
 
   // update product by id
@@ -83,6 +74,14 @@ export class ProductsController {
     return this.productsService.remove(id, user);
   }
 
+
+  // get all products for a user
+  @UseGuards(JwtAuthGuard)
+  @Get('user-all-products')
+  getAllProductsForUser(@Req() req: any) {
+    const user = req.user.userId;
+    return this.productsService.getAllProductsForUser(user);
+  }
   /*=================( Boosting Area Start)=================*/
 
   // Create Product Boost
@@ -100,34 +99,47 @@ export class ProductsController {
     return this.productsService.getBoostedProducts();
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('user-boosted-products')
+  async getUserBoostedProducts(@Req() req: any) {
+    const user = req.user.userId;
+    return this.productsService.getUserBoostedProducts(user);
+  }
+
   /*=================( Filter Area Start)=================*/
 
   // get products by filter with price range and categories
+  @UseGuards(JwtAuthGuard)
   @Get('filter')
-  async filterProducts(@Query() filterDto: FilterProductDto) {
-    return this.productsService.filterProducts(filterDto);
+  async filterProducts(@Query() filterDto: FilterProductDto, @Req() req: any) {
+    const user = req.user.userId;
+    return this.productsService.filterProducts(filterDto, user);
   }
 
-  
   /*=================( Category Area Start)=================*/
 
-
   // get all products in a category
+  @UseGuards(JwtAuthGuard)
   @Get('category/:id/products')
-  async findAllProductsInCategory(@Param('id') id: string) {
-    return this.productsService.findAllProductsInCategory(id);
+  async findAllProductsInCategory(@Param('id') id: string, @Req() req: any) {
+    const user = req.user.userId;
+    return this.productsService.findAllProductsInCategory(id, user);
   }
 
   // get category based  latest products
+  @UseGuards(JwtAuthGuard)
   @Get('category/:id/latest-products')
-  async findLatestProductsInCategory(@Param('id') id: string) {
-    return this.productsService.findLatestProductsInCategory(id);
+  async findLatestProductsInCategory(@Param('id') id: string, @Req() req: any) {
+    const user = req.user.userId;
+    return this.productsService.findLatestProductsInCategory(id, user);
   }
 
   // get category based oldest products
+  @UseGuards(JwtAuthGuard)
   @Get('category/:id/oldest-products')
-  async findOldestProductsInCategory(@Param('id') id: string) {
-    return this.productsService.findOldestProductsInCategory(id);
+  async findOldestProductsInCategory(@Param('id') id: string, @Req() req: any) {
+    const user = req.user.userId;
+    return this.productsService.findOldestProductsInCategory(id, user);
   }
 
 

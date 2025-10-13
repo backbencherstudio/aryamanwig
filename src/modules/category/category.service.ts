@@ -123,9 +123,9 @@ export class CategoryService {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
-    if (category.category_owner !== user) {
-      throw new ForbiddenException('You are not allowed to update this category');
-    }
+    // if (category.category_owner !== user) {
+    //   throw new ForbiddenException('You are not allowed to update this category');
+    // }
 
     if (category_name && category_name !== category.category_name) {
 

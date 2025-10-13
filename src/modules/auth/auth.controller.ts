@@ -31,8 +31,10 @@ import { Role } from 'src/common/guard/role/role.enum';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
+
   constructor(private authService: AuthService) {}
 
+  // get user details
   @ApiOperation({ summary: 'Get user details' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -52,32 +54,40 @@ export class AuthController {
     }
   }
 
+  // register user
   @ApiOperation({ summary: 'Register a user' })
   @Post('register')
-  async create(@Body() data: CreateUserDto) {
+  async create(@Body() data: CreateUserDto) { 
     try {
-      const name = data.last_name;
+      
       const first_name = data.first_name;
       const last_name = data.last_name;
       const email = data.email;
       const password = data.password;
       const type = data.type;
 
+      const name = `${first_name} ${last_name}`.trim();
+
       if (!name) {
-        throw new HttpException('Name not provided', HttpStatus.UNAUTHORIZED);
+        throw new HttpException(
+          'Name not provided', 
+          HttpStatus.UNAUTHORIZED);
       }
+
       if (!first_name) {
         throw new HttpException(
           'First name not provided',
           HttpStatus.UNAUTHORIZED,
         );
       }
+
       if (!last_name) {
         throw new HttpException(
           'Last name not provided',
           HttpStatus.UNAUTHORIZED,
         );
       }
+
       if (!email) {
         throw new HttpException('Email not provided', HttpStatus.UNAUTHORIZED);
       }
@@ -135,6 +145,38 @@ export class AuthController {
     }
   }
 
+   // update user
+  @ApiOperation({ summary: 'Update user' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Patch('update')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits:{
+        fileSize: 5 * 1024 * 1024,
+        files: 1,
+      }
+    }),
+  )
+  async updateUser(
+    @Req() req: Request,
+    @Body() data: UpdateUserDto,
+    @UploadedFile() image?: Express.Multer.File,
+  ) {
+    try {
+      const user_id = req.user.userId;
+      const response = await this.authService.updateUser(user_id, data, image);
+      return response;
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to update user',
+      };
+    }
+  }
+
+  // Refresh Token
   @ApiOperation({ summary: 'Refresh token' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -176,58 +218,6 @@ export class AuthController {
     }
   }
 
-  @Get('google')
-  @UseGuards(AuthGuard('google'))
-  async googleLogin(): Promise<any> {
-    return HttpStatus.OK;
-  }
-
-  @Get('google/redirect')
-  @UseGuards(AuthGuard('google'))
-  async googleLoginRedirect(@Req() req: Request): Promise<any> {
-    return {
-      statusCode: HttpStatus.OK,
-      data: req.user,
-    };
-  }
-
-  // update user
-  @ApiOperation({ summary: 'Update user' })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @Patch('update')
-  @UseInterceptors(
-    FileInterceptor('image', {
-      // storage: diskStorage({
-      //   destination:
-      //     appConfig().storageUrl.rootUrl + appConfig().storageUrl.avatar,
-      //   filename: (req, file, cb) => {
-      //     const randomName = Array(32)
-      //       .fill(null)
-      //       .map(() => Math.round(Math.random() * 16).toString(16))
-      //       .join('');
-      //     return cb(null, `${randomName}${file.originalname}`);
-      //   },
-      // }),
-      storage: memoryStorage(),
-    }),
-  )
-  async updateUser(
-    @Req() req: Request,
-    @Body() data: UpdateUserDto,
-    @UploadedFile() image: Express.Multer.File,
-  ) {
-    try {
-      const user_id = req.user.userId;
-      const response = await this.authService.updateUser(user_id, data, image);
-      return response;
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Failed to update user',
-      };
-    }
-  }
 
   // --------------change password---------
 
@@ -495,4 +485,24 @@ export class AuthController {
     }
   }
   // --------- end 2FA ---------
+
+
+  // ------------- Google Login --------------
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleLogin(): Promise<any> {
+    return HttpStatus.OK;
+  }
+
+  @Get('google/redirect')
+  @UseGuards(AuthGuard('google'))
+  async googleLoginRedirect(@Req() req: Request): Promise<any> {
+    return {
+      statusCode: HttpStatus.OK,
+      data: req.user,
+    };
+  }
+
+
 }

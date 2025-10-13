@@ -8,6 +8,8 @@ import { StringHelper } from 'src/common/helper/string.helper';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
 import { subHours } from 'date-fns';
+import { formatDate, getBoostTimeLeft } from 'src/common/utils/date.utils';
+import { ca, id } from 'date-fns/locale';
 
 
 @Injectable()
@@ -111,6 +113,7 @@ export class ProductsService {
 
     const products = await this.prisma.product.findMany({
       select: {
+        id: true,
         product_title: true,
         size: true,
         condition: true,
@@ -125,35 +128,9 @@ export class ProductsService {
       throw new NotFoundException('No products found');
     }
 
-    const formatDate = (dateInput: string | Date): string => {
-      const date = new Date(dateInput);
-      const options: Intl.DateTimeFormatOptions = {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      };
-      return date.toLocaleString('en-US', options).replace(',', '');
-    };
-
-    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
-      if (!boostTime) return null;
-
-      const now = new Date().getTime();
-      const end = new Date(boostTime).getTime();
-      const diff = end - now;
-
-      if (diff <= 0) return '(Expired)';
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      return `(${hours}h :${minutes}m :${seconds}s)`;
-    };
-
-    
+  
     const formattedProducts = products.map(product => ({
+      id: product.id,
       photo: product.photo
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
         : null,
@@ -198,42 +175,24 @@ export class ProductsService {
 
     console.log(`Total products by seller ${product.user_id}: ${totalItems}`);
 
-
-    const formatDate = (dateInput: string | Date): string => {
-      const date = new Date(dateInput);
-      const options: Intl.DateTimeFormatOptions = {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      };
-      return date.toLocaleDateString('en-US', options);
-    };
-
-    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
-      if (!boostTime) return null;
-
-      const now = new Date().getTime();
-      const end = new Date(boostTime).getTime();
-      const diff = end - now;
-
-      if (diff <= 0) return '(Expired)';
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      return `${hours}h :${minutes}m :${seconds}s`;
-    };
-
     return {
       success: true,
       message: 'Product retrieved successfully',
       data: {
+
+        seller_Info: {
+          user_id: product.user.id,
+          name: product.user.name ,
+          profile_photo: product.user.avatar ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${product.user.avatar}`): null,
+          total_items: totalItems,
+        },
+ 
+        product_id: product.id,
+        product_photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`): null,
         title: product.product_title,
+        location: product.location,
         price: product.price,
         description: product.product_description,
-        location: product.location,
-        photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`): null,
         condition: product.condition === 'NEW' ? 'Like New' : product.condition,
         size: product.size,
         color: product.color || 'Not Specified',
@@ -245,104 +204,9 @@ export class ProductsService {
           category_name: product.category.category_name,
         },
 
-        seller: {
-          name: product.user.name ,
-          profile_photo: product.user.avatar,
-          total_items: totalItems,
-        },
+        
       },
     };
-  }
-
-  // get all products for a user
-  async getAllProductsForUser(user: string) {
-    
-    const products = await this.prisma.product.findMany({
-      where: { user_id: user },
-      select: { 
-        id: true,
-        product_title: true,
-        product_description: true, 
-        location: true,            
-        size: true,
-        color: true,              
-        condition: true,
-        created_at: true,
-        boost_until: true,
-        price: true,
-        photo: true,
-      },
-      orderBy: { created_at: 'desc' },
-    });
-
-    if (products.length === 0) {
-      return {
-        success: true,
-        message: 'No products found for this user',
-        data: {
-          products: [],
-          product_count: 0,
-        },
-      };
-    }
-
-    if (!products.length) {
-      return {
-        success: true,
-        message: 'No products found for this user',
-        data: {
-          products: [],
-          product_count: 0,
-        },
-      };
-    }
-
-    const formatDate = (dateInput: string | Date): string => {
-      const date = new Date(dateInput);
-      const options: Intl.DateTimeFormatOptions = { 
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      };
-      return date.toLocaleString('en-US', options).replace(',', '');
-    }
-
-    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
-      if (!boostTime) return null;  
-      const now = new Date().getTime();
-      const end = new Date(boostTime).getTime();
-      const diff = end - now;
-      if (diff <= 0) return '(Expired)';
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      return `(${hours}h :${minutes}m :${seconds}s)`;
-    }
-
-    const formattedProducts = products.map(product => ({
-      photo: product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : null,
-      title: product.product_title,
-      price: product.price,
-      description: product.product_description,
-      location: product.location,
-      condition: product.condition === 'NEW' ? 'Like New' : product.condition,
-      size: product.size,
-      color: product.color || 'Not Specified',
-      uploaded: formatDate(product.created_at),
-      remaining_time: getBoostTimeLeft(product.boost_until),
-    }));
-
-    return {  
-      success: true,
-      data: {
-        products: formattedProducts,
-        product_count: products.length,
-      },
-    };
-
   }
 
   // update product
@@ -476,8 +340,89 @@ export class ProductsService {
     };
   }
 
+  // get all products for a user
+  async getAllProductsForUser(user: string) {
+    
+    const products = await this.prisma.product.findMany({
+      where: { user_id: user },
+      select: { 
+        id: true,
+        product_title: true,
+        product_description: true, 
+        location: true,            
+        size: true,
+        color: true,              
+        condition: true,
+        created_at: true,
+        boost_until: true,
+        price: true,
+        photo: true,
+        // include wishlist show
+        wishlists:{
+          where: { user_id: user },
+          select: { id: true },
+        }
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    console.log(products);
+
+    if (products.length === 0) {
+      return {
+        success: true,
+        message: 'No products found for this user',
+        data: {
+          products: [],
+          product_count: 0,
+        },
+      };
+    }
+
+    if (!products.length) {
+      return {
+        success: true,
+        message: 'No products found for this user',
+        data: {
+          products: [],
+          product_count: 0,
+        },
+      };
+    }
+
+  
+    const formattedProducts = products.map(product => ({
+      id: product.id,
+      photo: product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : null,
+      title: product.product_title,
+      price: product.price,
+      description: product.product_description,
+      location: product.location,
+      condition: product.condition === 'NEW' ? 'Like New' : product.condition,
+      size: product.size,
+      color: product.color || 'Not Specified',
+      uploaded: formatDate(product.created_at),
+      remaining_time: getBoostTimeLeft(product.boost_until),
+      is_in_wishlist: product.wishlists.length > 0,
+    }));
+
+    return {  
+      success: true,
+      data: {
+        products: formattedProducts,
+        product_count: products.length,
+      },
+    };
+
+  }
+
+  /*=================( Boosting Area Start)=================*/
+  
   // boost product
   async boost(boostProductDto: BoostProductDto, user: string) {
+
     const { product_id, days } = boostProductDto;
 
     const product = await this.prisma.product.findUnique({
@@ -493,6 +438,16 @@ export class ProductsService {
     }
 
     const nowUTC = new Date();
+
+    if (product.boost_until && new Date(product.boost_until) > nowUTC) {
+      const remainingHours = Math.ceil(
+        (new Date(product.boost_until).getTime() - nowUTC.getTime()) / (1000 * 60 * 60)
+      );
+      throw new ConflictException(
+        `This product is already boosted! You can boost again after ${remainingHours} hours.`
+      );
+    }
+
     const boostUntil = new Date(nowUTC.getTime() + days * 24 * 60 * 60 * 1000);
 
     const updatedProduct = await this.prisma.product.update({
@@ -507,6 +462,7 @@ export class ProductsService {
       success: true,
       message: 'Product boosted successfully',
       data: {
+        id: updatedProduct.id,
         photo: SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`),
         title: updatedProduct.product_title,
         size: updatedProduct.size,
@@ -540,35 +496,8 @@ export class ProductsService {
       },
     });
 
-    // Helper functions
-    const formatDate = (dateInput: string | Date): string => {
-      const date = new Date(dateInput);
-      const options: Intl.DateTimeFormatOptions = {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      };
-      return date.toLocaleString('en-US', options).replace(',', '');
-    };
-
-    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
-      if (!boostTime) return null;
-
-      const now = new Date().getTime();
-      const end = new Date(boostTime).getTime();
-      const diff = end - now;
-
-      if (diff <= 0) return '(Expired)';
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      return `(${hours}h :${minutes}m :${seconds}s)`;
-    };
-
     const formattedProducts = boostedProducts.map(product => ({
+      id: product.id,
       photo: product.photo
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
         : null,
@@ -590,8 +519,71 @@ export class ProductsService {
     };
   }
 
+  // get all boosted products for a user
+  async getUserBoostedProducts(user: string) {
+    const nowUTC = new Date();
+
+    // 1️⃣ Find boosted products where this user is the owner
+    const boostedProducts = await this.prisma.product.findMany({
+      where: {
+        user_id: user,
+        is_boosted: true,
+        boost_until: { gte: nowUTC }, // only active boosts
+      },
+      select: {
+        id: true,
+        product_title: true,
+        size: true,
+        condition: true,
+        created_at: true,
+        boost_until: true,
+        price: true,
+        photo: true,
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    // 2️⃣ If no boosted products found
+    if (boostedProducts.length === 0) {
+      return {
+        success: true,
+        message: 'No active boosted products found for this user',
+        data: {
+          products: [],
+          product_count: 0,
+        },
+      };
+    }
+
+    // 3️⃣ Format the product data
+    const formattedProducts = boostedProducts.map((product) => ({
+      id: product.id,
+      photo: product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : null,
+      title: product.product_title,
+      size: product.size,
+      condition: product.condition,
+      created_time: formatDate(product.created_at),
+      boost_time_left: getBoostTimeLeft(product.boost_until),
+      price: product.price,
+    }));
+
+    // 4️⃣ Return formatted response
+    return {
+      success: true,
+      message: 'User boosted products retrieved successfully',
+      data: {
+        products: formattedProducts,
+        product_count: boostedProducts.length,
+      },
+    };
+  }
+  
+  /*=================( Filter Area Start)=================*/
+
   // filter products by price range and categories
-  async filterProducts(filterDto: FilterProductDto) {
+  async filterProducts(filterDto: FilterProductDto, user: string) {
   
     const { min_price, max_price, categories, location, time_in_hours } = filterDto;
 
@@ -625,6 +617,10 @@ export class ProductsService {
         boost_until: true,
         price: true,
         photo: true,
+        wishlists:{
+          where: { user_id: user },
+          select: { id: true },
+        }
       },
     });
 
@@ -638,35 +634,8 @@ export class ProductsService {
     }
 
 
-    const formatDate = (dateInput: string | Date): string => {
-      const date = new Date(dateInput);
-      const options: Intl.DateTimeFormatOptions = {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      };
-      return date.toLocaleString('en-US', options).replace(',', '');
-    };
-
-    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
-      if (!boostTime) return null;
-
-      const now = new Date().getTime();
-      const end = new Date(boostTime).getTime();
-      const diff = end - now;
-
-      if (diff <= 0) return '(Expired)';
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      return `(${hours}h :${minutes}m :${seconds}s)`;
-    };
-
-
     const formattedProducts = products.map(product => ({
+      id: product.id,
       photo: product.photo
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
         : null,
@@ -676,6 +645,7 @@ export class ProductsService {
       created_time: formatDate(product.created_at),
       boost_time: getBoostTimeLeft(product.boost_until),
       price: product.price,
+      is_in_wishlist: product.wishlists.length > 0,
     }));
 
     return {
@@ -688,13 +658,21 @@ export class ProductsService {
     };
   }
 
+  /*=================( Category Area Start)=================*/
   // get all products in a category
-  async findAllProductsInCategory(categoryId: string) {
+  async findAllProductsInCategory(categoryId: string, user: string) {
 
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
-      include: { products: true },
+      include: {
+        products: {
+          include: {
+            wishlists: { where: { user_id: user }, select: { id: true } },
+          },
+        },
+      },
     });
+
 
     if (!category) {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
@@ -712,35 +690,8 @@ export class ProductsService {
     }
 
 
-    const formatDate = (dateInput: string | Date): string => {
-      const date = new Date(dateInput);
-      const options: Intl.DateTimeFormatOptions = {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      };
-      return date.toLocaleString('en-US', options).replace(',', '');
-    };
-
-    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
-      if (!boostTime) return null;
-
-      const now = new Date().getTime();
-      const end = new Date(boostTime).getTime();
-      const diff = end - now;
-
-      if (diff <= 0) return '(Expired)';
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      return `(${hours}h :${minutes}m :${seconds}s)`;
-    };
-
-
     const productDetails = category.products.map(product => ({
+      id: product.id,
       photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
       title: product.product_title,
       size: product.size,
@@ -748,6 +699,7 @@ export class ProductsService {
       created_time: formatDate(product.created_at),
       boost_time_left: getBoostTimeLeft(product.boost_until),
       price: product.price,
+      is_in_wishlist: product.wishlists.length > 0,
     }));
 
     return {
@@ -761,12 +713,21 @@ export class ProductsService {
   }
 
   // get category based latest products
-  async findLatestProductsInCategory(categoryId: string) {
+  async findLatestProductsInCategory(categoryId: string, user: string) {
 
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
-      include: { products: { orderBy: { created_at: 'desc' } } },
+      include: {
+        products: {
+          orderBy: { created_at: 'desc' },
+          include: {
+            wishlists: { where: { user_id: user }, select: { id: true } },
+          },
+        },
+      },
     });
+
+    console.log(category);
 
     if (!category) {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
@@ -782,30 +743,9 @@ export class ProductsService {
       };
     }
 
-    const formatDate = (dateInput: string | Date): string => {
-      const date = new Date(dateInput);
-      const options: Intl.DateTimeFormatOptions = {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      };
-      return date.toLocaleString('en-US', options).replace(',', '');
-    }
-
-    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
-      if (!boostTime) return null;  
-      const now = new Date().getTime();
-      const end = new Date(boostTime).getTime();
-      const diff = end - now;
-      if (diff <= 0) return '(Expired)';
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      return `(${hours}h :${minutes}m :${seconds}s)`;
-    }
-
+  
     const productDetails = category.products.map(product => ({
+      id: product.id,
       photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
       title: product.product_title,
       size: product.size,
@@ -813,6 +753,7 @@ export class ProductsService {
       created_time: formatDate(product.created_at),
       boost_time_left: getBoostTimeLeft(product.boost_until),
       price: product.price,
+      is_in_wishlist: product.wishlists.length > 0,
     }));
 
     return {
@@ -826,52 +767,27 @@ export class ProductsService {
   }
 
   // get category based oldest products
-  async findOldestProductsInCategory(categoryId: string) {
-   
+  async findOldestProductsInCategory(categoryId: string, user: string) {
+
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
-      include: { products: { orderBy: { created_at: 'asc' } } },
+      include: {
+        products: {
+          orderBy: { created_at: 'asc' },
+          include: {
+            wishlists: { where: { user_id: user }, select: { id: true } },
+          },
+        },
+      },
     });
 
-    if (!category) {
-      throw new NotFoundException(`Category with ID ${categoryId} not found`);
-    }
-
+    if (!category) throw new NotFoundException(`Category with ID ${categoryId} not found`);
     if (category.products.length === 0) {
-      return {
-        success: true,
-        message: 'No products found in this category',
-        data: {
-          products: [],
-          product_count: 0,
-        },
-      };
+      return { success: true, message: 'No products found in this category', data: { products: [], product_count: 0 } };
     }
 
-    const formatDate = (dateInput: string | Date): string => {
-      const date = new Date(dateInput);
-      const options: Intl.DateTimeFormatOptions = {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      };
-      return date.toLocaleString('en-US', options).replace(',', '');
-    }
-
-    const getBoostTimeLeft = (boostTime: string | Date | null): string | null => {
-      if (!boostTime) return null;
-      const now = new Date().getTime();
-      const end = new Date(boostTime).getTime();
-      const diff = end - now;
-      if (diff <= 0) return '(Expired)';
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      return `(${hours}h :${minutes}m :${seconds}s)`;
-    }
-
-    const productDetails = category.products.map(product => ({
+    const productDetails = category.products.map((product) => ({
+      id: product.id,
       photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
       title: product.product_title,
       size: product.size,
@@ -879,17 +795,16 @@ export class ProductsService {
       created_time: formatDate(product.created_at),
       boost_time_left: getBoostTimeLeft(product.boost_until),
       price: product.price,
+      is_wishlisted: product.wishlists.length > 0, // ✅ Added
     }));
 
     return {
       success: true,
       message: 'Oldest products retrieved successfully',
-      data: {
-        products: productDetails,
-        product_count: category.products.length,
-      },
+      data: { products: productDetails, product_count: category.products.length },
     };
   }
+
 
 
 
