@@ -22,8 +22,7 @@ export class BidController {
 
 
   // get all bid a single product 
-  @UseGuards(JwtAuthGuard)
-  @Get('singleproductbids/:productId')
+  @Get('singleproductbid/:productId')
   getBidsForProduct(@Param('productId') productId: string) {
     return this.bidService.getBidsForProduct(productId);
   }

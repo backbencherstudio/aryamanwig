@@ -26,6 +26,7 @@ export class AuthService {
     @InjectRedis() private readonly redis: Redis,
   ) { }
 
+  // get user details
   async me(userId: string) {
     try {
       const user = await this.prisma.user.findFirst({
@@ -78,263 +79,8 @@ export class AuthService {
     }
   }
 
-  async updateUser(
-    userId: string,
-    updateUserDto: UpdateUserDto,
-    image?: Express.Multer.File,
-  ) {
-    try {
-      const data: any = {};
-      if (updateUserDto.name) {
-        data.name = updateUserDto.name;
-      }
-      if (updateUserDto.first_name) {
-        data.first_name = updateUserDto.first_name;
-      }
-      if (updateUserDto.last_name) {
-        data.last_name = updateUserDto.last_name;
-      }
-      if (updateUserDto.phone_number) {
-        data.phone_number = updateUserDto.phone_number;
-      }
-      if (updateUserDto.country) {
-        data.country = updateUserDto.country;
-      }
-      if (updateUserDto.state) {
-        data.state = updateUserDto.state;
-      }
-      if (updateUserDto.local_government) {
-        data.local_government = updateUserDto.local_government;
-      }
-      if (updateUserDto.city) {
-        data.city = updateUserDto.city;
-      }
-      if (updateUserDto.zip_code) {
-        data.zip_code = updateUserDto.zip_code;
-      }
-      if (updateUserDto.address) {
-        data.address = updateUserDto.address;
-      }
-      if (updateUserDto.gender) {
-        data.gender = updateUserDto.gender;
-      }
-      if (updateUserDto.date_of_birth) {
-        data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
-      }
-      if (image) {
-        // delete old image from storage
-        const oldImage = await this.prisma.user.findFirst({
-          where: { id: userId },
-          select: { avatar: true },
-        });
-        if (oldImage.avatar) {
-          await SojebStorage.delete(
-            appConfig().storageUrl.avatar + oldImage.avatar,
-          );
-        }
-
-        // upload file
-        const originalName = image.originalname.replace(/\s+/g, '');
-        const fileName = `${StringHelper.randomString()}${originalName}`;
-        await SojebStorage.put(
-          appConfig().storageUrl.avatar + fileName,
-          image.buffer,
-        );
-
-        data.avatar = fileName;
-      }
-      const user = await UserRepository.getUserDetails(userId);
-      if (user) {
-        await this.prisma.user.update({
-          where: { id: userId },
-          data: {
-            ...data,
-          },
-        });
-
-        return {
-          success: true,
-          message: 'User updated successfully',
-        };
-      } else {
-        return {
-          success: false,
-          message: 'User not found',
-        };
-      }
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-
-  async validateUser(
-    email: string,
-    pass: string,
-    token?: string,
-  ): Promise<any> {
-    const _password = pass;
-    const user = await this.prisma.user.findFirst({
-      where: {
-        email: email,
-      },
-    });
-
-    if (user) {
-      const _isValidPassword = await UserRepository.validatePassword({
-        email: email,
-        password: _password,
-      });
-      if (_isValidPassword) {
-        const { password, ...result } = user;
-        if (user.is_two_factor_enabled) {
-          if (token) {
-            const isValid = await UserRepository.verify2FA(user.id, token);
-            if (!isValid) {
-              throw new UnauthorizedException('Invalid token');
-              // return {
-              //   success: false,
-              //   message: 'Invalid token',
-              // };
-            }
-          } else {
-            throw new UnauthorizedException('Token is required');
-            // return {
-            //   success: false,
-            //   message: 'Token is required',
-            // };
-          }
-        }
-        return result;
-      } else {
-        throw new UnauthorizedException('Password not matched');
-        // return {
-        //   success: false,
-        //   message: 'Password not matched',
-        // };
-      }
-    } else {
-      throw new UnauthorizedException('Email not found');
-      // return {
-      //   success: false,
-      //   message: 'Email not found',
-      // };
-    }
-  }
-
-  async login({ email, userId }) {
-    try {
-      const payload = { email: email, sub: userId, type: 'user' };
-
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '10d' });
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
-
-      const user = await UserRepository.getUserDetails(userId);
-
-      // store refreshToken
-      await this.redis.set(
-        `refresh_token:${user.id}`,
-        refreshToken,
-        'EX',
-        60 * 60 * 24 * 7, // 7 days in seconds
-      );
-
-      return {
-        success: true,
-        message: 'Logged in successfully',
-        authorization: {
-          type: 'bearer',
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        },
-        type: user.type,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-
-  async refreshToken(user_id: string, refreshToken: string) {
-    try {
-      const storedToken = await this.redis.get(`refresh_token:${user_id}`);
-
-      if (!storedToken || storedToken != refreshToken) {
-        return {
-          success: false,
-          message: 'Refresh token is required',
-        };
-      }
-
-      if (!user_id) {
-        return {
-          success: false,
-          message: 'User not found',
-        };
-      }
-
-      const userDetails = await UserRepository.getUserDetails(user_id);
-      if (!userDetails) {
-        return {
-          success: false,
-          message: 'User not found',
-        };
-      }
-
-      const payload = { email: userDetails.email, sub: userDetails.id };
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-
-      return {
-        success: true,
-        authorization: {
-          type: 'bearer',
-          access_token: accessToken,
-        },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-
-  async revokeRefreshToken(user_id: string) {
-    try {
-      const storedToken = await this.redis.get(`refresh_token:${user_id}`);
-      if (!storedToken) {
-        return {
-          success: false,
-          message: 'Refresh token not found',
-        };
-      }
-
-      await this.redis.del(`refresh_token:${user_id}`);
-
-      return {
-        success: true,
-        message: 'Refresh token revoked successfully',
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-
-  async register({
-    name,
-    first_name,
-    last_name,
-    email,
-    password,
-    type,
-  }: {
+  // register user
+  async register({ name,first_name,last_name,email,password,type,}:{
     name: string;
     first_name: string;
     last_name: string;
@@ -441,6 +187,209 @@ export class AuthService {
     }
   }
 
+  // login user
+  async login({ email, userId }) {
+    try {
+      const payload = { email: email, sub: userId, type: 'user' };
+
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '10d' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
+
+      const user = await UserRepository.getUserDetails(userId);
+
+      // store refreshToken
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        'EX',
+        60 * 60 * 24 * 7, // 7 days in seconds
+      );
+
+      return {
+        success: true,
+        message: 'Logged in successfully',
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        type: user.type,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // update user
+  async updateUser(
+    userId: string,
+    updateUserDto: UpdateUserDto,
+    image?: Express.Multer.File,
+  ) {
+    try {
+      const data: any = {};
+      if (updateUserDto.name) {
+        data.name = updateUserDto.name;
+      }
+      if (updateUserDto.first_name) {
+        data.first_name = updateUserDto.first_name;
+      }
+      if (updateUserDto.last_name) {
+        data.last_name = updateUserDto.last_name;
+      }
+      if (updateUserDto.phone_number) {
+        data.phone_number = updateUserDto.phone_number;
+      }
+      if (updateUserDto.country) {
+        data.country = updateUserDto.country;
+      }
+      if (updateUserDto.state) {
+        data.state = updateUserDto.state;
+      }
+      if (updateUserDto.local_government) {
+        data.local_government = updateUserDto.local_government;
+      }
+      if (updateUserDto.city) {
+        data.city = updateUserDto.city;
+      }
+      if (updateUserDto.zip_code) {
+        data.zip_code = updateUserDto.zip_code;
+      }
+      if (updateUserDto.address) {
+        data.address = updateUserDto.address;
+      }
+      if (updateUserDto.gender) {
+        data.gender = updateUserDto.gender;
+      }
+      if (updateUserDto.date_of_birth) {
+        data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
+      }
+      if (image) {
+        // delete old image from storage
+        const oldImage = await this.prisma.user.findFirst({
+          where: { id: userId },
+          select: { avatar: true },
+        });
+        if (oldImage.avatar) {
+          await SojebStorage.delete(
+            appConfig().storageUrl.avatar + oldImage.avatar,
+          );
+        }
+
+        // upload file
+        const originalName = image.originalname.replace(/\s+/g, '');
+        const fileName = `${StringHelper.randomString()}${originalName}`;
+        await SojebStorage.put(
+          appConfig().storageUrl.avatar + fileName,
+          image.buffer,
+        );
+
+        data.avatar = fileName;
+      }
+      const user = await UserRepository.getUserDetails(userId);
+      if (user) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: {
+            ...data,
+          },
+        });
+
+        return {
+          success: true,
+          message: 'User updated successfully',
+        };
+      } else {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+
+  // Refresh Token
+  async refreshToken(user_id: string, refreshToken: string) {
+    try {
+      const storedToken = await this.redis.get(`refresh_token:${user_id}`);
+
+      if (!storedToken || storedToken != refreshToken) {
+        return {
+          success: false,
+          message: 'Refresh token is required',
+        };
+      }
+
+      if (!user_id) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      const userDetails = await UserRepository.getUserDetails(user_id);
+      if (!userDetails) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      const payload = { email: userDetails.email, sub: userDetails.id };
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+
+      return {
+        success: true,
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // Logout
+  async revokeRefreshToken(user_id: string) {
+    try {
+      const storedToken = await this.redis.get(`refresh_token:${user_id}`);
+      if (!storedToken) {
+        return {
+          success: false,
+          message: 'Refresh token not found',
+        };
+      }
+
+      await this.redis.del(`refresh_token:${user_id}`);
+
+      return {
+        success: true,
+        message: 'Refresh token revoked successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // --------------Google Login -----------------
+
+ // forgot password
   async forgotPassword(email) {
     try {
       const user = await UserRepository.exist({
@@ -742,6 +691,61 @@ export class AuthService {
         success: false,
         message: error.message,
       };
+    }
+  }
+
+
+  async validateUser(
+    email: string,
+    pass: string,
+    token?: string,
+  ): Promise<any> {
+    const _password = pass;
+    const user = await this.prisma.user.findFirst({
+      where: {
+        email: email,
+      },
+    });
+
+    if (user) {
+      const _isValidPassword = await UserRepository.validatePassword({
+        email: email,
+        password: _password,
+      });
+      if (_isValidPassword) {
+        const { password, ...result } = user;
+        if (user.is_two_factor_enabled) {
+          if (token) {
+            const isValid = await UserRepository.verify2FA(user.id, token);
+            if (!isValid) {
+              throw new UnauthorizedException('Invalid token');
+              // return {
+              //   success: false,
+              //   message: 'Invalid token',
+              // };
+            }
+          } else {
+            throw new UnauthorizedException('Token is required');
+            // return {
+            //   success: false,
+            //   message: 'Token is required',
+            // };
+          }
+        }
+        return result;
+      } else {
+        throw new UnauthorizedException('Password not matched');
+        // return {
+        //   success: false,
+        //   message: 'Password not matched',
+        // };
+      }
+    } else {
+      throw new UnauthorizedException('Email not found');
+      // return {
+      //   success: false,
+      //   message: 'Email not found',
+      // };
     }
   }
 

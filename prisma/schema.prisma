@@ -46,7 +46,7 @@ model User {
   last_name         String?   @db.VarChar(255)
   password          String?   @db.VarChar(255)
   avatar            String?
-  domain            String?   @unique
+  // domain            String?   @unique
   username          String?   @unique
 
   phone_number  String?
