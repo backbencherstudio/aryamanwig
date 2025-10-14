@@ -4,6 +4,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import appConfig from 'src/config/app.config';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
+import { add } from 'date-fns';
 
 @Injectable()
 export class ProfileService {
@@ -77,6 +78,10 @@ export class ProfileService {
         name: true,
         email: true,
         avatar: true,
+        city: true,
+        address: true,
+        phone_number: true,
+        type: true,
       },
     });
 
@@ -106,6 +111,8 @@ export class ProfileService {
         userphoto: user.avatar ? SojebStorage.url(appConfig().storageUrl.avatar+user.avatar,) : null,
         averageRating: averageRating._avg.rating ? parseFloat(averageRating._avg.rating.toFixed(2)) : 0,
         totalReviews: averageRating._count.rating ? averageRating._count.rating : 0,
+        adress: user.address,
+        city: user.city,
       }
     }
 

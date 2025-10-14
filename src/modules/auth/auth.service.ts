@@ -114,7 +114,7 @@ export class AuthService {
       if (user == null && user.success == false) {
         return {
           success: false,
-          message: 'Failed to create account',
+          message: 'Failed to create account', 
         };
       }
 
@@ -124,6 +124,8 @@ export class AuthService {
         email: email,
         name: name,
       });
+
+      console.log("Stripe Customer", stripeCustomer);
 
       if (stripeCustomer) {
         await this.prisma.user.update({
@@ -315,7 +317,6 @@ export class AuthService {
       };
     }
   }
-
 
   // Refresh Token
   async refreshToken(user_id: string, refreshToken: string) {
@@ -694,7 +695,6 @@ export class AuthService {
     }
   }
 
-
   async validateUser(
     email: string,
     pass: string,
@@ -748,6 +748,7 @@ export class AuthService {
       // };
     }
   }
+
 
   // --------- 2FA ---------
   async generate2FASecret(user_id: string) {
@@ -828,4 +829,45 @@ export class AuthService {
     }
   }
   // --------- end 2FA ---------
+  
+  // google login
+  // google log in using passport.js
+  
+  async googleLogin({ email, userId }: { email: string; userId: string }) {
+    try {
+      const payload = { email: email, sub: userId };
+
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+      const user = await UserRepository.getUserDetails(userId);
+
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        'EX',
+        60 * 60 * 24 * 7, // 7 days expiration
+      );
+
+      // Return response with tokens
+      return {
+        // success: true,
+        message: 'Logged in successfully',
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        type: user.type,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+
+
 }

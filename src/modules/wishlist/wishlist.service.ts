@@ -110,7 +110,6 @@ export class WishlistService {
     };
   }
 
-
   // get single wishlist item by id
   async findOne(id: string) {
 
@@ -137,7 +136,7 @@ export class WishlistService {
           product_description: item.product.product_description,
           stock: item.product.stock,
           price: item.product.price,
-          photo: item.product.photo,
+          photo: item.product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${item.product.photo}`): null,
         },
       },
     };

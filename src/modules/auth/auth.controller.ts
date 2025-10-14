@@ -27,6 +27,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guard/role/roles.guard';
 import { Roles } from 'src/common/guard/role/roles.decorator';
 import { Role } from 'src/common/guard/role/role.enum';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -360,6 +361,7 @@ export class AuthController {
     }
   }
 
+  
   // --------------end change password---------
 
   // -------change email address------
@@ -489,19 +491,30 @@ export class AuthController {
 
   // ------------- Google Login --------------
 
+  // Google login
   @Get('google')
-  @UseGuards(AuthGuard('google'))
-  async googleLogin(): Promise<any> {
+  @UseGuards(GoogleAuthGuard)
+  async googleAuth(@Req() req) {
     return HttpStatus.OK;
   }
 
+  // Route that Google will redirect to after login
   @Get('google/redirect')
-  @UseGuards(AuthGuard('google'))
-  async googleLoginRedirect(@Req() req: Request): Promise<any> {
-    return {
-      statusCode: HttpStatus.OK,
-      data: req.user,
-    };
+  @UseGuards(GoogleAuthGuard)
+  async googleAuthRedirect(@Req() req, @Res() res: Response) {
+    const { user, loginResponse } = req.user;
+
+    // Now, return the JWT tokens and the user info
+    return res.json({
+      message: 'Logged in successfully via Google',
+      authorization: loginResponse.authorization,
+      user: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        picture: user.picture,
+      },
+    });
   }
 
 
