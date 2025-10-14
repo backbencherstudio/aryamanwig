@@ -58,6 +58,12 @@ model User {
   gender        String?
   date_of_birth DateTime? @db.Date
 
+  // google id
+   googleId          String?   @unique // Store Google ID for OAuth
+   apple_id          String?   @unique
+   accessToken       String?
+   refreshToken      String?
+
   // billing id. e.g. stripe customer id
   billing_id String?
 
