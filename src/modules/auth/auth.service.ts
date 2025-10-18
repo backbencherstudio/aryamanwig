@@ -207,6 +207,22 @@ export class AuthService {
         60 * 60 * 24 * 7, // 7 days in seconds
       );
 
+          // send notification to assined user (reseller)
+    /*      
+    const notificationPayload: any = {
+      sender_id: adminUser.id,
+      receiver_id: reseller.user_id,
+      text: 'You have been assigned to this task',
+      type: 'post',
+      entity_id: task.id
+    }
+      
+
+    NotificationRepository.createNotification(notificationPayload);
+    this.messageGateway.server.emit("notification", notificationPayload)
+    // End sending notification
+    */
+
       return {
         success: true,
         message: 'Logged in successfully',

@@ -10,6 +10,8 @@ import appConfig from 'src/config/app.config';
 import { subHours } from 'date-fns';
 import { formatDate, getBoostTimeLeft } from 'src/common/utils/date.utils';
 import { ca, id } from 'date-fns/locale';
+import { paginateResponse } from 'src/common/pagination/pagination.service';
+import { PaginationDto } from 'src/common/pagination';
 
 
 @Injectable()
@@ -109,27 +111,39 @@ export class ProductsService {
   }
 
   // Get all products
-  async findAll() {
+  async findAll(page: number, perPage: number) {
+    const skip = (page - 1) * perPage;
 
-    const products = await this.prisma.product.findMany({
-      select: {
-        id: true,
-        product_title: true,
-        size: true,
-        condition: true,
-        created_at: true,
-        boost_until: true,
-        price: true,
-        photo: true,
-      },
-    });
+    // Use a transaction to get both total count and paginated data
+    const [total, products] = await this.prisma.$transaction([
+      this.prisma.product.count(), // Gets the total number of products
+      this.prisma.product.findMany({
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          product_title: true,
+          size: true,
+          condition: true,
+          created_at: true,
+          boost_until: true,
+          price: true,
+          photo: true,
+        },
+      }),
+    ]);
 
-    if (products.length === 0) {
-      throw new NotFoundException('No products found');
+    // If there are no products at all, you can return an empty paginated response
+    if (total === 0) {
+      return {
+        success: true,
+        message: 'No products found',
+        data: paginateResponse([], total, page, perPage),
+      };
     }
 
-  
-    const formattedProducts = products.map(product => ({
+    const formattedProducts = products.map((product) => ({
       id: product.id,
       photo: product.photo
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
@@ -142,13 +156,13 @@ export class ProductsService {
       price: product.price,
     }));
 
+    // Use your helper function to create the paginated response
+    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+
     return {
       success: true,
       message: 'Products retrieved successfully',
-      data: {
-        products: formattedProducts,
-        product_count: products.length,
-      },
+      ...paginatedData,
     };
   }
 
@@ -341,57 +355,49 @@ export class ProductsService {
   }
 
   // get all products for a user
-  async getAllProductsForUser(user: string) {
+  async getAllProductsForUser(user: string, query: PaginationDto) {
+    const { page, perPage } = query;
+    const skip = (page - 1) * perPage;
+
     
-    const products = await this.prisma.product.findMany({
-      where: { user_id: user },
-      select: { 
-        id: true,
-        product_title: true,
-        product_description: true, 
-        location: true,            
-        size: true,
-        color: true,              
-        condition: true,
-        created_at: true,
-        boost_until: true,
-        price: true,
-        photo: true,
-        // include wishlist show
-        wishlists:{
-          where: { user_id: user },
-          select: { id: true },
-        }
-      },
-      orderBy: { created_at: 'desc' },
-    });
+    const [total, products] = await this.prisma.$transaction([
+      this.prisma.product.count({
+        where: { user_id: user }, 
+      }),
+      this.prisma.product.findMany({
+        where: { user_id: user }, 
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          product_title: true,
+          product_description: true,
+          location: true,
+          size: true,
+          color: true,
+          condition: true,
+          created_at: true,
+          boost_until: true,
+          price: true,
+          photo: true,
+          wishlists: {
+            where: { user_id: user },
+            select: { id: true },
+          },
+        },
+      }),
+    ]);
 
-    console.log(products);
-
-    if (products.length === 0) {
+    if (total === 0) {
       return {
         success: true,
         message: 'No products found for this user',
-        data: {
-          products: [],
-          product_count: 0,
-        },
+        data: paginateResponse([], total, page, perPage), 
       };
     }
 
-    if (!products.length) {
-      return {
-        success: true,
-        message: 'No products found for this user',
-        data: {
-          products: [],
-          product_count: 0,
-        },
-      };
-    }
-
-  
-    const formattedProducts = products.map(product => ({
+    const formattedProducts = products.map((product) => ({
       id: product.id,
       photo: product.photo
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
@@ -408,14 +414,14 @@ export class ProductsService {
       is_in_wishlist: product.wishlists.length > 0,
     }));
 
-    return {  
-      success: true,
-      data: {
-        products: formattedProducts,
-        product_count: products.length,
-      },
-    };
 
+    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+
+    return {
+      success: true,
+      message: 'Products retrieved successfully',
+      ...paginatedData,
+    };
   }
 
   /*=================( Boosting Area Start)=================*/
@@ -474,29 +480,46 @@ export class ProductsService {
     };
   }
 
-  // product boosted products
-  async getBoostedProducts() {
   
+  // paginated boosted products
+  async getBoostedProducts(page: number, perPage: number) {
     const nowUTC = new Date();
+    const skip = (page - 1) * perPage;
 
-    const boostedProducts = await this.prisma.product.findMany({
-      where: {
-        is_boosted: true,
-        boost_until: { gte: nowUTC },
-      },
-      select: {
-        id: true,
-        product_title: true,
-        size: true,
-        condition: true,
-        created_at: true,
-        boost_until: true,
-        price: true,
-        photo: true,
-      },
-    });
+    const whereClause = {
+      is_boosted: true,
+      boost_until: { gte: nowUTC },
+    };
 
-    const formattedProducts = boostedProducts.map(product => ({
+    const [total, boostedProducts] = await this.prisma.$transaction([
+      this.prisma.product.count({ where: whereClause }),
+      this.prisma.product.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { boost_until: 'desc' }, 
+        select: {
+          id: true,
+          product_title: true,
+          size: true,
+          condition: true,
+          created_at: true,
+          boost_until: true,
+          price: true,
+          photo: true,
+        },
+      }),
+    ]);
+
+    if (total === 0) {
+      return {
+        success: true,
+        message: 'No active boosted products found',
+        data: paginateResponse([], total, page, perPage),
+      };
+    }
+
+    const formattedProducts = boostedProducts.map((product) => ({
       id: product.id,
       photo: product.photo
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
@@ -508,54 +531,55 @@ export class ProductsService {
       boost_time: getBoostTimeLeft(product.boost_until),
       price: product.price,
     }));
+    
+    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
 
     return {
       success: true,
       message: 'Boosted products retrieved successfully',
-      data: {
-        products: formattedProducts,
-        product_count: boostedProducts.length,
-      },
+      ...paginatedData,
     };
   }
 
-  // get all boosted products for a user
-  async getUserBoostedProducts(user: string) {
+  // paginated boosted products for a user
+  async getUserBoostedProducts(user: string, page: number, perPage: number) {
     const nowUTC = new Date();
+    const skip = (page - 1) * perPage;
 
-    // 1️⃣ Find boosted products where this user is the owner
-    const boostedProducts = await this.prisma.product.findMany({
-      where: {
-        user_id: user,
-        is_boosted: true,
-        boost_until: { gte: nowUTC }, // only active boosts
-      },
-      select: {
-        id: true,
-        product_title: true,
-        size: true,
-        condition: true,
-        created_at: true,
-        boost_until: true,
-        price: true,
-        photo: true,
-      },
-      orderBy: { created_at: 'desc' },
-    });
+    const whereClause = {
+      user_id: user,
+      is_boosted: true,
+      boost_until: { gte: nowUTC },
+    };
 
-    // 2️⃣ If no boosted products found
-    if (boostedProducts.length === 0) {
+    const [total, boostedProducts] = await this.prisma.$transaction([
+      this.prisma.product.count({ where: whereClause }),
+      this.prisma.product.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          product_title: true,
+          size: true,
+          condition: true,
+          created_at: true,
+          boost_until: true,
+          price: true,
+          photo: true,
+        },
+      }),
+    ]);
+
+    if (total === 0) {
       return {
         success: true,
         message: 'No active boosted products found for this user',
-        data: {
-          products: [],
-          product_count: 0,
-        },
+        data: paginateResponse([], total, page, perPage),
       };
     }
 
-    // 3️⃣ Format the product data
     const formattedProducts = boostedProducts.map((product) => ({
       id: product.id,
       photo: product.photo
@@ -569,21 +593,22 @@ export class ProductsService {
       price: product.price,
     }));
 
-    // 4️⃣ Return formatted response
+    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+
     return {
       success: true,
       message: 'User boosted products retrieved successfully',
-      data: {
-        products: formattedProducts,
-        product_count: boostedProducts.length,
-      },
+      ...paginatedData,
     };
   }
-  
+
   /*=================( Filter Area Start)=================*/
 
   // filter products by price range and categories
-  async filterProducts(filterDto: FilterProductDto, user: string) {
+  async filterProducts(
+    filterDto: FilterProductDto, 
+    user: string,
+  ) {
   
     const { min_price, max_price, categories, location, time_in_hours } = filterDto;
 
@@ -660,39 +685,62 @@ export class ProductsService {
 
   /*=================( Category Area Start)=================*/
   // get all products in a category
-  async findAllProductsInCategory(categoryId: string, user: string) {
+  async findAllProductsInCategory(
+  categoryId: string,
+  user: string,
+  paginationDto: PaginationDto,
+  ) {
+    const { page, perPage } = paginationDto;
+    const skip = (page - 1) * perPage;
 
-    const category = await this.prisma.category.findUnique({
+    const categoryExists = await this.prisma.category.findUnique({
       where: { id: categoryId },
-      include: {
-        products: {
-          include: {
-            wishlists: { where: { user_id: user }, select: { id: true } },
-          },
-        },
-      },
     });
 
-
-    if (!category) {
+    if (!categoryExists) {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
-    if (category.products.length === 0) {
+    const whereClause = { category_id: categoryId };
+
+    const [total, products] = await this.prisma.$transaction([
+      this.prisma.product.count({ where: whereClause }),
+      this.prisma.product.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' }, 
+        select: {
+          id: true,
+          product_title: true,
+          size: true,
+          condition: true,
+          created_at: true,
+          boost_until: true,
+          price: true,
+          photo: true,
+          wishlists: {
+            where: { user_id: user },
+            select: { id: true },
+          },
+        },
+      }),
+    ]);
+
+    if (total === 0) {
       return {
         success: true,
         message: 'No products found in this category',
-        data: {
-          products: [],
-          product_count: 0,
-        },
+        data: paginateResponse([], total, page, perPage),
       };
     }
-
-
-    const productDetails = category.products.map(product => ({
+    
+  
+    const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
+      photo: product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : null,
       title: product.product_title,
       size: product.size,
       condition: product.condition,
@@ -701,52 +749,75 @@ export class ProductsService {
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
     }));
+
+    
+    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
 
     return {
       success: true,
       message: 'Products retrieved successfully',
-      data: {
-        products: productDetails,
-        product_count: category.products.length,
-      },
+      ...paginatedData,
     };
   }
 
   // get category based latest products
-  async findLatestProductsInCategory(categoryId: string, user: string) {
+  async findLatestProductsInCategory(
+  categoryId: string,
+  user: string,
+  paginationDto: PaginationDto,
+  ) {
+    const { page, perPage } = paginationDto;
+    const skip = (page - 1) * perPage;
 
-    const category = await this.prisma.category.findUnique({
+    const categoryExists = await this.prisma.category.findUnique({
       where: { id: categoryId },
-      include: {
-        products: {
-          orderBy: { created_at: 'desc' },
-          include: {
-            wishlists: { where: { user_id: user }, select: { id: true } },
-          },
-        },
-      },
     });
 
-    console.log(category);
-
-    if (!category) {
+    if (!categoryExists) {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
-    if (category.products.length === 0) {
+
+    const whereClause = { category_id: categoryId };
+
+    const [total, products] = await this.prisma.$transaction([
+      this.prisma.product.count({ where: whereClause }),
+      this.prisma.product.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          product_title: true,
+          size: true,
+          condition: true,
+          created_at: true,
+          boost_until: true,
+          price: true,
+          photo: true,
+          wishlists: {
+            where: { user_id: user },
+            select: { id: true },
+          },
+        },
+      }),
+    ]);
+
+
+    if (total === 0) {
       return {
         success: true,
         message: 'No products found in this category',
-        data: {
-          products: [],
-          product_count: 0,
-        },
+        ...paginateResponse([], total, page, perPage),
       };
     }
+    
 
-  
-    const productDetails = category.products.map(product => ({
+    const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
+      photo: product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : null,
       title: product.product_title,
       size: product.size,
       condition: product.condition,
@@ -756,52 +827,90 @@ export class ProductsService {
       is_in_wishlist: product.wishlists.length > 0,
     }));
 
+    
+    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+
     return {
       success: true,
       message: 'Latest products retrieved successfully',
-      data: {
-        products: productDetails,
-        product_count: category.products.length,
-      },
+      ...paginatedData, 
     };
   }
 
   // get category based oldest products
-  async findOldestProductsInCategory(categoryId: string, user: string) {
+  async findOldestProductsInCategory(
+  categoryId: string,
+  user: string,
+  paginationDto: PaginationDto,
+  ) {
+    const { page, perPage } = paginationDto;
+    const skip = (page - 1) * perPage;
 
-    const category = await this.prisma.category.findUnique({
+    const categoryExists = await this.prisma.category.findUnique({
       where: { id: categoryId },
-      include: {
-        products: {
-          orderBy: { created_at: 'asc' },
-          include: {
-            wishlists: { where: { user_id: user }, select: { id: true } },
-          },
-        },
-      },
     });
 
-    if (!category) throw new NotFoundException(`Category with ID ${categoryId} not found`);
-    if (category.products.length === 0) {
-      return { success: true, message: 'No products found in this category', data: { products: [], product_count: 0 } };
+    if (!categoryExists) {
+      throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
-    const productDetails = category.products.map((product) => ({
+    const whereClause = { category_id: categoryId };
+
+  
+    const [total, products] = await this.prisma.$transaction([
+      this.prisma.product.count({ where: whereClause }),
+      this.prisma.product.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'asc' }, 
+        select: {
+          id: true,
+          product_title: true,
+          size: true,
+          condition: true,
+          created_at: true,
+          boost_until: true,
+          price: true,
+          photo: true,
+          wishlists: {
+            where: { user_id: user },
+            select: { id: true },
+          },
+        },
+      }),
+    ]);
+
+    
+    if (total === 0) {
+      return {
+        success: true,
+        message: 'No products found in this category',
+        ...paginateResponse([], total, page, perPage),
+      };
+    }
+    
+    const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
+      photo: product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : null,
       title: product.product_title,
       size: product.size,
       condition: product.condition,
       created_time: formatDate(product.created_at),
       boost_time_left: getBoostTimeLeft(product.boost_until),
       price: product.price,
-      is_wishlisted: product.wishlists.length > 0, // ✅ Added
+      is_in_wishlist: product.wishlists.length > 0, 
     }));
+
+    
+    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
 
     return {
       success: true,
       message: 'Oldest products retrieved successfully',
-      data: { products: productDetails, product_count: category.products.length },
+      ...paginatedData, 
     };
   }
 
