@@ -55,41 +55,43 @@ export class MessageGateway
   }
 
   // implement jwt token validation
-  async handleConnection(client: Socket, ...args: any[]) {
-    try {
-      // const token = client.handshake.headers.authorization?.split(' ')[1];
-      const token = client.handshake.auth.token;
-      if (!token) {
-        client.disconnect();
-        console.log('No token provided');
-        return;
-      }
+ // message.gateway.ts
 
-      const decoded: any = jwt.verify(token, appConfig().jwt.secret);
-      // const decoded: any = this.jwtService.verify(token);
-      // const userId = client.handshake.query.userId as string;
-      const userId = decoded.sub;
-      if (!userId) {
-        client.disconnect();
-        console.log('Invalid token');
-        return;
-      }
-
-      this.clients.set(userId, client.id);
-      // console.log(`User ${userId} connected with socket ${client.id}`);
-      await ChatRepository.updateUserStatus(userId, 'online');
-      // notify the user that the user is online
-      this.server.emit('userStatusChange', {
-        user_id: userId,
-        status: 'online',
-      });
-
-      console.log(`User ${userId} connected`);
-    } catch (error) {
+async handleConnection(client: Socket, ...args: any[]) {
+  try {
+    const token = client.handshake.auth.token;
+    if (!token) {
       client.disconnect();
-      console.error('Error handling connection:', error);
+      return;
     }
+
+    // টোকেন ভেরিফাই করার পর decoded অবজেক্টে নামও থাকবে
+    const decoded: any = jwt.verify(token, appConfig().jwt.secret);
+
+    // Destructuring এর মাধ্যমে userId এবং username বের করে নিন
+    const { sub: userId, name: username } = decoded;
+
+    if (!userId || !username) {
+      client.disconnect();
+      return;
+    }
+
+    this.clients.set(userId, client.id);
+    await ChatRepository.updateUserStatus(userId, 'online');
+    
+    this.server.emit('userStatusChange', {
+      user_id: userId,
+      status: 'online',
+    });
+
+    // এখন আপনি লগ-এ ইউজারের নাম ব্যবহার করতে পারবেন
+    console.log(`User '${username}' (ID: ${userId}) connected`);
+
+  } catch (error) {
+    client.disconnect();
+    console.error('Error handling connection:', error);
   }
+}
 
   async handleDisconnect(client: Socket) {
     const userId = [...this.clients.entries()].find(

@@ -8,6 +8,7 @@ import { FilterProductDto } from './dto/filter-product.dto';
 import { BoostProductDto } from './dto/boost-product.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { PaginationDto } from 'src/common/pagination';
 
 @Controller('products')
 
@@ -35,11 +36,13 @@ export class ProductsController {
     return this.productsService.create(createProductDto, user, file);
   }
 
-  // get all products 
+  // get all products
   @Get('allproducts')
-  async findAll() {
-    return this.productsService.findAll();
+  async findAll(@Query() query: PaginationDto) {
+    const { page, perPage } = query;
+    return this.productsService.findAll(page, perPage);
   }
+
 
   // get single product by id
   @Get('singleproduct/:id')
@@ -78,9 +81,11 @@ export class ProductsController {
   // get all products for a user
   @UseGuards(JwtAuthGuard)
   @Get('user-all-products')
-  getAllProductsForUser(@Req() req: any) {
+  getAllProductsForUser(@Req() req: any,
+                        @Query() query: PaginationDto
+ ) {
     const user = req.user.userId;
-    return this.productsService.getAllProductsForUser(user);
+    return this.productsService.getAllProductsForUser(user, query);
   }
   /*=================( Boosting Area Start)=================*/
 
@@ -95,15 +100,17 @@ export class ProductsController {
 
   // get all boosted products
   @Get('boosted-products')
-  async getBoostedProducts() {
-    return this.productsService.getBoostedProducts();
+  async getBoostedProducts(@Query() query: PaginationDto) { 
+    const { page, perPage } = query;
+    return this.productsService.getBoostedProducts(page, perPage);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('user-boosted-products')
-  async getUserBoostedProducts(@Req() req: any) {
+  async getUserBoostedProducts(@Req() req: any, @Query() query: PaginationDto) { 
     const user = req.user.userId;
-    return this.productsService.getUserBoostedProducts(user);
+    const { page, perPage } = query;
+    return this.productsService.getUserBoostedProducts(user, page, perPage);
   }
 
   /*=================( Filter Area Start)=================*/
@@ -111,7 +118,10 @@ export class ProductsController {
   // get products by filter with price range and categories
   @UseGuards(JwtAuthGuard)
   @Get('filter')
-  async filterProducts(@Query() filterDto: FilterProductDto, @Req() req: any) {
+  async filterProducts(
+    @Query() filterDto: FilterProductDto, 
+    @Req() req: any,
+  ) {
     const user = req.user.userId;
     return this.productsService.filterProducts(filterDto, user);
   }
@@ -121,25 +131,37 @@ export class ProductsController {
   // get all products in a category
   @UseGuards(JwtAuthGuard)
   @Get('category/:id/products')
-  async findAllProductsInCategory(@Param('id') id: string, @Req() req: any) {
+  async findAllProductsInCategory(
+    @Param('id') id: string, 
+    @Req() req: any,
+    @Query() paginationDto: PaginationDto
+  ) {
     const user = req.user.userId;
-    return this.productsService.findAllProductsInCategory(id, user);
+    return this.productsService.findAllProductsInCategory(id, user, paginationDto);
   }
 
   // get category based  latest products
   @UseGuards(JwtAuthGuard)
   @Get('category/:id/latest-products')
-  async findLatestProductsInCategory(@Param('id') id: string, @Req() req: any) {
+  async findLatestProductsInCategory(
+    @Param('id') id: string, 
+    @Req() req: any,
+    @Query() paginationDto: PaginationDto
+  ) {
     const user = req.user.userId;
-    return this.productsService.findLatestProductsInCategory(id, user);
+    return this.productsService.findLatestProductsInCategory(id, user, paginationDto);
   }
 
   // get category based oldest products
   @UseGuards(JwtAuthGuard)
   @Get('category/:id/oldest-products')
-  async findOldestProductsInCategory(@Param('id') id: string, @Req() req: any) {
+  async findOldestProductsInCategory(
+     @Param('id') id: string,
+     @Req() req: any,
+     @Query() paginationDto: PaginationDto
+  ) {
     const user = req.user.userId;
-    return this.productsService.findOldestProductsInCategory(id, user);
+    return this.productsService.findOldestProductsInCategory(id, user, paginationDto);
   }
 
 

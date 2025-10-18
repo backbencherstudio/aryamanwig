@@ -21,8 +21,15 @@ import { Roles } from '../../../common/guard/role/roles.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('chat/conversation')
 export class ConversationController {
+
   constructor(private readonly conversationService: ConversationService) {}
 
+
+
+  
+
+
+  /*
   @ApiOperation({ summary: 'Create conversation' })
   @Post()
   async create(
@@ -43,6 +50,8 @@ export class ConversationController {
       };
     }
   }
+   
+
 
   // for user-specific conversations with optional type filter
   @ApiOperation({ summary: 'Get all conversations for a user' })
@@ -104,4 +113,9 @@ export class ConversationController {
       };
     }
   }
+  
+  */
+
+
+
 }

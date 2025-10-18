@@ -15,6 +15,10 @@ export class ConversationService {
     private readonly messageGateway: MessageGateway,
   ) {}
 
+  
+
+  /*
+
   async create(createConversationDto: CreateConversationDto) {
     try {
       const data: any = {};
@@ -413,4 +417,5 @@ export class ConversationService {
       };
     }
   }
+    */
 }
