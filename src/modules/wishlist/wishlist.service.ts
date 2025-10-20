@@ -6,6 +6,7 @@ import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
 import { create } from 'domain';
 import { formatDate, getBoostTimeLeft } from 'src/common/utils/date.utils';
+import { paginateResponse, PaginationDto } from 'src/common/pagination';
 
 @Injectable()
 export class WishlistService {
@@ -52,61 +53,118 @@ export class WishlistService {
   }
 
   // get all wishlist items
-  async findAll() {
+  async findAll(paginationDto: PaginationDto ) {
 
-    const items = await this.prisma.wishlist.findMany({
-      include: {
-        product: true, 
+    const { page, perPage } = paginationDto;
+    const skip = (page - 1) * perPage;
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.wishlist.count(),
+      this.prisma.wishlist.findMany({
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' }, 
+        include: {
+          product: {
+            select: { 
+              product_title: true,
+              product_description: true,
+              stock: true,
+              price: true,
+              photo: true,
+            }
+          }, 
+        },
+      }),
+    ]);
+
+    if (total === 0) {
+      return {
+        success: true,
+        message: 'Wishlist is empty',
+        ...paginateResponse([], total, page, perPage),
+      };
+    }
+    
+    const formattedItems = items.map(item => ({
+      id: item.id,
+      user_id: item.user_id,
+      product_id: item.product_id,
+      product: {
+        product_title: item.product.product_title,
+        product_description: item.product.product_description,
+        stock: item.product.stock,
+        price: item.product.price,
+        photo: item.product.photo 
+          ? SojebStorage.url(`${appConfig().storageUrl.product}/${item.product.photo}`)
+          : null,
       },
-    });
+    }));
+    
+
+    const paginatedData = paginateResponse(formattedItems, total, page, perPage);
 
     return {
       success: true,
       message: 'Wishlist items retrieved successfully',
-      data: items.map(item => ({
-        id: item.id,
-        user_id: item.user_id,
-        product_id: item.product_id,
-        product: {
-          product_title: item.product.product_title,
-          product_description: item.product.product_description,
-          stock: item.product.stock,
-          price: item.product.price,
-          photo: item.product.photo,
-        },
-      })),
+      ...paginatedData, 
     };
   }
 
   // get all wishlist items for a user
-  async findAllUser(user: string) {
+  async findAllUser(user: string, paginationDto: PaginationDto) {
 
-    const items = await this.prisma.wishlist.findMany({
-      where: { user_id: user },
-      include: {
-        product: true, 
-      },
-    });
+    const { page, perPage } = paginationDto;
+    const skip = (page - 1) * perPage;
+    
+    const whereClause = { user_id: user };
 
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.wishlist.count({ where: whereClause }),
+      this.prisma.wishlist.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' },
+        include: {
+          product: true, 
+        },
+      }),
+    ]);
+
+
+    if (total === 0) {
+      return {
+        success: true,
+        message: 'Your wishlist is empty',
+        ...paginateResponse([], total, page, perPage),
+      };
+    }
+    
+    // Format the response data
+    const formattedItems = items.map(item => ({
+      id: item.id,
+      user_id: item.user_id,
+      product_id: item.product_id,
+      product_title: item.product.product_title,
+      product_photo: item.product.photo 
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${item.product.photo}`)
+        : null,
+      product_size: item.product.size,
+      product_condition: item.product.condition,
+      product_price: item.product.price,
+      product_stock: item.product.stock,
+      created_at: formatDate(item.product.created_at),
+      boost_time: getBoostTimeLeft(item.product.boost_until),
+    }));
+    
+   
+    const paginatedData = paginateResponse(formattedItems, total, page, perPage);
 
     return {
       success: true,
       message: 'User wishlist items retrieved successfully',
-      data: items.map(item => ({
-
-        id: item.id,
-        user_id: item.user_id,
-        product_id: item.product_id,
-        product_title: item.product.product_title,
-        product_photo: item.product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${item.product.photo}`): null,
-        product_size: item.product.size,
-        product_condition: item.product.condition,
-        product_price: item.product.price,
-        product_stock: item.product.stock,
-        created_at: formatDate(item.product.created_at),
-        boost_time: getBoostTimeLeft(item.product.boost_until)
-
-      })),
+      ...paginatedData, 
     };
   }
 
