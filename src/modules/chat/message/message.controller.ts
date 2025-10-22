@@ -9,6 +9,8 @@ import {
   UseInterceptors,
   UploadedFile,
   UploadedFiles,
+  Param,
+  Delete,
 } from '@nestjs/common';
 import { MessageService } from './message.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -20,6 +22,7 @@ import { FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from '@nestj
 import { diskStorage, memoryStorage } from 'multer';
 import appConfig from 'src/config/app.config';
 import { log } from 'node:console';
+import { PaginationDto } from 'src/common/pagination';
 
 @ApiBearerAuth()
 @ApiTags('Message')
@@ -32,78 +35,73 @@ export class MessageController {
   ) { }
 
 
-  // FileFieldsInterceptor([{ name: 'attachments', maxCount: 10 }], {
-  @ApiOperation({ summary: 'Send message' })
-  @Post()
+  //send message
+  @Post('send-message')
   @UseInterceptors(
     FileInterceptor('attachment', {
       storage: memoryStorage(),
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+        files: 3,
+      },
     }),
   )
+  @ApiOperation({ summary: 'Send a new message' })
   async create(
-    @Req() req: Request,
-    @Body() data: CreateMessageDto,
-    @UploadedFile() attachment: Express.Multer.File,
+    @Body() createMessageDto: CreateMessageDto,
+    @Req() req: any,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    const user_id = req.user.userId;
-    // console.log('user_id', user_id);
-    console.log('createMessageDto', data);
-    console.log('Controller attachment : ', attachment);
-
-    const message = await this.messageService.create(user_id, data, attachment);
-    if (message.success) {
-      const messageData = {
-        message: {
-          id: message.data.id,
-          message_id: message.data.id,
-          body_text: message.data.message,
-          from: message.data.sender_id,
-          conversation_id: message.data.conversation_id,
-          created_at: message.data.created_at,
-        },
-      };
-      this.messageGateway.server
-        .to(message.data.conversation_id)
-        .emit('message', {
-          from: message.data.sender_id,
-          data: messageData,
-        });
-      return {
-        success: message.success,
-        message: message.message,
-      };
-    } else {
-      return {
-        success: message.success,
-        message: message.message,
-      };
-    }
+    const user = req.user.userId;
+    return this.messageService.create(createMessageDto, user, file);
   }
-
-  @ApiOperation({ summary: 'Get specific conversation all messages' })
-  @Get()
+ 
+  //get all message for a conversation
+  @Get('all-message/:conversationId')
+  @ApiOperation({ summary: 'Get all messages for a conversation' })
   async findAll(
-    @Req() req: Request,
-    @Query()
-    query: { conversation_id: string; limit?: number; cursor?: string },
+    @Param('conversationId') conversationId: string,
+    @Query() paginationdto: PaginationDto,
+    @Req() req: any,
   ) {
-    const user_id = req.user.userId;
-    const conversation_id = query.conversation_id as string;
-    const limit = Number(query.limit);
-    const cursor = query.cursor as string;
-    try {
-      const messages = await this.messageService.findAll({
-        user_id,
-        conversation_id,
-        limit,
-        cursor,
-      });
-      return messages;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
+    const user = req.user.userId;
+   return this.messageService.findAll(conversationId, user, paginationdto);
   }
+ 
+  
+  // unread message count
+  @Get('unread-message/:conversationId')
+  @ApiOperation({ summary: 'Get unread message count for user' })
+  async getUnreadMessageCount(
+    @Param('conversationId') conversationId: string,
+    @Req() req: any,
+  ) {
+    const user = req.user.userId;
+    return this.messageService.getUnreadMessage(user, conversationId);
+  }
+
+  // read messages
+  @Get('read-message/:conversationId')
+  @ApiOperation({ summary: 'Mark messages as read in a conversation' })
+  async readMessages(
+    @Param('conversationId') conversationId: string,
+    @Req() req: any,
+  ) {
+    const user = req.user.userId;
+    return this.messageService.readMessages(user, conversationId);
+  }
+
+ // delete message
+  @Delete('delete-message/:messageId')
+  @ApiOperation({ summary: 'Delete a message' })
+  async deleteMessage(
+    @Param('messageId') messageId: string,
+    @Req() req: any,
+  ) {
+    const user = req.user.userId;
+    return this.messageService.deleteMessage(user, messageId);
+  }
+  
+
+ 
 }

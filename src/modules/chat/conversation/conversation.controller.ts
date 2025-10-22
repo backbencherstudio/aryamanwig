@@ -24,97 +24,43 @@ export class ConversationController {
 
   constructor(private readonly conversationService: ConversationService) {}
 
-
-
-  
-
-
-  /*
-  @ApiOperation({ summary: 'Create conversation' })
-  @Post()
+  // create conversation
+  @Post('create-conversation')
+  @ApiOperation({ summary: 'Create a new conversation' })
   async create(
     @Body() createConversationDto: CreateConversationDto,
-    @Req() req: any,
+    @Req() req,
   ) {
-    createConversationDto.creator_id = req.user.userId;
-    // console.log(createConversationDto);
-    try {
-      const conversation = await this.conversationService.create(
-        createConversationDto,
-      );
-      return conversation;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-   
-
-
-  // for user-specific conversations with optional type filter
-  @ApiOperation({ summary: 'Get all conversations for a user' })
-  @Get('user')
-  async findAllForUser(@Req() req: any) {
-    const userId = req.user.userId;
-    try {
-      const conversations =
-        await this.conversationService.findAllByUserId(userId);
-      return conversations;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
+    const user = req.user.userId;
+    return this.conversationService.create(createConversationDto, user);
   }
 
-  // @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Get all conversations' })
-  @Get()
-  async findAll() {
-    try {
-      const conversations = await this.conversationService.findAll();
-      return conversations;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
+
+  //  conversation list of user
+  @Get('conversation-list')
+  async findAll(@Req() req) {
+    const user = req.user.userId;
+    return this.conversationService.findAll(user);
   }
 
-  @ApiOperation({ summary: 'Get a conversation by id' })
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    try {
-      const conversation = await this.conversationService.findOne(id);
-      return conversation;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
+
+  // get conversation by id
+  @Get('single-conversation/:id')
+  @ApiOperation({ summary: 'Get a single conversation by ID' })
+  findOne(@Param('id') id: string, @Req() req) {
+    const user = req.user.userId;
+    return this.conversationService.findOne(id, user);
   }
 
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Delete a conversation' })
-  @Delete(':id')
-  async remove(@Param('id') id: string) {
-    try {
-      const conversation = await this.conversationService.remove(id);
-      return conversation;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
+  // delete conversation
+  // Delete a conversation by ID
+  @Delete('delete-conversation/:id')
+  @ApiOperation({ summary: 'Delete a conversation by ID' })
+  remove(@Param('id') id: string, @Req() req) {
+    const user = req.user.userId;
+    return this.conversationService.remove(id, user);
   }
-  
-  */
+
 
 
 
