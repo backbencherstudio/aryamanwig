@@ -3,24 +3,20 @@ import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateMessageDto {
   
-  @IsOptional()
+  @ApiProperty({
+    description: 'The content of the message',
+    example: 'Hello, how are you?',
+  })
   @IsNotEmpty()
   @IsString()
-  @ApiProperty()
-  receiver_id: string;
+  text: string;
 
+  @ApiProperty({
+    description: 'The ID of the conversation this message belongs to',
+    example: 'clx123abc456def789',
+  })
   @IsNotEmpty()
   @IsString()
-  @ApiProperty()
-  conversation_id: string;
+  conversationId: string;
 
-  @IsOptional()
-  @IsString()
-  @ApiProperty()
-  message?: string;
-
-  @IsOptional()
-  @IsString({ each: true })
-  @ApiProperty()
-  attachments?: string[];
 }

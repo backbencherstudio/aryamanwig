@@ -70,14 +70,14 @@ model User {
   is_two_factor_enabled Int?    @default(0)
   two_factor_secret     String? // secret key for two factor authentication
 
-  accounts                  Account[]
-  creator_conversations     Conversation[] @relation("creator")
-  participant_conversations Conversation[] @relation("participant")
-  receiver_messages         Message[]      @relation("receiver")
-  sender_messages           Message[]      @relation("sender")
-  receiver_notifications    Notification[] @relation("receiver")
-  sender_notifications      Notification[] @relation("sender")
 
+  // --- Conversation & Messaging ---
+  sentMessages        Message[]            @relation("messageSender")
+  participants        Participant[]        @relation("participantUser")
+  notificationsSent   Notification[]       @relation("notificationSender")
+  notificationsReceived Notification[]     @relation("notificationReceiver")
+
+  accounts              Account[]
   user_payment_methods UserPaymentMethod[]
   user_settings        UserSetting[]
   ucodes               Ucode[]
@@ -103,6 +103,10 @@ model User {
 
   // relation with bid
   bids Bid[] @relation("UserBids")
+
+  // 
+
+
 
   approved_at DateTime?
   created_at  DateTime  @default(now())
@@ -429,44 +433,44 @@ model RoleUser {
 }
 
 // this table stores notification event
-model NotificationEvent {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-  deleted_at DateTime?
+// model NotificationEvent {
+//   id         String    @id @default(cuid())
+//   created_at DateTime  @default(now())
+//   updated_at DateTime  @default(now())
+//   deleted_at DateTime?
 
-  status Int?    @default(1) @db.SmallInt
-  type   String?
-  text   String?
+//   status Int?    @default(1) @db.SmallInt
+//   type   String?
+//   text   String?
 
-  notifications Notification[]
+//   notifications Notification[]
 
-  @@map("notification_events")
-}
+//   @@map("notification_events")
+// }
 
-model Notification {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-  deleted_at DateTime?
+// model Notification {
+//   id         String    @id @default(cuid())
+//   created_at DateTime  @default(now())
+//   updated_at DateTime  @default(now())
+//   deleted_at DateTime?
 
-  read_at DateTime?
+//   read_at DateTime?
 
-  status Int? @default(1) @db.SmallInt
+//   status Int? @default(1) @db.SmallInt
 
-  sender_id String?
-  sender    User?   @relation("sender", fields: [sender_id], references: [id])
+//   sender_id String?
+//   sender    User?   @relation("sender", fields: [sender_id], references: [id])
 
-  receiver_id String?
-  receiver    User?   @relation("receiver", fields: [receiver_id], references: [id])
+//   receiver_id String?
+//   receiver    User?   @relation("receiver", fields: [receiver_id], references: [id])
 
-  notification_event_id String?
-  notification_event    NotificationEvent? @relation(fields: [notification_event_id], references: [id])
+//   notification_event_id String?
+//   notification_event    NotificationEvent? @relation(fields: [notification_event_id], references: [id])
 
-  entity_id String?
+//   entity_id String?
 
-  @@map("notifications")
-}
+//   @@map("notifications")
+// }
 
 model UserPaymentMethod {
   id         String    @id @default(cuid())
@@ -509,8 +513,9 @@ model PaymentTransaction {
   @@map("payment_transactions")
 }
 
-// ---------Start Chat schema---------
+// ---------Start Chat schema---------//
 
+/*
 enum MessageStatus {
   PENDING
   SENT
@@ -594,6 +599,106 @@ model Conversation {
 
   @@map("conversations")
 }
+*/
+
+model Conversation {
+  id           String             @id @default(cuid())
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  messages     Message[]
+  participants Participant[]
+}
+
+model Participant {
+  id             String             @id @default(cuid())
+  conversationId String
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  userId         String
+  user           User            @relation("participantUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  role           String?         @default("participant")
+  joinedAt       DateTime        @default(now())
+
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+}
+
+model Message {
+  id             String             @id @default(cuid())
+  text           String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  status         MessageStatus   @default(PENDING)
+
+  senderId       String
+  sender         User            @relation("messageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  conversationId String
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  attachmentId   String?
+  attachment     Attachment?     @relation(fields: [attachmentId], references: [id])
+}
+
+model NotificationEvent {
+  id             String          @id @default(uuid())
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @default(now()) @updatedAt
+  deleted_at     DateTime?
+  status         Int?            @default(1) @db.SmallInt
+  type           String?
+  text           String?
+  notifications  Notification[]
+}
+
+model Notification {
+  id                     String                @id @default(cuid())
+  created_at             DateTime            @default(now())
+  updated_at             DateTime            @default(now()) @updatedAt
+  deleted_at             DateTime?
+  read_at                DateTime?
+  status                 Int?                @default(1) @db.SmallInt
+
+  sender_id              String?
+  sender                 User?               @relation("notificationSender", fields: [sender_id], references: [id])
+
+  receiver_id            String?
+  receiver               User?               @relation("notificationReceiver", fields: [receiver_id], references: [id])
+
+  notification_event_id  String?
+  notification_event     NotificationEvent?  @relation(fields: [notification_event_id], references: [id])
+
+  entity_id              String?
+}
+
+
+model Attachment {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  name     String?
+  type     String?
+  size     Int?
+  file     String?
+  file_alt String?
+
+  messages Message[]
+
+  @@map("attachments")
+}
+
 
 // ---------End Chat schema---------
 

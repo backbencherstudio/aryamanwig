@@ -1,87 +1,71 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req } from '@nestjs/common';
+
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common'; 
 import { DashboradService } from './dashborad.service';
-import { CreateDashboradDto } from './dto/create-dashborad.dto';
-import { UpdateDashboradDto } from './dto/update-dashborad.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PaginationDto } from 'src/common/pagination';
+
 
 @Controller('dashborad')
 export class DashboradController {
-
   constructor(private readonly dashboradService: DashboradService) {}
 
   /*================= Brought Item For User =====================*/
   
-  // total brought item for user
   @UseGuards(JwtAuthGuard)
   @Get('total-brought-item')
-  totalBroughtItem(@Req() req: any) {
+  totalBroughtItem(@Req() req: any, @Query() paginationDto: PaginationDto) {
     const user = req.user.userId;
-    return this.dashboradService.totalBroughtItem(user);
+    return this.dashboradService.totalBroughtItem(user, paginationDto);
   }
 
-  // bought pending item  for user
   @UseGuards(JwtAuthGuard)
   @Get('bought-pending-item')
-  boughtPendingItem(@Req() req: any) {
+  boughtPendingItem(@Req() req: any, @Query() paginationDto: PaginationDto) {
     const user = req.user.userId;
-    return this.dashboradService.boughtPendingItem(user);
+    return this.dashboradService.boughtPendingItem(user, paginationDto);
   }
- 
 
-  // bought delivered item  for user
   @UseGuards(JwtAuthGuard)
   @Get('bought-delivered-item')
-  boughtDeliveredItem(@Req() req: any) {
+  boughtDeliveredItem(@Req() req: any, @Query() paginationDto: PaginationDto) {
     const user = req.user.userId;
-    return this.dashboradService.boughtDeliveredItem(user);
+    return this.dashboradService.boughtDeliveredItem(user, paginationDto);
   }
 
-
-  // bought cancelled item  for user
   @UseGuards(JwtAuthGuard)
   @Get('bought-cancelled-item')
-  boughtCancelledItem(@Req() req: any) {
+  boughtCancelledItem(@Req() req: any, @Query() paginationDto: PaginationDto) {
     const user = req.user.userId;
-    return this.dashboradService.boughtCancelledItem(user);
+    return this.dashboradService.boughtCancelledItem(user, paginationDto);
   }
-
 
   /*================= Selling Item For User =====================*/
   
-  // total selling item for user
   @UseGuards(JwtAuthGuard)
   @Get('total-selling-item')
-  totalSellingItem(@Req() req: any) {
+  totalSellingItem(@Req() req: any, @Query() paginationDto: PaginationDto) {
     const user = req.user.userId;
-    return this.dashboradService.totalSellingItem(user);
+    return this.dashboradService.totalSellingItem(user, paginationDto);
   }
   
-  
-  // selling pending item  for user
   @UseGuards(JwtAuthGuard)
   @Get('selling-pending-item')
-  sellingPendingItem(@Req() req: any) {
+  sellingPendingItem(@Req() req: any, @Query() paginationDto: PaginationDto) {
     const user = req.user.userId;
-    return this.dashboradService.sellingPendingItem(user);
+    return this.dashboradService.sellingPendingItem(user, paginationDto);
   }
 
-  // selling delivered item  for user
   @UseGuards(JwtAuthGuard)
   @Get('selling-delivered-item')
-  sellingDeliveredItem(@Req() req: any) {
+  sellingDeliveredItem(@Req() req: any, @Query() paginationDto: PaginationDto) {
     const user = req.user.userId;
-    return this.dashboradService.sellingDeliveredItem(user);
+    return this.dashboradService.sellingDeliveredItem(user, paginationDto);
   }
 
-  // selling cancelled item  for user
   @UseGuards(JwtAuthGuard)
   @Get('selling-cancelled-item')
-  sellingCancelledItem(@Req() req: any) {
+  sellingCancelledItem(@Req() req: any, @Query() paginationDto: PaginationDto) {
     const user = req.user.userId;
-    return this.dashboradService.sellingCancelledItem(user);
+    return this.dashboradService.sellingCancelledItem(user, paginationDto);
   }
-
-
-
-  
 }

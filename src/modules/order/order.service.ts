@@ -6,6 +6,7 @@ import { Decimal, Or } from '@prisma/client/runtime/library';
 import { CreateOrderDto } from './dto/create-order.dto';
 import appConfig from 'src/config/app.config';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
+import { paginateResponse, PaginationDto } from 'src/common/pagination';
 
 @Injectable()
 export class OrderService {
@@ -110,10 +111,20 @@ export class OrderService {
 
 
   // get my all orders
-  async getMyOrders(userId: string) {
+  async getMyOrders(userId: string, paginationDto: PaginationDto) {
 
-    const orders = await this.prisma.order.findMany({
-      where: { buyer_id: userId },
+  const { page, perPage } = paginationDto;
+  const skip = (page - 1) * perPage;
+  
+  const whereClause = { buyer_id: userId };
+
+  const [total, orders] = await this.prisma.$transaction([
+    this.prisma.order.count({ where: whereClause }),
+    this.prisma.order.findMany({
+      where: whereClause,
+      skip,
+      take: perPage,
+      orderBy: { created_at: 'desc' },
       include: {
         seller: {
           select: { id: true, name: true, avatar: true },
@@ -131,43 +142,50 @@ export class OrderService {
           },
         },
       },
-      orderBy: { created_at: 'desc' },
-    });
+    }),
+  ]);
 
-    if (orders.length === 0) {
-      return { success: true, message: 'No orders found', data: [] };
-    }
-
-    const baseUrl = appConfig().storageUrl.product;
-
+  if (total === 0) {
     return {
       success: true,
-      message: 'Orders fetched successfully',
-      data: orders.map((o) => ({
-        order_id: o.id,
-        seller: {
-          id: o.seller.id,
-          name: o.seller.name,
-          avatar: o.seller.avatar
-            ? SojebStorage.url(`${baseUrl}/${o.seller.avatar}`)
-            : null,
-        },
-        total: o.grand_total,
-        status: o.order_status,
-        created_at: o.created_at,
-        items: o.order_items.map((i) => ({
-          product_id: i.product.id,
-          title: i.product.product_title,
-          price: i.product.price,
-          photo: i.product.photo
-            ? SojebStorage.url(`${baseUrl}/${i.product.photo}`)
-            : null,
-          quantity: i.quantity,
-          total_price: i.total_price,
-        })),
-      })),
+      message: 'No orders found',
+      ...paginateResponse([], total, page, perPage),
     };
   }
+  
+  const baseUrl = appConfig().storageUrl.product;
+  const formattedOrders = orders.map((o) => ({
+    order_id: o.id,
+    seller: {
+      id: o.seller.id,
+      name: o.seller.name,
+      avatar: o.seller.avatar
+        ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${o.seller.avatar}`) // Use avatar storage for user avatars
+        : null,
+    },
+    total: o.grand_total,
+    status: o.order_status,
+    created_at: o.created_at,
+    items: o.order_items.map((i) => ({
+      product_id: i.product.id,
+      title: i.product.product_title,
+      price: i.product.price,
+      photo: i.product.photo
+        ? SojebStorage.url(`${baseUrl}/${i.product.photo}`)
+        : null,
+      quantity: i.quantity,
+      total_price: i.total_price,
+    })),
+  }));
+  
+  const paginatedData = paginateResponse(formattedOrders, total, page, perPage);
+
+  return {
+    success: true,
+    message: 'Orders fetched successfully',
+    ...paginatedData, 
+  };
+}
 
 
   // get single order

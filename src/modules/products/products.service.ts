@@ -174,6 +174,11 @@ export class ProductsService {
       include: {
         category: true,
         user: true,
+        bids: {
+          orderBy: { created_at: 'asc' },
+          take: 1,
+          select: { id: true, bid_amount: true }, 
+        }
       },
     });
 
@@ -212,13 +217,11 @@ export class ProductsService {
         color: product.color || 'Not Specified',
         uploaded: formatDate(product.created_at),
         remaining_time: getBoostTimeLeft(product.boost_until),
-
+        minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
         category: {
           id: product.category.id,
           category_name: product.category.category_name,
         },
-
-        
       },
     };
   }
@@ -723,6 +726,11 @@ export class ProductsService {
             where: { user_id: user },
             select: { id: true },
           },
+          bids:{
+            orderBy: { created_at: 'asc' },
+            take: 1,
+            select: { id: true, bid_amount: true }
+          }
         },
       }),
     ]);
@@ -748,6 +756,7 @@ export class ProductsService {
       boost_time_left: getBoostTimeLeft(product.boost_until),
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
+      minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
     }));
 
     
@@ -799,6 +808,11 @@ export class ProductsService {
             where: { user_id: user },
             select: { id: true },
           },
+          bids: {
+            orderBy: { created_at: 'asc' },
+            take: 1,
+            select: { id: true, bid_amount: true },
+          },
         },
       }),
     ]);
@@ -825,6 +839,7 @@ export class ProductsService {
       boost_time_left: getBoostTimeLeft(product.boost_until),
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
+      minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
     }));
 
     
@@ -877,6 +892,11 @@ export class ProductsService {
             where: { user_id: user },
             select: { id: true },
           },
+          bids: {
+            orderBy: { created_at: 'asc' },
+            take: 1,
+            select: { id: true, bid_amount: true }, 
+          }
         },
       }),
     ]);
@@ -902,6 +922,7 @@ export class ProductsService {
       boost_time_left: getBoostTimeLeft(product.boost_until),
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0, 
+      minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
     }));
 
     
@@ -913,9 +934,6 @@ export class ProductsService {
       ...paginatedData, 
     };
   }
-
-
-
 
 
 }

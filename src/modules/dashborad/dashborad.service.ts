@@ -1,78 +1,76 @@
+// dashborad.service.ts
+
 import { Injectable } from '@nestjs/common';
-import { CreateDashboradDto } from './dto/create-dashborad.dto';
-import { UpdateDashboradDto } from './dto/update-dashborad.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
+import { paginateResponse, PaginationDto } from 'src/common/pagination';
+
 
 @Injectable()
 export class DashboradService {
-
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Fetches and paginates orders for a user, either as a buyer or a seller.
+   * This is a private helper method to keep the code DRY.
+   */
+  private async fetchOrders(
+    userId: string,
+    role: 'buyer' | 'seller',
+    paginationDto: PaginationDto,
+    status?: OrderStatus,
+  ) {
+    const { page, perPage } = paginationDto;
+    const skip = (page - 1) * perPage;
 
-  // fetch order demo list
+    const whereCondition: Prisma.OrderWhereInput = {};
+    if (role === 'buyer') whereCondition.buyer_id = userId;
+    if (role === 'seller') whereCondition.seller_id = userId;
+    if (status) whereCondition.order_status = status;
 
-   private async fetchOrders( userId: string, role: 'buyer' | 'seller', status?: OrderStatus) {
-  
-    const whereCondition: any = {};
-
-    if (role === 'buyer') {
-      whereCondition.buyer_id = userId;
-    }
-
-    if (role === 'seller') {
-      whereCondition.seller_id = userId;
-    }
-
-    if (status) {
-      whereCondition.order_status = status;
-    }
-
-    const orderList = await this.prisma.order.findMany({
-      where: whereCondition,
-      select: {
-        id: true,
-        order_status: true,
-        buyer: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
+    const [total, orders] = await this.prisma.$transaction([
+      this.prisma.order.count({ where: whereCondition }),
+      this.prisma.order.findMany({
+        where: whereCondition,
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' },
+       
+        select: {
+          id: true,
+          order_status: true,
+          buyer: {
+            select: { id: true, name: true, email: true, avatar: true },
           },
-        },
-        seller: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
+          seller: {
+            select: { id: true, name: true, email: true, avatar: true },
           },
-        },
-        order_items: {
-          select: {
-            quantity: true,
-            total_price: true,
-            product: {
-              select: {
-                id: true,
-                product_title: true,
-                price: true,
-                photo: true,
+          order_items: {
+            select: {
+              quantity: true,
+              total_price: true,
+              product: {
+                select: {
+                  id: true,
+                  product_title: true,
+                  price: true,
+                  photo: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+    ]);
 
-    return orderList.map((order) => ({
+    
+    const formattedOrders = orders.map((order) => ({
       order_id: order.id,
       order_status: order.order_status,
-    
-      order_owner:
+      // If the user is a 'buyer', show the 'seller' info, and vice-versa.
+      order_partner:
         role === 'buyer'
           ? {
               id: order.seller?.id,
@@ -101,118 +99,91 @@ export class DashboradService {
           : null,
       })),
     }));
+    
+    return { total, orders: formattedOrders };
   }
-
-
-
-
-
 
   /*================= Brought Item For User =====================*/
 
-
-  // total brought item for user
-  async totalBroughtItem(userId: string) {
-
-    const data = await this.fetchOrders( userId, 'buyer');
-
+  async totalBroughtItem(userId: string, paginationDto: PaginationDto) {
+    const { page, perPage } = paginationDto;
+    const { total, orders } = await this.fetchOrders(userId, 'buyer', paginationDto);
     return {
       success: true,
-      message: 'Total Brought item fetched successfully',
-      total_item: data.length,
-      data: data
-    }
-
-  
-  }
-
-
-  // bought pending item  for user
-  async boughtPendingItem(userId: string) {
-    const data = await this.fetchOrders(userId, 'buyer', 'PENDING');
-    return {
-      success: true,
-      message: 'Bought pending item fetched successfully',
-      total_item: data.length,
-      data: data,
-    };
-  }
-  
-
-  // bought delivered item  for user
-  async boughtDeliveredItem(userId: string) {
-    const data = await this.fetchOrders(userId, 'buyer', 'DELIVERED');
-    return {
-      success: true,
-      total_item: data.length,
-      message: 'Bought delivered item fetched successfully',
-      data: data,
+      message: 'Total brought items fetched successfully',
+      ...paginateResponse(orders, total, page, perPage),
     };
   }
 
-    
-  // bought cancelled item for user
-  async boughtCancelledItem(userId: string) {
-    const data = await this.fetchOrders(userId, 'buyer', 'CANCELLED');
+  async boughtPendingItem(userId: string, paginationDto: PaginationDto) {
+    const { page, perPage } = paginationDto;
+    const { total, orders } = await this.fetchOrders(userId, 'buyer', paginationDto, 'PENDING');
     return {
       success: true,
-      message: 'Bought cancelled item fetched successfully',
-      data: data,
+      message: 'Bought pending items fetched successfully',
+      ...paginateResponse(orders, total, page, perPage),
     };
   }
 
-  
+  async boughtDeliveredItem(userId: string, paginationDto: PaginationDto) {
+    const { page, perPage } = paginationDto;
+    const { total, orders } = await this.fetchOrders(userId, 'buyer', paginationDto, 'DELIVERED');
+    return {
+      success: true,
+      message: 'Bought delivered items fetched successfully',
+      ...paginateResponse(orders, total, page, perPage),
+    };
+  }
+
+  async boughtCancelledItem(userId: string, paginationDto: PaginationDto) {
+    const { page, perPage } = paginationDto;
+    const { total, orders } = await this.fetchOrders(userId, 'buyer', paginationDto, 'CANCELLED');
+    return {
+      success: true,
+      message: 'Bought cancelled items fetched successfully',
+      ...paginateResponse(orders, total, page, perPage),
+    };
+  }
+
   /*================= Selling Item For User =====================*/
 
-
-  // total selling item for user
-  async totalSellingItem(userId: string) {
-    const data = await this.fetchOrders(userId, 'seller'); // fetchOrders ব্যবহার করা হয়েছে
+  async totalSellingItem(userId: string, paginationDto: PaginationDto) {
+    const { page, perPage } = paginationDto;
+    const { total, orders } = await this.fetchOrders(userId, 'seller', paginationDto);
     return {
       success: true,
-      message: 'Total Selling item fetched successfully',
-      total_item: data.length,
-      data: data,
-    };
-  } 
-
-
-  // selling pending item  for user
-  async sellingPendingItem(userId: string) {
-    const data = await this.fetchOrders(userId, 'seller', 'PENDING');
-    return {
-      success: true,
-      message: 'Selling pending item fetched successfully',
-      total_item: data.length,
-      data: data,
+      message: 'Total selling items fetched successfully',
+      ...paginateResponse(orders, total, page, perPage),
     };
   }
 
-
-  // selling delivered item  for user
-  async sellingDeliveredItem(userId: string) {
-    const data = await this.fetchOrders(userId, 'seller', 'DELIVERED');
+  async sellingPendingItem(userId: string, paginationDto: PaginationDto) {
+    const { page, perPage } = paginationDto;
+    const { total, orders } = await this.fetchOrders(userId, 'seller', paginationDto, 'PENDING');
     return {
       success: true,
-      message: 'Selling delivered item fetched successfully',
-      total_item: data.length,
-      data: data,
+      message: 'Selling pending items fetched successfully',
+      ...paginateResponse(orders, total, page, perPage),
     };
   }
 
-
-  // selling cancelled item  for user
-  async sellingCancelledItem(userId: string) {
-    const data = await this.fetchOrders(userId, 'seller', 'CANCELLED');
+  async sellingDeliveredItem(userId: string, paginationDto: PaginationDto) {
+    const { page, perPage } = paginationDto;
+    const { total, orders } = await this.fetchOrders(userId, 'seller', paginationDto, 'DELIVERED');
     return {
       success: true,
-      message: 'Selling cancelled item fetched successfully',
-      total_item: data.length,
-      data: data,
+      message: 'Selling delivered items fetched successfully',
+      ...paginateResponse(orders, total, page, perPage),
     };
   }
 
-
+  async sellingCancelledItem(userId: string, paginationDto: PaginationDto) {
+    const { page, perPage } = paginationDto;
+    const { total, orders } = await this.fetchOrders(userId, 'seller', paginationDto, 'CANCELLED');
+    return {
+      success: true,
+      message: 'Selling cancelled items fetched successfully',
+      ...paginateResponse(orders, total, page, perPage),
+    };
+  }
 }
-  
-  

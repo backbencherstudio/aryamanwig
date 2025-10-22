@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Req, UseGuards, Query } from '@nestjs/common';
 import { WishlistService } from './wishlist.service';
 import { CreateWishlistDto } from './dto/create-wishlist.dto';
 import { UpdateWishlistDto } from './dto/update-wishlist.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PaginationDto } from 'src/common/pagination/dto/offset-pagination.dto';
 
 @Controller('wishlist')
 export class WishlistController {
@@ -23,16 +24,21 @@ export class WishlistController {
 
   // get all wishlist items
   @Get('allwishlist')
-  findAll() {
-    return this.wishlistService.findAll();
+  findAll(
+    @Query() paginationDto: PaginationDto
+  ) {
+    return this.wishlistService.findAll(paginationDto);
   }
 
   // get all wishlist items for a user
   @UseGuards(JwtAuthGuard)
   @Get('userwishlist')
-  findUserWishlist(@Req() req: any) {
+  findUserWishlist(
+    @Req() req: any,
+    @Query() paginationDto: PaginationDto
+  ) {
     const user = req.user.userId;
-    return this.wishlistService.findAllUser(user);
+    return this.wishlistService.findAllUser(user, paginationDto);
   }
 
 
@@ -42,7 +48,6 @@ export class WishlistController {
     return this.wishlistService.findOne(id);
   }
 
- 
   // delete wishlist item by id
   @UseGuards(JwtAuthGuard)
   @Delete('deletebyid/:id')

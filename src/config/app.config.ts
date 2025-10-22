@@ -95,12 +95,12 @@ export default () => ({
     package: '/package',
     destination: '/destination',
     blog: '/blog',
-    avatar: '/avatar',
+    avatar: 'avatar',
     product: 'product',
     category: 'category',
     websiteInfo: '/website-info',
     // chat
-    attachment: '/attachment',
+    attachment: 'attachment',
   },
 
 

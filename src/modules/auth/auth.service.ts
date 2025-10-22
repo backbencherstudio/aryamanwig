@@ -301,7 +301,7 @@ export class AuthService {
         const originalName = image.originalname.replace(/\s+/g, '');
         const fileName = `${StringHelper.randomString()}${originalName}`;
         await SojebStorage.put(
-          appConfig().storageUrl.avatar + fileName,
+          appConfig().storageUrl.avatar + '/' + fileName,
           image.buffer,
         );
 

@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { log } from 'node:console';
 import { OrderStatus } from '@prisma/client';
+import { PaginationDto } from 'src/common/pagination/dto/offset-pagination.dto';
 
 @Controller('order')
 export class OrderController {
@@ -36,9 +37,12 @@ export class OrderController {
   // get my all orders
   @UseGuards(JwtAuthGuard)
   @Get('my-orders')
-  getMyOrders(@Req() req) {
+  getMyOrders(
+    @Req() req,
+    @Query() paginationDto: PaginationDto,
+  ) {
     const userId = req.user.userId;
-    return this.orderService.getMyOrders(userId);
+    return this.orderService.getMyOrders(userId, paginationDto);
   }
 
 
