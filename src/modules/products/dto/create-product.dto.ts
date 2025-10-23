@@ -48,10 +48,7 @@ export class CreateProductDto {
   @IsEnum(Condition)
   condition?: Condition;
 
-  @IsOptional()
-  @IsInt()
-  status?: number;
-
+  
   @IsString()
   category_id?: string;
 }

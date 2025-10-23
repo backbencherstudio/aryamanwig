@@ -50,7 +50,7 @@ export class ProductsController {
     return this.productsService.findOne(id);
   }
 
-  // update product by id
+  //update product by id
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
   FileInterceptor('image', {

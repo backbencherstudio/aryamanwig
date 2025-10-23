@@ -12,6 +12,7 @@ import { formatDate, getBoostTimeLeft } from 'src/common/utils/date.utils';
 import { ca, id } from 'date-fns/locale';
 import { paginateResponse } from 'src/common/pagination/pagination.service';
 import { PaginationDto } from 'src/common/pagination';
+import { ProductStatus } from '@prisma/client';
 
 
 @Injectable()
@@ -37,7 +38,6 @@ export class ProductsService {
       color,
       time,
       condition,
-      status,
       category_id,
     } = createProductDto;
 
@@ -84,7 +84,6 @@ export class ProductsService {
         color,
         time,
         condition,
-        status,
         user_id: user,
         category_id,
       },
@@ -114,10 +113,14 @@ export class ProductsService {
   async findAll(page: number, perPage: number) {
     const skip = (page - 1) * perPage;
 
-    // Use a transaction to get both total count and paginated data
+    const whereClause = {
+      status: ProductStatus.APPROVED,
+    };
+
     const [total, products] = await this.prisma.$transaction([
-      this.prisma.product.count(), // Gets the total number of products
+      this.prisma.product.count({ where: whereClause }), 
       this.prisma.product.findMany({
+        where: whereClause,
         skip,
         take: perPage,
         orderBy: { created_at: 'desc' },
@@ -134,7 +137,7 @@ export class ProductsService {
       }),
     ]);
 
-    // If there are no products at all, you can return an empty paginated response
+
     if (total === 0) {
       return {
         success: true,
@@ -156,7 +159,6 @@ export class ProductsService {
       price: product.price,
     }));
 
-    // Use your helper function to create the paginated response
     const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
 
     return {
@@ -209,6 +211,7 @@ export class ProductsService {
         product_id: product.id,
         product_photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`): null,
         title: product.product_title,
+        status: product.status,
         location: product.location,
         price: product.price,
         description: product.product_description,
@@ -226,7 +229,7 @@ export class ProductsService {
     };
   }
 
-  // update product
+  //update product
   async update(id: string, 
          updateProductDto: UpdateProductDto,
          user: string,
@@ -321,6 +324,7 @@ export class ProductsService {
         id: updatedProduct.id,
         product_title: updatedProduct.product_title,
         product_description: updatedProduct.product_description,
+        status: updatedProduct.status,
         price: updatedProduct.price,
         stock: updatedProduct.stock,
         condition: updatedProduct.condition,
@@ -359,16 +363,21 @@ export class ProductsService {
 
   // get all products for a user
   async getAllProductsForUser(user: string, query: PaginationDto) {
+  
     const { page, perPage } = query;
     const skip = (page - 1) * perPage;
 
     
+    const whereClause = {
+      status: ProductStatus.APPROVED,
+    };
+
     const [total, products] = await this.prisma.$transaction([
       this.prisma.product.count({
-        where: { user_id: user }, 
+        where: { user_id: user, ...whereClause },
       }),
       this.prisma.product.findMany({
-        where: { user_id: user }, 
+        where: { user_id: user, ...whereClause }, 
         skip,
         take: perPage,
         orderBy: { created_at: 'desc' },
@@ -406,6 +415,7 @@ export class ProductsService {
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
         : null,
       title: product.product_title,
+     
       price: product.price,
       description: product.product_description,
       location: product.location,
@@ -444,6 +454,14 @@ export class ProductsService {
 
     if (product.user_id !== user) {
       throw new ConflictException('You are not allowed to boost this product');
+    }
+
+    if (product.status === ProductStatus.REJECTED) {
+      throw new ConflictException('Rejected products cannot be boosted');
+    }
+
+    if (product.status === ProductStatus.PENDING) {
+      throw new ConflictException('Only approved products can be boosted');
     }
 
     const nowUTC = new Date();
@@ -626,6 +644,7 @@ export class ProductsService {
     const products = await this.prisma.product.findMany({
       where: {
         AND: [
+          { status: ProductStatus.APPROVED },
           min_price ? { price: { gte: min_price } } : {},
           max_price ? { price: { lte: max_price } } : {},
           categories && categories.length ? { category_id: { in: categories } } : {},
@@ -639,6 +658,7 @@ export class ProductsService {
       select: {
         id: true,
         product_title: true,
+        status: true,
         size: true,
         condition: true,
         created_at: true,
@@ -668,6 +688,7 @@ export class ProductsService {
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
         : null,
       title: product.product_title,
+      status: product.status,
       size: product.size,
       condition: product.condition,
       created_time: formatDate(product.created_at),
@@ -704,7 +725,10 @@ export class ProductsService {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
-    const whereClause = { category_id: categoryId };
+    const whereClause = { 
+      category_id: categoryId,
+      status: ProductStatus.APPROVED
+    };
 
     const [total, products] = await this.prisma.$transaction([
       this.prisma.product.count({ where: whereClause }),
@@ -718,6 +742,7 @@ export class ProductsService {
           product_title: true,
           size: true,
           condition: true,
+          status: true,
           created_at: true,
           boost_until: true,
           price: true,
@@ -751,6 +776,7 @@ export class ProductsService {
         : null,
       title: product.product_title,
       size: product.size,
+      status: product.status,
       condition: product.condition,
       created_time: formatDate(product.created_at),
       boost_time_left: getBoostTimeLeft(product.boost_until),
@@ -786,7 +812,10 @@ export class ProductsService {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
-    const whereClause = { category_id: categoryId };
+    const whereClause = { 
+      category_id: categoryId , 
+      status: ProductStatus.APPROVED
+    };
 
     const [total, products] = await this.prisma.$transaction([
       this.prisma.product.count({ where: whereClause }),
@@ -799,6 +828,7 @@ export class ProductsService {
           id: true,
           product_title: true,
           size: true,
+          status: true,
           condition: true,
           created_at: true,
           boost_until: true,
@@ -833,6 +863,7 @@ export class ProductsService {
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
         : null,
       title: product.product_title,
+      status: product.status,
       size: product.size,
       condition: product.condition,
       created_time: formatDate(product.created_at),
@@ -869,9 +900,11 @@ export class ProductsService {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
-    const whereClause = { category_id: categoryId };
+    const whereClause = { 
+      category_id: categoryId,
+      status: ProductStatus.APPROVED
+    };
 
-  
     const [total, products] = await this.prisma.$transaction([
       this.prisma.product.count({ where: whereClause }),
       this.prisma.product.findMany({
@@ -883,6 +916,7 @@ export class ProductsService {
           id: true,
           product_title: true,
           size: true,
+          status: true,
           condition: true,
           created_at: true,
           boost_until: true,
@@ -916,6 +950,7 @@ export class ProductsService {
         ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
         : null,
       title: product.product_title,
+      status: product.status,
       size: product.size,
       condition: product.condition,
       created_time: formatDate(product.created_at),
