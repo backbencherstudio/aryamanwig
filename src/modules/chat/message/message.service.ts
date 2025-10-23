@@ -7,6 +7,7 @@ import { MessageGateway } from './message.gateway';
 import { StringHelper } from 'src/common/helper/string.helper';
 import { paginateResponse, PaginationDto } from 'src/common/pagination';
 import { MessageStatus } from '@prisma/client';
+import { send } from 'process';
 
 @Injectable()
 export class MessageService {
@@ -100,10 +101,16 @@ export class MessageService {
         data: { updatedAt: new Date() },
       });
 
+      const notificationPayload = {
+        sender_id: sender,
+        receiver_id: conversation.participants
+      }
+
+
       return [newMessage];
     });
     
-    
+
     return {
       message: 'Message sent successfully',
       success: true,

@@ -91,7 +91,7 @@ export class MessageController {
     return this.messageService.readMessages(user, conversationId);
   }
 
- // delete message
+  // delete message
   @Delete('delete-message/:messageId')
   @ApiOperation({ summary: 'Delete a message' })
   async deleteMessage(
