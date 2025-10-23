@@ -1,8 +1,12 @@
 
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common'; 
+import { Body, Controller, Get, Param, Patch, Query, Req, UseGuards } from '@nestjs/common'; 
 import { DashboradService } from './dashborad.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginationDto } from 'src/common/pagination';
+import { RolesGuard } from 'src/common/guard/role/roles.guard';
+import { Roles } from 'src/common/guard/role/roles.decorator';
+import { Role } from 'src/common/guard/role/role.enum';
+import { ProductStatus } from '@prisma/client';
 
 
 @Controller('dashborad')
@@ -68,5 +72,61 @@ export class DashboradController {
     const user = req.user.userId;
     return this.dashboradService.sellingCancelledItem(user, paginationDto);
   }
-  /*================= Selling Item For User =====================*/
+
+  /*=================  Selling Item For User =====================*/
+  /*============----=   Admin Dashboard     =----============*/
+
+  //========== product related
+
+  // get total pending products
+  @Get('total-pending-products')
+  totalPendingProducts(
+    @Query() paginationDto: PaginationDto) {
+    return this.dashboradService.totalPendingProducts(paginationDto);
+  }
+
+  // product approved
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch('approve-product/:productId')
+  approveOrRejectProduct(
+    @Req() req: any,
+    @Param('productId') productId: string,
+    @Body('status') status: ProductStatus
+  ) {
+    const user = req.user.userId;
+    return this.dashboradService.approveOrRejectProduct(productId, user, status);
+  }
+
+  //============ order related
+  
+  // total delivery orders
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('complete-orders')
+  totalOrders(
+    @Query() paginationDto: PaginationDto
+  ) {
+    return this.dashboradService.totalDeliveredOrders(paginationDto);
+  }
+
+  // total pending orders
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('pending-orders')
+  getPendingOrders(@Query() paginationDto: PaginationDto) {
+    return this.dashboradService.pendingOrders(paginationDto);
+  }
+
+
+  // total cancelled orders
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('cancelled-orders')
+  getCancelledOrders(@Query() paginationDto: PaginationDto) {
+    return this.dashboradService.cancelledOrders(paginationDto);
+  }
+
+
+
 }

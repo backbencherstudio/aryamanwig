@@ -28,3 +28,13 @@ export const getBoostTimeLeft = (boostTime: string | Date | null): string | null
   
   return `(${hours}h :${minutes}m :${seconds}s)`;
 };
+
+
+// Jun 15, 2023
+export function MonthWithDay(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+}
