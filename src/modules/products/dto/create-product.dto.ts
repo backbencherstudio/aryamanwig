@@ -1,3 +1,4 @@
+import { ProductItemSize } from '@prisma/client';
 import { IsString, IsOptional, IsInt, IsDecimal, IsArray, IsDate, IsEnum, IsNotEmpty, IsNumber, IsPositive, Min } from 'class-validator';
 
 
@@ -22,6 +23,11 @@ export class CreateProductDto {
   @IsPositive()
   @Min(0, {message: 'Price must be a positive number'})
   price: number;
+
+
+
+  @IsEnum(ProductItemSize)
+  product_item_size?: ProductItemSize;
 
   @IsOptional()
   @IsArray()

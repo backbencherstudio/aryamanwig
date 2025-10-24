@@ -5,7 +5,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { filter } from 'rxjs';
 import { FilterProductDto } from './dto/filter-product.dto';
-import { BoostProductDto } from './dto/boost-product.dto';
+import { BoostProductDto, BoostTierEnum } from './dto/boost-product.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { PaginationDto } from 'src/common/pagination';

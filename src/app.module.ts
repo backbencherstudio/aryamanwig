@@ -33,6 +33,7 @@ import { OrderModule } from './modules/order/order.module';
 import { DashboradModule } from './modules/dashborad/dashborad.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { BidModule } from './modules/bid/bid.module';
+import { DisposalModule } from './modules/disposal/disposal.module';
 
 
 @Module({
@@ -100,7 +101,8 @@ import { BidModule } from './modules/bid/bid.module';
     OrderModule,
     DashboradModule,
     ProfileModule,
-    BidModule
+    BidModule,
+    DisposalModule
   ],
   controllers: [AppController, OrderController],
   providers: [

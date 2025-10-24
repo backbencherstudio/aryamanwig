@@ -100,6 +100,14 @@ export class DashboradController {
 
   //============ order related
   
+  // get recent orders
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('recent-orders')
+  getRecentOrders(@Query() paginationDto: PaginationDto) {
+    return this.dashboradService.recentOrders(paginationDto);
+  }
+
   // total delivery orders
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
@@ -127,6 +135,15 @@ export class DashboradController {
     return this.dashboradService.cancelledOrders(paginationDto);
   }
 
-
+  //================= user related
+ 
+  // active users with all details
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('active-users')
+  getActiveUsers(@Query() paginationDto: PaginationDto) {
+    return this.dashboradService.activeUsers(paginationDto);
+  }
 
 }
+

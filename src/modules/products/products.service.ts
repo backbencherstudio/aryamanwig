@@ -3,7 +3,7 @@ import { Condition, CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FilterProductDto } from './dto/filter-product.dto';
-import { BoostProductDto } from './dto/boost-product.dto';
+import { BoostProductDto, BoostTierEnum } from './dto/boost-product.dto';
 import { StringHelper } from 'src/common/helper/string.helper';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
@@ -39,6 +39,7 @@ export class ProductsService {
       time,
       condition,
       category_id,
+      product_item_size,
     } = createProductDto;
 
 
@@ -86,6 +87,7 @@ export class ProductsService {
         condition,
         user_id: user,
         category_id,
+        product_item_size,
       },
     });
 
@@ -217,6 +219,7 @@ export class ProductsService {
         description: product.product_description,
         condition: product.condition === 'NEW' ? 'Like New' : product.condition,
         size: product.size,
+        product_item_size: product.product_item_size,
         color: product.color || 'Not Specified',
         uploaded: formatDate(product.created_at),
         remaining_time: getBoostTimeLeft(product.boost_until),
@@ -439,10 +442,34 @@ export class ProductsService {
 
   /*=================( Boosting Area Start)=================*/
   
+  private readonly TIER_DETAILS = {
+      [BoostTierEnum.TIER_1]: {
+        days: 3,
+        price: 4.90,
+        name: 'Muss Schnell Weg',
+      },
+      [BoostTierEnum.TIER_2]: {
+        days: 5,
+        price: 9.90,
+        name: 'Muss Zackig Weg',
+      },
+      [BoostTierEnum.TIER_3]: {
+        days: 7,
+        price: 19.90,
+        name: 'Muss Sofort Weg',
+      },
+  };
+
+
   // boost product
   async boost(boostProductDto: BoostProductDto, user: string) {
 
-    const { product_id, days } = boostProductDto;
+    const { product_id, boost_tier } = boostProductDto;
+
+    const tierDetails = this.TIER_DETAILS[boost_tier];
+    if (!tierDetails) {
+      throw new ConflictException('Invalid boost tier provided');
+    }
 
     const product = await this.prisma.product.findUnique({
       where: { id: product_id },
@@ -465,38 +492,57 @@ export class ProductsService {
     }
 
     const nowUTC = new Date();
-
     if (product.boost_until && new Date(product.boost_until) > nowUTC) {
       const remainingHours = Math.ceil(
-        (new Date(product.boost_until).getTime() - nowUTC.getTime()) / (1000 * 60 * 60)
+        (new Date(product.boost_until).getTime() - nowUTC.getTime()) /
+          (1000 * 60 * 60),
       );
       throw new ConflictException(
-        `This product is already boosted! You can boost again after ${remainingHours} hours.`
+        `This product is already boosted! You can boost again after ${remainingHours} hours.`,
       );
     }
 
-    const boostUntil = new Date(nowUTC.getTime() + days * 24 * 60 * 60 * 1000);
+    const boostUntil = new Date(
+      nowUTC.getTime() + tierDetails.days * 24 * 60 * 60 * 1000,
+    );
 
     const updatedProduct = await this.prisma.product.update({
       where: { id: product_id },
       data: {
-        boost_until: boostUntil,
         is_boosted: true,
+        boost_until: boostUntil,
+        boost_tier: boost_tier, 
+        boost_payment_status: 'COMPLETED', 
       },
+      select: {
+        id: true,
+        photo: true,
+        product_title: true,
+        size: true,
+        condition: true,
+        created_at: true,
+        boost_until: true,
+        price: true,
+        boost_payment_status: true,
+        boost_tier: true,
+      }
     });
 
     return {
       success: true,
       message: 'Product boosted successfully',
+      boost_status: updatedProduct.boost_payment_status,
       data: {
         id: updatedProduct.id,
-        photo: SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`),
+        photo: updatedProduct.photo, 
         title: updatedProduct.product_title,
         size: updatedProduct.size,
         condition: updatedProduct.condition,
-        created_time: updatedProduct.created_at,
-        boost_time: updatedProduct.boost_until,
+        created_time: formatDate(updatedProduct.created_at),
+        boost_time: getBoostTimeLeft(updatedProduct.boost_until),
         price: updatedProduct.price,
+        boost_tier_name: tierDetails.name,
+        boost_price_paid: tierDetails.price, 
       },
     };
   }
