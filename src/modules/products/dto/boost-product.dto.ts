@@ -1,12 +1,18 @@
+import { IsEnum, IsString } from 'class-validator';
 
-import { IsString, IsInt, Min } from 'class-validator';
+// একটি enum তৈরি করুন যা Prisma enum-এর সাথে মেলে
+// এটি ভ্যালিডেশনের জন্য দরকার
+export enum BoostTierEnum {
+  TIER_1 = 'TIER_1',
+  TIER_2 = 'TIER_2',
+  TIER_3 = 'TIER_3',
+}
 
 export class BoostProductDto {
-    
   @IsString()
   product_id: string;
 
-  @IsInt()
-  @Min(1, { message: 'Days must be at least 1' })
-  days: number;
+  @IsEnum(BoostTierEnum, { message: 'Invalid boost tier selected.' })
+  boost_tier: BoostTierEnum;
 }
+

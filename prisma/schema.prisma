@@ -94,6 +94,9 @@ model User {
   // relation with wishlist
   wishlists Wishlist[]
 
+  // relationship with disposal requests
+  disposals Disposal[]
+
   // relation with review
   reviews       Review[]
   Cart          Cart[]
@@ -131,6 +134,26 @@ enum ProductStatus {
   REJECTED
 }
 
+
+enum BoostTier {
+  TIER_1 // Muss Schnell Weg (4.90 CHF, 3 days)
+  TIER_2 // Muss Zackig Weg (9.90 CHF, 5 days)
+  TIER_3 // Muss Sofort Weg (19.90 CHF, 7 days)
+}
+
+enum BoostPaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum ProductItemSize {
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
+}
+
 model Product {
   id         String    @id @default(cuid())
   created_at DateTime  @default(now())
@@ -142,6 +165,7 @@ model Product {
   stock               Int     @default(1)
   price               Decimal @db.Decimal(10, 2)
   photo               String?
+  product_item_size   ProductItemSize @default(SMALL)
 
   location String?
   size     String?
@@ -150,6 +174,9 @@ model Product {
 
   boost_until DateTime? 
   is_boosted  Boolean   @default(false)
+
+  boost_tier            BoostTier? 
+  boost_payment_status  BoostPaymentStatus? 
 
   condition Condition? @default(NEW)
   status    ProductStatus @default(PENDING)
@@ -165,6 +192,8 @@ model Product {
   CartItem    CartItem[]
   OrderItem   OrderItem[]
 
+  // relationship with disposal requests
+  disposals         Disposal[]
 
   // relation with bid
   bids Bid[] @relation("ProductBids")
@@ -283,9 +312,9 @@ enum PaymentStatus {
 
 model Order {
   id             String        @id @default(cuid())
-  buyer_id       String // who is buying the product
+  buyer_id       String 
   buyer          User          @relation("OrderBuyer", fields: [buyer_id], references: [id], onDelete: Cascade)
-  seller_id      String // who is selling the product
+  seller_id      String 
   seller         User          @relation("OrderSeller", fields: [seller_id], references: [id], onDelete: Cascade)
   order_status   OrderStatus   @default(PENDING)
   payment_status PaymentStatus @default(DUE)
@@ -302,10 +331,7 @@ model Order {
   updated_at        DateTime    @default(now())
   delivery_date     DateTime?  
 
-
-  // 🔗 Relation with Review
   reviews Review[] @relation("OrderToReview")
-
 
   order_items       OrderItem[]
   User              User?       @relation(fields: [userId], references: [id])
@@ -332,11 +358,9 @@ model Bid {
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
 
-  // কে বিড করলো
   user_id String
   user    User   @relation("UserBids", fields: [user_id], references: [id], onDelete: Cascade)
 
-  // কোন প্রোডাক্টে বিড করলো
   product_id String
   product    Product @relation("ProductBids", fields: [product_id], references: [id], onDelete: Cascade)
 
@@ -704,6 +728,75 @@ model Attachment {
 
   @@map("attachments")
 }
+
+
+// disposal product related models
+
+enum DisposalType {
+  PICKUP
+  SEND_IN
+}
+
+enum DisposalStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum DisposalItemSize {
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
+}
+
+/*
+enum PaymentStatus {
+  DUE
+  PAID
+  FAILED
+  REFUNDED
+}
+*/
+
+model Disposal {
+  id              String          @id @default(cuid())
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @default(now())
+  deleted_at      DateTime?
+
+  type            DisposalType
+  status          DisposalStatus?  @default(PENDING)
+  item_size       DisposalItemSize? @default(SMALL)
+
+  place_name     String?
+  place_address  String?
+  place_city     String?
+
+  payment_status PaymentStatus?   @default(DUE)
+
+  scheduled_at   DateTime?
+  final_total_amount Decimal?     @db.Decimal(10, 2)
+
+  base_fee       Decimal?         @db.Decimal(10, 2)
+  item_total_fee Decimal?         @db.Decimal(10, 2)
+
+  product_id       String        
+  product          Product        @relation(fields: [product_id], references: [id], onDelete: Cascade)
+ 
+  user_id         String        
+  user            User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("disposals")
+}
+
+
+
+
+
+
+
 
 
 // ---------End Chat schema---------

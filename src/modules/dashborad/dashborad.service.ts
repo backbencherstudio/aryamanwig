@@ -8,6 +8,7 @@ import appConfig from 'src/config/app.config';
 import { paginateResponse, PaginationDto } from 'src/common/pagination';
 import { Product } from '../products/entities/product.entity';
 import { MonthWithDay } from 'src/common/utils/date.utils';
+import { id } from 'date-fns/locale';
 
 
 @Injectable()
@@ -192,70 +193,153 @@ export class DashboradService {
   /*================= Selling Item For User =====================*/
   /*============----=   Admin Dashboard     =----============*/
    
+  
+  // recent orders
+  async recentOrders(paginationDto: PaginationDto) {
+   
+    const { page = 1, perPage = 10 } = paginationDto;
+    const skip = (page - 1) * perPage;
+
+    
+    const [total, orderItems] = await this.prisma.$transaction([
+      
+      this.prisma.orderItem.count(),
+      
+      this.prisma.orderItem.findMany({
+        skip,
+        take: perPage,
+        orderBy: {
+          order: {
+            created_at: 'desc',
+          },
+        },
+        select: {
+          id: true, 
+          quantity: true, 
+          total_price: true, 
+          product: {
+            select: {
+              product_title: true, 
+              photo: true, 
+            },
+          },
+          order: {
+            select: {
+              id: true, 
+              order_status: true, 
+              delivery_date: true, 
+              shipping_country: true, 
+              buyer: {
+                select: {
+                  name: true,
+                },
+              },
+              seller: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+  
+    const formattedData = orderItems.map(item => ({
+      no: item.order.id, 
+      product_name: item.product.product_title,
+      product_photo: item.product.photo,
+      seller_name: item.order.seller.name,
+      buyer_name: item.order.buyer.name,
+      delivery_address: item.order.shipping_country, 
+      quantity: item.quantity,
+      amount: item.total_price, 
+      delivery_date: item.order.delivery_date,
+      action_status: item.order.order_status,
+    }));
+
+    
+    return {
+      meta: {
+        totalItems: total,
+        currentPage: page,
+        itemsPerPage: perPage,
+        totalPages: Math.ceil(total / perPage),
+      },
+      data: formattedData,
+    };
+  }
+
 
   // get total pending products
   async totalPendingProducts(
-    paginationDto: PaginationDto) 
-    {
-      const { page, perPage } = paginationDto;
-      const skip = (page - 1) * perPage;
+    paginationDto: PaginationDto,
+  ) {
+    const { page, perPage } = paginationDto;
+    const skip = (page - 1) * perPage;
 
-      const whereClause = {
-        status: ProductStatus.PENDING,
-      }
+    const whereClause = {
+      status: ProductStatus.PENDING,
+    };
 
-      const [total, products] = await this.prisma.$transaction([
-        this.prisma.product.count({ where: whereClause }),
-        this.prisma.product.findMany({
-          where: whereClause,
-          skip,
-          take: perPage,
-          orderBy: { created_at: 'desc' },
-          select: {
-            id: true,
-            product_title: true,
-            size: true,
-            status: true,
-            color: true,
-            condition: true,
-            price: true,
-            photo: true,
-            created_at: true,
-            user:{
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                avatar: true,
-            }
+    const [total, products] = await this.prisma.$transaction([
+      this.prisma.product.count({ where: whereClause }),
+      this.prisma.product.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          product_title: true,
+          size: true,
+          status: true,
+          color: true,
+          price: true,
+          product_item_size: true,
+          photo: true,
+          created_at: true,
+          stock: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
-        }
-        }),
-      ]);
-
-      const formattedProducts = products.map((product) => ({
-        id: product.id,
-        title: product.product_title,
-        size: product.size,
-        status: product.status,
-        color: product.color,
-        condition: product.condition,
-        price: product.price,
-        photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
-        createdAt: MonthWithDay(product.created_at),
-        user: {
-          id: product.user.id,
-          name: product.user.name,
+          category: {
+            select: {
+              category_name: true,
+            },
+          },
         },
-      }));
+      }),
+    ]);
 
-      return {
-        success: true,
-        message: 'Total pending products fetched successfully',
-        ...paginateResponse(formattedProducts, total, page, perPage),
-      };
+    const formattedProducts = products.map((product, index) => ({
+      No: `${index + 1}`,
+      id: product.id,
+      Product_Name: product.product_title,
+      Product_Photo: product.photo
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
+        : null,
+      User_Name: product.user?.name ?? null,
+      Category: product.category?.category_name ?? null,
+      Size: product.size,
+      Product_Item_Size: product.product_item_size,
+      Color: product.color,
+      Qnty: product.stock,
+      Amount: product.price,
+      Time: MonthWithDay(product.created_at),
+    }));
+
+    return {
+      success: true,
+      message: 'Total pending products fetched successfully',
+      ...paginateResponse(formattedProducts, total, page, perPage),
+    };
   }
-  
+
   // product approved
   async approveOrRejectProduct(
     productId: string,
@@ -296,7 +380,6 @@ export class DashboradService {
   }
 
   //============ order related
-
   
   // Total delivered orders
   async totalDeliveredOrders( paginationDto: PaginationDto) {
@@ -352,7 +435,7 @@ export class DashboradService {
           Delivery_Address: order.shipping_address,
           Qnty: item.quantity, 
           Amount: item.total_price,
-          Delivery_date: MonthWithDay(order.delivery_date),
+          Delivery_date: order.delivery_date ? MonthWithDay(order.delivery_date) : null,
           Action: order.order_status,
         })),
       );
@@ -420,7 +503,7 @@ export class DashboradService {
      Delivery_Address: order.shipping_address,
      Qnty: item.quantity, 
      Amount: item.total_price,
-     Delivery_date: MonthWithDay(order.delivery_date),
+     Delivery_date: order.delivery_date ? MonthWithDay(order.delivery_date) : null,
      Action: order.order_status,
     })),
    );
@@ -496,5 +579,83 @@ export class DashboradService {
       ...paginateResponse(formattedOrders, total, page, perPage),
     };
   }
+
+  //================= user related
+
+  // active users with all details
+  async activeUsers(paginationDto: PaginationDto) {
+
+    const { page, perPage } = paginationDto;
+    const skip = (page - 1) * perPage;
+
+    const whereClause = { 
+      status: 1,
+      type: 'user',
+    };
+
+    const [total, users] = await this.prisma.$transaction([
+      
+      this.prisma.user.count({ 
+         where: whereClause 
+      }),
+      
+      this.prisma.user.findMany({
+         where: whereClause, 
+        skip,
+        take: perPage,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          status: true,
+          type: true,
+          city: true,   
+          state: true,
+          _count: {
+            select: {
+              orders_buyer: true,  
+              orders_seller: true, 
+              products: true,      
+            },
+          },
+        },
+      }),
+    ]);
+
+  
+    const formattedUsers = users.map((user, index) => {
+      
+      const locationParts = [];
+      if (user.city) locationParts.push(user.city);
+      if (user.state) locationParts.push(user.state);
+      const location = locationParts.join('& ') || null; 
+
+      return {
+        No: `${index + 1}`,
+        id: user.id,
+        User_Name: user.name,
+        Email_Address: user.email,
+        Status: user.status, 
+        Type: user.type,    
+        Location: location,
+        Bought_products: user._count.orders_buyer,
+        Sold_products: user._count.orders_seller,
+        Uploaded_products: user._count.products,
+      };
+    });
+
+
+    return {
+      success: true,
+      message: 'ALL users fetched successfully', // Message পরিবর্তন করা হয়েছে
+      ...paginateResponse(formattedUsers, total, page, perPage),
+    };
+  }
+
+
+
+
+
+
 
 }
