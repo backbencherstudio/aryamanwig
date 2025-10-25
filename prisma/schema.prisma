@@ -770,9 +770,9 @@ model Disposal {
   status          DisposalStatus?  @default(PENDING)
   item_size       DisposalItemSize? @default(SMALL)
 
+  place_city     String?
   place_name     String?
   place_address  String?
-  place_city     String?
 
   payment_status PaymentStatus?   @default(DUE)
 

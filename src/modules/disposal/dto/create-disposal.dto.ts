@@ -22,7 +22,7 @@ export class CreateDisposalDto {
 
   @IsOptional()
   @IsString()
-  place_address: string;
+  place_address?: string;
 
   
 

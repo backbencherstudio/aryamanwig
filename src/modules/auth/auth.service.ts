@@ -56,7 +56,7 @@ export class AuthService {
 
       if (user.avatar) {
         user['avatar_url'] = SojebStorage.url(
-          appConfig().storageUrl.avatar + user.avatar,
+          `${appConfig().storageUrl.avatar}/${user.avatar}`,
         );
       }
 
@@ -331,6 +331,9 @@ export class AuthService {
         success: false,
         message: error.message,
       };
+
+      // return handlePrismaError(error);
+
     }
   }
 

@@ -9,5 +9,6 @@ import { PrismaModule } from 'src/prisma/prisma.module';
   ],
   controllers: [DisposalController],
   providers: [DisposalService],
+  exports: [DisposalService],
 })
 export class DisposalModule {}
