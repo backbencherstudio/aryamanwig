@@ -12,8 +12,8 @@ export class DisposalService {
  
   private readonly PICKUP_ITEM_PRICES = {
     [DisposalItemSize.SMALL]: 10.0,
-    [DisposalItemSize.MEDIUM]: 20.0,
-    [DisposalItemSize.LARGE]: 30.0,
+    [DisposalItemSize.MEDIUM]: 25.0,
+    [DisposalItemSize.LARGE]: 50.0,
     [DisposalItemSize.EXTRA_LARGE]: 0.0,
   };
   private readonly PICKUP_BASE_FEE = 80.0;
@@ -116,6 +116,10 @@ export class DisposalService {
     dto: CreateDisposalDto,
     userId: string,
   ) {
+
+    const base_fee = this.PICKUP_BASE_FEE;
+    const item_total_fee = 0;
+    const final_total_amount = base_fee + item_total_fee;
     
     const request = await this.prisma.disposal.create({
       data: {
@@ -123,6 +127,12 @@ export class DisposalService {
         product_id: productId,
         type: 'SEND_IN',
         status: DisposalStatus.PENDING,
+        payment_status: PaymentStatus.DUE,
+        final_total_amount: final_total_amount,
+        base_fee: base_fee,
+        item_total_fee: item_total_fee,
+        place_name: dto.place_name,
+
       },
     });
     return {
