@@ -31,11 +31,14 @@ model Account {
   @@map("accounts")
 }
 
+
+
 model User {
   id String @id @default(cuid())
 
-  status       Int?    @default(1) @db.SmallInt
+  status       Int?    @default(0) @db.SmallInt
   availability String?
+  
 
   email String? @unique
 
@@ -46,6 +49,7 @@ model User {
   last_name         String?   @db.VarChar(255)
   password          String?   @db.VarChar(255)
   avatar            String?
+  cover_photo       String?
   // domain            String?   @unique
   username          String?   @unique
 
@@ -57,6 +61,8 @@ model User {
   zip_code      String?
   gender        String?
   date_of_birth DateTime? @db.Date
+
+  
 
   // google id
    googleId          String?   @unique // Store Google ID for OAuth
@@ -136,9 +142,9 @@ enum ProductStatus {
 
 
 enum BoostTier {
-  TIER_1 // Muss Schnell Weg (4.90 CHF, 3 days)
-  TIER_2 // Muss Zackig Weg (9.90 CHF, 5 days)
-  TIER_3 // Muss Sofort Weg (19.90 CHF, 7 days)
+  TIER_1 
+  TIER_2 
+  TIER_3 
 }
 
 enum BoostPaymentStatus {
@@ -164,7 +170,7 @@ model Product {
   product_description String
   stock               Int     @default(1)
   price               Decimal @db.Decimal(10, 2)
-  photo               String?
+  photo               String[] @db.Text
   product_item_size   ProductItemSize @default(SMALL)
 
   location String?
@@ -676,8 +682,7 @@ model Message {
   conversationId String
   conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  attachmentId   String?
-  attachment     Attachment?     @relation(fields: [attachmentId], references: [id])
+  attachments    String[]           @db.Text
 }
 
 model NotificationEvent {
@@ -712,22 +717,22 @@ model Notification {
 }
 
 
-model Attachment {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-  deleted_at DateTime?
+// model Attachment {
+//   id         String    @id @default(cuid())
+//   created_at DateTime  @default(now())
+//   updated_at DateTime  @default(now())
+//   deleted_at DateTime?
 
-  name     String?
-  type     String?
-  size     Int?
-  file     String?
-  file_alt String?
+//   name     String?
+//   type     String?
+//   size     Int?
+//   file     String?
+//   file_alt String?
 
-  messages Message[]
+//   messages Message[]
 
-  @@map("attachments")
-}
+//   @@map("attachments")
+// }
 
 
 // disposal product related models

@@ -12,9 +12,9 @@ export class ProfileController {
   // get user profile view
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  Me( @Req() request: any ) {
-    const user = request.user;
-    return this.profileService.Me(user.id);
+  async Me( @Req() req: any ) {
+    const user = req.user.userId;
+    return this.profileService.Me(user);
   }
 
   //  user profile with average review and average rating

@@ -10,11 +10,13 @@ import {
   Query,
   Req,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
+import { NoFilesInterceptor } from '@nestjs/platform-express/multer/interceptors/no-files.interceptor';
 
 @Controller('cart')
 export class CartController {

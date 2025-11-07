@@ -6,6 +6,7 @@ import { formatDistanceToNowStrict, differenceInWeeks, differenceInMonths, diffe
 import { enUS } from 'date-fns/locale';
 import { use } from 'passport';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
+import appConfig from 'src/config/app.config';
 
 
 @Injectable()
@@ -250,40 +251,21 @@ export class ReviewService {
     });
 
   
-    const getTimeAgo = (date: Date): string => {
-      const now = new Date();
-      const years = differenceInYears(now, date);
-      const months = differenceInMonths(now, date);
-      const weeks = differenceInWeeks(now, date);
-
-      if (years > 0) return `${years} year${years > 1 ? 's' : ''} ago`;
-      if (months > 0) return `${months} month${months > 1 ? 's' : ''} ago`;
-      if (weeks > 0) return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
-
-      return formatDistanceToNowStrict(date, {
-        addSuffix: true,
-        locale: enUS,
-      });
-    };
+   
 
     const formattedReviews = reviews.map((review) => ({
       id: review.id,
       rating: review.rating,
       comment: review.comment,
       name: review.user.name,
-      avatar: review.user.avatar ? SojebStorage.url(`${process.env.STORAGE_URL}/avatar/${review.user.avatar}`) : null,
-      created_ago: getTimeAgo(new Date(review.created_at)),
+      avatar: review.user.avatar ?  SojebStorage.url(`${appConfig().storageUrl.avatar}/${review.user.avatar}`): null,
+      created_ago: review.created_at,
     }));
 
     return {
       success: true,
       message: 'Reviews retrieved successfully',
       data: {
-        user: {
-          id: user.id,
-          name: user.name,
-          avatar: user.avatar ? SojebStorage.url(`${process.env.STORAGE_URL}/avatar/${user.avatar}`) : null,
-        },
         totalReviews: aggregate._count.rating,
         averageRating: Number(aggregate._avg.rating?.toFixed(2)) || 0,
         reviews: formattedReviews,

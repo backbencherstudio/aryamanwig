@@ -17,15 +17,21 @@ export class CartService {
     
     const { product_id, quantity } = dto;
 
-    // 🔍 Step 1: Product খুঁজে বের করো
     const product = await this.prisma.product.findUnique({
       where: { id: product_id },
-      select: { id: true, price: true },
+      select: { id: true,
+                price: true, 
+                user_id: true             
+              },
     });
 
     if (!product) throw new NotFoundException('Product not found');
 
-    // 🔍 Step 2: User এর bid চেক করো
+    if (product.user_id === userId) {
+      throw new NotFoundException('Cannot add your own product to cart');
+    } 
+
+
     const checkBid = await this.prisma.bid.findFirst({
       where: {
         product_id: product_id,
@@ -38,7 +44,7 @@ export class CartService {
       ? new Decimal(checkBid.bid_amount)
       : new Decimal(product.price);
 
-    // 🔍 Step 3: Cart খুঁজে বের করো, না থাকলে তৈরি করো
+
     let cart = await this.prisma.cart.findFirst({
       where: { user_id: userId },
     });
@@ -49,7 +55,6 @@ export class CartService {
       });
     }
 
-    // 🔍 Step 4: আগেই cart item আছে কিনা চেক করো
     const existingItem = await this.prisma.cartItem.findFirst({
       where: {
         cart_id: cart.id,
@@ -57,7 +62,7 @@ export class CartService {
       },
     });
 
-    // 🔒 Step 5: সব write অপারেশন transaction এর ভিতরে করো
+    
     await this.prisma.$transaction(async (tx) => {
       if (existingItem) {
         const newQty = existingItem.quantity + quantity;
@@ -81,7 +86,7 @@ export class CartService {
         });
       }
 
-      // 🔥 যদি bid থাকে → delete করে দাও
+    
       if (checkBid) {
         await tx.bid.delete({
           where: { id: checkBid.id },
@@ -89,7 +94,7 @@ export class CartService {
       }
     });
 
-    // ✅ সব কাজ শেষ
+    
     return {
       success: true,
       message: checkBid
@@ -97,7 +102,6 @@ export class CartService {
         : 'Product added to cart',
     };
   }
-
 
   // update cart item
   async updateCartItem(cartItemId: string, dto: UpdateCartDto) {
@@ -197,7 +201,7 @@ export class CartService {
           seller_id: seller.id,
           seller_name: seller.name,
           seller_avatar: seller.avatar
-            ? SojebStorage.url(`${appConfig().storageUrl.product}/${seller.avatar}`)
+            ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${seller.avatar}`)
             : null,
           products: [],
         };
@@ -205,20 +209,23 @@ export class CartService {
       }
 
       
-      existingSeller.products.push({
-        cart_item_id: item.id,
-        product_id: item.product.id,
-        product_title: item.product.product_title,
-        price: item.product.price,
-        quantity: item.quantity,
-        total_price: item.total_price,
-        size: item.product.size,
-        condition: item.product.condition,
-        photo: item.product.photo
-          ? SojebStorage.url(`${appConfig().storageUrl.product}/${item.product.photo}`)
-          : null,
+     existingSeller.products.push({
+          cart_item_ids: item.id,
+          product_id: item.product.id,
+          product_title: item.product.product_title,
+          price: item.product.price,
+          quantity: item.quantity,
+          total_price: item.total_price,
+          size: item.product.size,
+          condition: item.product.condition,
+          photo: item.product.photo
+          ? item.product.photo.map((p: string) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)
+            )
+          : [],
       });
-    }
+      }
+       
 
    
     const grandTotal = cart.cartItems.reduce(
@@ -306,8 +313,10 @@ export class CartService {
           size: i.product.size,
           condition: i.product.condition,
           photo: i.product.photo
-            ? SojebStorage.url(`${appConfig().storageUrl.product}/${i.product.photo}`)
-            : null,
+          ? i.product.photo.map((p: string) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)
+            )
+          : [],
         })),
         subtotal,
       },

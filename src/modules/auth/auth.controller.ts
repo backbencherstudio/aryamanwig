@@ -9,13 +9,14 @@ import {
   Req,
   Res,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { memoryStorage } from 'multer';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -44,7 +45,7 @@ export class AuthController {
   async me(@Req() req: Request) {
     try {
       const user_id = req.user.userId;
-
+     
       const response = await this.authService.me(user_id);
 
       return response;
@@ -127,17 +128,13 @@ export class AuthController {
     try {
       const user_id = req.user.id;
       const user_email = req.user.email;
-      const isEmailVerified = req.user?.email_verified_at;
 
-      let response: any;
-      if (!isEmailVerified) {
-        response = await this.authService.resendVerificationEmail(user_email);
-      } else {
-        response = await this.authService.login({
+    
+       const response = await this.authService.login({
           userId: user_id,
           email: user_email,
         });
-      }
+
       return response;
     } catch (error) {
       return {
@@ -148,35 +145,52 @@ export class AuthController {
   }
 
    // update user
-  @ApiOperation({ summary: 'Update user' })
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @Patch('update')
-  @UseInterceptors(
-    FileInterceptor('image', {
+   @ApiOperation({ summary: 'Update user' })
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Patch('update')
+@UseInterceptors(
+  FileFieldsInterceptor(
+    [
+      { name: 'image', maxCount: 1 },
+      { name: 'cover_image', maxCount: 1 },
+    ],
+    {
       storage: memoryStorage(),
-      limits:{
+      limits: {
         fileSize: 5 * 1024 * 1024,
-        files: 1,
-      }
-    }),
-  )
-  async updateUser(
-    @Req() req: Request,
-    @Body() data: UpdateUserDto,
-    @UploadedFile() image?: Express.Multer.File,
-  ) {
-    try {
-      const user_id = req.user.userId;
-      const response = await this.authService.updateUser(user_id, data, image);
-      return response;
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Failed to update user',
-      };
-    }
+      },
+    },
+  ),
+)
+async updateUser(
+  @Req() req: Request,
+  @Body() data: UpdateUserDto,
+  @UploadedFiles()
+  files: {
+    image?: Express.Multer.File[];
+    cover_image?: Express.Multer.File[];
+  },
+) {
+  try {
+    const user_id = req.user.userId;
+    const image = files.image?.[0];
+    const cover_image = files.cover_image?.[0];
+    const response = await this.authService.updateUser(
+      user_id,
+      data,
+      image,
+      cover_image,
+    );
+    return response;
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Failed to update user',
+    };
   }
+}
+
 
   // Refresh Token
   @ApiOperation({ summary: 'Refresh token' })

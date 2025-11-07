@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query, UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -6,10 +6,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { filter } from 'rxjs';
 import { FilterProductDto } from './dto/filter-product.dto';
 import { BoostProductDto, BoostTierEnum } from './dto/boost-product.dto';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { PaginationDto } from 'src/common/pagination';
 
+@UseGuards(JwtAuthGuard)
 @Controller('products')
 
 export class ProductsController {
@@ -17,23 +18,22 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) { }
 
   // create product
-  @UseGuards(JwtAuthGuard)
   @UseInterceptors(
-     FileInterceptor('image', {
+    FilesInterceptor('images', 10, {
       storage: memoryStorage(),
       limits: {
         fileSize: 5 * 1024 * 1024,
-        files: 1,
+       // files: 10,
       },
     }),
   )
   @Post('create')
   create(@Body() createProductDto: CreateProductDto,
     @Req() req: any,
-    @UploadedFile() file: Express.Multer.File
+    @UploadedFiles() files: Express.Multer.File[]
   ) {
     const user = req.user.userId
-    return this.productsService.create(createProductDto, user, file);
+    return this.productsService.create(createProductDto, user, files);
   }
 
   // get all products
@@ -51,26 +51,26 @@ export class ProductsController {
   }
 
   //update product by id
-  @UseGuards(JwtAuthGuard)
   @UseInterceptors(
-  FileInterceptor('image', {
+  FilesInterceptor('images',10, {
     storage: memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    limits: { 
+      fileSize: 5 * 1024 * 1024,
+      //files: 1 
+      },
   }),
   )
   @Patch('updatebyid/:id')
   update(@Param('id') id: string, 
          @Body() updateProductDto: UpdateProductDto, 
          @Req() req: any,
-         @UploadedFile() file?: Express.Multer.File
+         @UploadedFiles() files?: Express.Multer.File[]
          ) {
     const user = req.user.userId;
-    return this.productsService.update(id, updateProductDto, user, file);
+    return this.productsService.update(id, updateProductDto, user, files);
   }
 
   // delete product by id
-  @UseGuards(JwtAuthGuard)
-  @Delete('deletebyid/:id')
   remove(@Param('id') id: string, 
          @Req() req: any) {
     const user = req.user.userId;
@@ -79,7 +79,6 @@ export class ProductsController {
 
 
   // get all products for a user
-  @UseGuards(JwtAuthGuard)
   @Get('user-all-products')
   getAllProductsForUser(@Req() req: any,
                         @Query() query: PaginationDto
@@ -90,7 +89,6 @@ export class ProductsController {
   /*=================( Boosting Area Start)=================*/
 
   // Create Product Boost
-  @UseGuards(JwtAuthGuard)
   @Post('create-boost')
   boost(@Body() boostProductDto: BoostProductDto, 
         @Req() req: any) {
@@ -105,7 +103,6 @@ export class ProductsController {
     return this.productsService.getBoostedProducts(page, perPage);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('user-boosted-products')
   async getUserBoostedProducts(@Req() req: any, @Query() query: PaginationDto) { 
     const user = req.user.userId;
@@ -113,14 +110,25 @@ export class ProductsController {
     return this.productsService.getUserBoostedProducts(user, page, perPage);
   }
 
+
+  /*=================( Search Area Start)=================*/
+
+  @Get('search')
+  async searchProducts(
+    @Query() paginationDto: PaginationDto,
+    @Query('search') search?: string, 
+  ) {
+    return this.productsService.searchProducts(paginationDto,search);
+  }
+
   /*=================( Filter Area Start)=================*/
 
   // get products by filter with price range and categories
-  @UseGuards(JwtAuthGuard)
   @Get('filter')
   async filterProducts(
     @Query() filterDto: FilterProductDto, 
     @Req() req: any,
+
   ) {
     const user = req.user.userId;
     return this.productsService.filterProducts(filterDto, user);
@@ -129,7 +137,7 @@ export class ProductsController {
   /*=================( Category Area Start)=================*/
 
   // get all products in a category
-  @UseGuards(JwtAuthGuard)
+  
   @Get('category/:id/products')
   async findAllProductsInCategory(
     @Param('id') id: string, 
@@ -141,7 +149,7 @@ export class ProductsController {
   }
 
   // get category based  latest products
-  @UseGuards(JwtAuthGuard)
+  
   @Get('category/:id/latest-products')
   async findLatestProductsInCategory(
     @Param('id') id: string, 
@@ -153,7 +161,7 @@ export class ProductsController {
   }
 
   // get category based oldest products
-  @UseGuards(JwtAuthGuard)
+  
   @Get('category/:id/oldest-products')
   async findOldestProductsInCategory(
      @Param('id') id: string,

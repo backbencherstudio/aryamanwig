@@ -12,7 +12,10 @@ import { formatDate, getBoostTimeLeft } from 'src/common/utils/date.utils';
 import { ca, id } from 'date-fns/locale';
 import { paginateResponse } from 'src/common/pagination/pagination.service';
 import { PaginationDto } from 'src/common/pagination';
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus ,Prisma} from '@prisma/client';
+
+
+
 
 
 @Injectable()
@@ -22,11 +25,12 @@ export class ProductsService {
     private readonly prisma: PrismaService,
   ) {}
 
+
   // create product
   async create(
     createProductDto: CreateProductDto,
     user: string,
-    image?: Express.Multer.File,
+    images?: Express.Multer.File[],
   ) {
     const {
       product_title,
@@ -59,9 +63,13 @@ export class ProductsService {
       throw new ConflictException('Category does not exist');
     }
 
-   
-    let photo: string | null = null;
-    if (image) {
+
+    let photos:  string[] = [];
+    if (images && images.length > 0) {
+
+
+      for (const image of images) {
+
       const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
       
       await SojebStorage.put(
@@ -69,7 +77,7 @@ export class ProductsService {
         image.buffer,
       );
 
-      photo = fileName; 
+      photos.push(fileName);
     }
 
     // Create product in DB
@@ -79,7 +87,7 @@ export class ProductsService {
         product_description,
         price,
         stock,
-        photo,
+        photo: photos,
         location,
         size,
         color,
@@ -91,24 +99,25 @@ export class ProductsService {
       },
     });
 
-    let photoUrl = null;
-    if(newProduct.photo) {
-       photoUrl = SojebStorage.url(`${appConfig().storageUrl.product}/${newProduct.photo}`);
-    }
+    // let photoUrl = null;
+    // if(newProduct.photo) {
+    //    photoUrl = SojebStorage.url(`${appConfig().storageUrl.product}/${newProduct.photo}`);
+    // }
 
     return {
-      success: true,
-      message: 'Product created successfully',
-      data: {
-        id: newProduct.id,
-        product_title: newProduct.product_title,
-        product_description: newProduct.product_description,
-        price: newProduct.price,
-        stock: newProduct.stock,
-        photo: newProduct.photo,
-        photoUrl,
-      },
-    };
+        success: true,
+        message: 'Product created successfully',
+        data: {
+          id: newProduct.id,
+          product_title: newProduct.product_title,
+          product_description: newProduct.product_description,
+          price: newProduct.price,
+          stock: newProduct.stock,
+          photo: newProduct.photo,
+          // photoUrl,
+        },
+      };
+    }
   }
 
   // Get all products
@@ -150,14 +159,14 @@ export class ProductsService {
 
     const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : null,
+      product_photo: product.photo && product.photo.length > 0
+          ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+          : [],
       title: product.product_title,
       size: product.size,
       condition: product.condition,
-      created_time: formatDate(product.created_at),
-      boost_time: getBoostTimeLeft(product.boost_until),
+      created_time:product.created_at,
+      boost_time: product.boost_until,
       price: product.price,
     }));
 
@@ -211,7 +220,9 @@ export class ProductsService {
         },
  
         product_id: product.id,
-        product_photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`): null,
+        product_photo: product.photo && product.photo.length > 0
+          ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+          : [],
         title: product.product_title,
         status: product.status,
         location: product.location,
@@ -221,8 +232,8 @@ export class ProductsService {
         size: product.size,
         product_item_size: product.product_item_size,
         color: product.color || 'Not Specified',
-        uploaded: formatDate(product.created_at),
-        remaining_time: getBoostTimeLeft(product.boost_until),
+        uploaded: product.created_at,
+        remaining_time: product.boost_until,
         minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
         category: {
           id: product.category.id,
@@ -236,41 +247,35 @@ export class ProductsService {
   async update(id: string, 
          updateProductDto: UpdateProductDto,
          user: string,
-         image?: Express.Multer.File) {
+         newImages?: Express.Multer.File[]) {
+
+    const { images_to_delete, ...updateData } = updateProductDto;
 
     const product = await this.prisma.product.findUnique({
       where: { id },
     });
 
-    console.log(product);
 
     if (!product) throw new NotFoundException(`Product with ID ${id} not found`);
     if (product.user_id !== user) throw new ConflictException('You are not allowed to update this product');
     
      
-    // handle new image
-     let photo: string | null = null;
+    let photos: string[] = product.photo || [];
 
-      if (image) {
-        
-        // Delete old image if exists
-        if (product.photo) {
-          await SojebStorage.delete(`${appConfig().storageUrl.product}/${product.photo}`);
-        }
-
-        const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
-
-        await SojebStorage.put(
-        appConfig().storageUrl.product + '/' + fileName,
-        image.buffer,
-        );
-
-        await SojebStorage.put(`${appConfig().storageUrl.product}/${fileName}`, image.buffer);
-
-        photo = fileName;
+    if (updateProductDto.images_to_delete && updateProductDto.images_to_delete.length > 0) {
+      for (const img of updateProductDto.images_to_delete) {
+        await SojebStorage.delete(`${appConfig().storageUrl.product}/${img}`);
+        photos = photos.filter(p => p !== img); // remove from array
       }
+    }
 
-
+    if (newImages && newImages.length > 0) {
+      for (const image of newImages) {
+        const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
+        await SojebStorage.put(`${appConfig().storageUrl.product}/${fileName}`, image.buffer);
+        photos.push(fileName);
+      }
+    }
 
     if(updateProductDto.category_id) {
       const category = await this.prisma.category.findUnique({
@@ -306,19 +311,16 @@ export class ProductsService {
       }
     }
 
-
     const updatedProduct = await this.prisma.product.update({
       where: { id },
       data: {
-        ...updateProductDto,
-        photo: photo ? photo : product.photo, // Update photo if new one is provided
+        ...updateData,
+        photo: photos
       },
     });
 
-    let photoUrl = null;
-    if(updatedProduct.photo) {
-       photoUrl = SojebStorage.url(`${appConfig().storageUrl.product}/${updatedProduct.photo}`);
-    }
+    const photoUrls = updatedProduct.photo?.map(p => 
+      SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)) || [];
 
     return {
       success: true,
@@ -333,7 +335,7 @@ export class ProductsService {
         condition: updatedProduct.condition,
         photo: updatedProduct.photo,
         boost_time: updatedProduct.boost_until,
-        photoUrl,
+        photoUrls,
         product_owner: updatedProduct.user_id,
       },
     };
@@ -414,9 +416,10 @@ export class ProductsService {
 
     const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : null,
+      photo: product.photo,
+       product_photo_url: product.photo && product.photo.length > 0
+          ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+          : [],
       title: product.product_title,
      
       price: product.price,
@@ -425,8 +428,8 @@ export class ProductsService {
       condition: product.condition === 'NEW' ? 'Like New' : product.condition,
       size: product.size,
       color: product.color || 'Not Specified',
-      uploaded: formatDate(product.created_at),
-      remaining_time: getBoostTimeLeft(product.boost_until),
+      uploaded: product.created_at,
+      remaining_time:product.boost_until,
       is_in_wishlist: product.wishlists.length > 0,
     }));
 
@@ -535,11 +538,14 @@ export class ProductsService {
       data: {
         id: updatedProduct.id,
         photo: updatedProduct.photo, 
+        product_photo_url: updatedProduct.photo && updatedProduct.photo.length > 0
+          ? updatedProduct.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+          : [],
         title: updatedProduct.product_title,
         size: updatedProduct.size,
         condition: updatedProduct.condition,
-        created_time: formatDate(updatedProduct.created_at),
-        boost_time: getBoostTimeLeft(updatedProduct.boost_until),
+        created_time: updatedProduct.created_at,
+        boost_time: updatedProduct.boost_until,
         price: updatedProduct.price,
         boost_tier_name: tierDetails.name,
         boost_price_paid: tierDetails.price, 
@@ -588,14 +594,14 @@ export class ProductsService {
 
     const formattedProducts = boostedProducts.map((product) => ({
       id: product.id,
-      photo: product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : null,
+      photo: product.photo && product.photo.length > 0
+        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+        : [],
       title: product.product_title,
       size: product.size,
       condition: product.condition,
-      created_time: formatDate(product.created_at),
-      boost_time: getBoostTimeLeft(product.boost_until),
+      created_time: product.created_at,
+      boost_time: product.boost_until,
       price: product.price,
     }));
     
@@ -649,14 +655,14 @@ export class ProductsService {
 
     const formattedProducts = boostedProducts.map((product) => ({
       id: product.id,
-      photo: product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : null,
+      photo: product.photo && product.photo.length > 0
+        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+        : [],
       title: product.product_title,
       size: product.size,
       condition: product.condition,
-      created_time: formatDate(product.created_at),
-      boost_time_left: getBoostTimeLeft(product.boost_until),
+      created_time: product.created_at,
+      boost_time_left: product.boost_until,
       price: product.price,
     }));
 
@@ -669,22 +675,106 @@ export class ProductsService {
     };
   }
 
+
+  /*=================( Search Area Start)=================*/
+
+  // search products
+  async searchProducts(
+    paginationDto: PaginationDto,
+    search?: string,
+  ) {
+    const { page, perPage } = paginationDto;
+    const skip = (page - 1) * perPage;
+
+    let whereClause: any = {
+      status: ProductStatus.APPROVED,
+    };
+
+    
+    if (search && search.trim() !== '') {
+      whereClause = {
+        ...whereClause,
+        product_title: {
+          contains: search,
+          mode: 'insensitive', 
+        },
+      };
+    }
+
+    const [total, products] = await this.prisma.$transaction([
+      this.prisma.product.count({ where: whereClause }),
+      this.prisma.product.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          product_title: true,
+          size: true,
+          condition: true,
+          created_at: true,
+          boost_until: true,
+          price: true,
+          photo: true,
+        },
+      }),
+    ]);
+
+    if (total === 0) {
+      return {
+        success: true,
+        message: 'No products found matching your search',
+        ...paginateResponse([], total, page, perPage),
+      };
+    }
+
+    const formattedProducts = products.map((product) => ({
+      id: product.id,
+      title: product.product_title,
+      size: product.size,
+      condition: product.condition,
+      created_time: product.created_at,
+      boost_time: product.boost_until,
+      price: product.price,
+      photo:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)
+            )
+          : [],
+    }));
+
+    return {
+      success: true,
+      message: 'Products retrieved successfully',
+      ...paginateResponse(formattedProducts, total, page, perPage),
+    };
+  }
   /*=================( Filter Area Start)=================*/
 
   // filter products by price range and categories
   async filterProducts(
     filterDto: FilterProductDto, 
-    user: string,
+    user: string, 
   ) {
   
-    const { min_price, max_price, categories, location, time_in_hours } = filterDto;
+    const { min_price, 
+            max_price, 
+            categories, 
+            location, 
+            time_in_hours } = filterDto;
 
     // 🔹 Time filter 
     let timeFilter: any = {};
     if (time_in_hours) {
-      const timeThreshold = subHours(new Date(), time_in_hours);
-      timeFilter = { created_at: { gte: timeThreshold } };
-    }
+      const now = new Date();
+      const timeThreshold = new Date(now.getTime() + time_in_hours * 60 * 60 * 1000); 
+      timeFilter = { 
+        is_boosted: true,
+        boost_until: { gte: now, lte: timeThreshold } 
+      };
+    } 
 
     // 🔹 Fetch from DB
     const products = await this.prisma.product.findMany({
@@ -730,15 +820,15 @@ export class ProductsService {
 
     const formattedProducts = products.map(product => ({
       id: product.id,
-      photo: product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : null,
+      photo: product.photo && product.photo.length > 0
+        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+        : [],
       title: product.product_title,
       status: product.status,
       size: product.size,
       condition: product.condition,
-      created_time: formatDate(product.created_at),
-      boost_time: getBoostTimeLeft(product.boost_until),
+      created_time: product.created_at,
+      boost_time: product.boost_until,
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
     }));
@@ -817,15 +907,15 @@ export class ProductsService {
   
     const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : null,
+      photo: product.photo && product.photo.length > 0
+        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+        : [],
       title: product.product_title,
       size: product.size,
       status: product.status,
       condition: product.condition,
-      created_time: formatDate(product.created_at),
-      boost_time_left: getBoostTimeLeft(product.boost_until),
+      created_time: product.created_at,
+      boost_time_left: product.boost_until,
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
       minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
@@ -905,15 +995,15 @@ export class ProductsService {
 
     const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : null,
+      photo: product.photo && product.photo.length > 0
+        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+        : [],
       title: product.product_title,
       status: product.status,
       size: product.size,
       condition: product.condition,
-      created_time: formatDate(product.created_at),
-      boost_time_left: getBoostTimeLeft(product.boost_until),
+      created_time: product.created_at,
+      boost_time_left: product.boost_until,
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
       minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
@@ -992,15 +1082,15 @@ export class ProductsService {
     
     const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`)
-        : null,
+      photo: product.photo && product.photo.length > 0
+        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+        : [],
       title: product.product_title,
       status: product.status,
       size: product.size,
       condition: product.condition,
-      created_time: formatDate(product.created_at),
-      boost_time_left: getBoostTimeLeft(product.boost_until),
+      created_time: product.created_at,
+      boost_time_left: product.boost_until,
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0, 
       minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,

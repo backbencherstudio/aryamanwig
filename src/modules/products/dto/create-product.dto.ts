@@ -24,8 +24,6 @@ export class CreateProductDto {
   @Min(0, {message: 'Price must be a positive number'})
   price: number;
 
-
-
   @IsEnum(ProductItemSize)
   product_item_size?: ProductItemSize;
 
@@ -49,12 +47,10 @@ export class CreateProductDto {
   @IsDate()
   time?: Date;
 
-
   @IsOptional()
   @IsEnum(Condition)
   condition?: Condition;
 
-  
   @IsString()
   category_id?: string;
 }
