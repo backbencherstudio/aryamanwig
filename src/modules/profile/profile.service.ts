@@ -16,6 +16,7 @@ export class ProfileService {
   // get user profile view
   async Me(userId: string) {
       try {
+      
         const user = await this.prisma.user.findFirst({
           where: {
             id: userId,
@@ -23,14 +24,11 @@ export class ProfileService {
           select: {
             id: true,
             name: true,
-            email: true,
             avatar: true,
+            cover_photo: true, 
+            country: true,    
+            city: true,
             address: true,
-            phone_number: true,
-            type: true,
-            gender: true,
-            date_of_birth: true,
-            created_at: true,
           },
         });
   
@@ -40,24 +38,56 @@ export class ProfileService {
             message: 'User not found',
           };
         }
+
+    
+        const reviewStats = await this.prisma.review.aggregate({
+          where: {
+            review_receiver: userId 
+          },
+          _avg: {
+            rating: true,
+          },
+          _count: {
+            id: true, 
+          }
+        });
+
+ 
+         const totalEarnings = await this.prisma.order.aggregate({
+          where: {
+            seller_id: userId,
+            payment_status: 'PAID',
+          },
+          _sum: {
+            grand_total: true,
+          },
+        });
+
   
-        if (user.avatar) {
-          user['avatar_url'] = SojebStorage.url(
-            appConfig().storageUrl.avatar+user.avatar,
-          );
-        }
-  
-        if (user) {
-          return {
-            success: true,
-            data: user,
-          };
-        } else {
-          return {
-            success: false,
-            message: 'User not found',
-          };
-        }
+        const avatar_url = user.avatar
+          ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${user.avatar}`)
+          : null;
+      
+        
+        const cover_photo_url = user.cover_photo
+          ? SojebStorage.url(`${appConfig().storageUrl.coverPhoto}/${user.cover_photo}`)
+          : null;
+
+        
+        return {
+          success: true,
+          data: {
+            ...user, 
+            avatar_url,
+            cover_photo_url,
+            location: user.country || user.city || user.address,
+            rating: reviewStats._avg.rating ?? 0, 
+            review_count: reviewStats._count.id,
+            total_earning: totalEarnings._sum.grand_total ?? 0,
+
+          },
+        };
+
       } catch (error) {
         return {
           success: false,
@@ -67,7 +97,6 @@ export class ProfileService {
   }
 
   // user profile with average review and average rating
-
   async getUserReviews(userId: string) {
 
     // get user details
@@ -120,6 +149,10 @@ export class ProfileService {
 
   }
 
+  // profile.service.ts
+ 
+  // profile.service.ts
+// profile.service.ts
 
 
   

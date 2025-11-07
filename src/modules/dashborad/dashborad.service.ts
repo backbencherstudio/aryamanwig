@@ -97,9 +97,10 @@ export class DashboradService {
         product_id: item.product.id,
         product_title: item.product.product_title,
         price: item.product.price,
-        photo: item.product.photo
-          ? SojebStorage.url(`${appConfig().storageUrl.product}/${item.product.photo}`)
-          : null,
+        product_photo: item.product.photo && item.product.photo.length > 0
+          ? item.product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+          : []
+
       })),
     }));
     

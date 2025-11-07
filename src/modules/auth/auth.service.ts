@@ -29,9 +29,25 @@ export class AuthService {
   // get user details
   async me(userId: string) {
     try {
+
+      const useractive = await this.prisma.user.findFirst({
+        where: {
+          id: userId,
+          status: 1
+        },
+      });
+
+      if(!useractive){
+        return {
+          success: false,
+          message: 'User is not active',
+        };
+      }
+
       const user = await this.prisma.user.findFirst({
         where: {
           id: userId,
+          status: 1
         },
         select: {
           id: true,
@@ -41,13 +57,14 @@ export class AuthService {
           address: true,
           phone_number: true,
           type: true,
+          cover_photo: true,
           gender: true,
           date_of_birth: true,
           created_at: true,
         },
       });
 
-      if (!user) {
+      if (!user) { 
         return {
           success: false,
           message: 'User not found',
@@ -57,6 +74,12 @@ export class AuthService {
       if (user.avatar) {
         user['avatar_url'] = SojebStorage.url(
           `${appConfig().storageUrl.avatar}/${user.avatar}`,
+        );
+      }
+
+      if (user.cover_photo) {
+        user['cover_photo_url'] = SojebStorage.url(
+          `${appConfig().storageUrl.coverPhoto}/${user.cover_photo}`,
         );
       }
 
@@ -140,25 +163,25 @@ export class AuthService {
 
       // ----------------------------------------------------
       // create otp code
-      const token = await UcodeRepository.createToken({
-        userId: user.data.id,
-        isOtp: true,
-      });
+      // const token = await UcodeRepository.createToken({
+      //   userId: user.data.id,
+      //   isOtp: true,
+      // });
 
-      console.log("Cteate token : ", token);
+      // console.log("Cteate token : ", token);
 
 
       // send otp code to email
-      const sndOtp = await this.mailService.sendOtpCodeToEmail({
-        email: email,
-        name: name,
-        otp: token,
-      });
-      console.log("Send Otp : ", sndOtp);
+      // const sndOtp = await this.mailService.sendOtpCodeToEmail({
+      //   email: email,
+      //   name: name,
+      //   otp: token,
+      // });
+      // console.log("Send Otp : ", sndOtp);
 
       return {
         success: true,
-        message: 'We have sent an OTP code to your email',
+        message: 'your account has been created successfully',
       };
 
       // ----------------------------------------------------
@@ -191,6 +214,17 @@ export class AuthService {
 
   // login user
   async login({ email, userId }) {
+
+
+    const user = await UserRepository.getUserDetails(userId);
+ 
+    // if(!user || user.status !== 1){
+    //   return {
+    //     success: false,
+    //     message: 'User is not active',
+    //   };
+    // }
+
     try {
       const payload = { email: email, sub: userId, type: 'user' };
 
@@ -246,36 +280,37 @@ export class AuthService {
     userId: string,
     updateUserDto: UpdateUserDto,
     image?: Express.Multer.File,
+    cover_image?: Express.Multer.File,
   ) {
     try {
       const data: any = {};
-      if (updateUserDto.name) {
-        data.name = updateUserDto.name;
-      }
+      // if (updateUserDto.name) {
+      //   data.name = updateUserDto.name;
+      // }
       if (updateUserDto.first_name) {
         data.first_name = updateUserDto.first_name;
       }
       if (updateUserDto.last_name) {
         data.last_name = updateUserDto.last_name;
       }
-      if (updateUserDto.phone_number) {
-        data.phone_number = updateUserDto.phone_number;
-      }
-      if (updateUserDto.country) {
-        data.country = updateUserDto.country;
-      }
-      if (updateUserDto.state) {
-        data.state = updateUserDto.state;
-      }
-      if (updateUserDto.local_government) {
-        data.local_government = updateUserDto.local_government;
-      }
+      // if (updateUserDto.phone_number) {
+      //   data.phone_number = updateUserDto.phone_number;
+      // }
+      // if (updateUserDto.country) {
+      //   data.country = updateUserDto.country;
+      // }
+      // if (updateUserDto.state) {
+      //   data.state = updateUserDto.state;
+      // }
+      // if (updateUserDto.local_government) {
+      //   data.local_government = updateUserDto.local_government;
+      // }
       if (updateUserDto.city) {
         data.city = updateUserDto.city;
       }
-      if (updateUserDto.zip_code) {
-        data.zip_code = updateUserDto.zip_code;
-      }
+      // if (updateUserDto.zip_code) {
+      //   data.zip_code = updateUserDto.zip_code;
+      // }
       if (updateUserDto.address) {
         data.address = updateUserDto.address;
       }
@@ -285,6 +320,10 @@ export class AuthService {
       if (updateUserDto.date_of_birth) {
         data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
       }
+
+        
+      // ====== Avatar upload ======
+
       if (image) {
         // delete old image from storage
         const oldImage = await this.prisma.user.findFirst({
@@ -307,6 +346,32 @@ export class AuthService {
 
         data.avatar = fileName;
       }
+
+      // ====== Cover Photo upload ======
+      if (cover_image) {
+        // delete old image from storage
+        const oldCoverPhoto = await this.prisma.user.findFirst({  
+          where: { id: userId },
+          select: { cover_photo: true },
+        });
+
+        if (oldCoverPhoto.cover_photo) {
+          await SojebStorage.delete(
+            appConfig().storageUrl.coverPhoto + oldCoverPhoto.cover_photo,
+          );
+        }
+
+        // upload file
+        const originalName = cover_image.originalname.replace(/\s+/g, '');
+        const fileName = `${StringHelper.randomString()}${originalName}`;
+        await SojebStorage.put(
+          appConfig().storageUrl.coverPhoto + '/' + fileName,
+          cover_image.buffer,
+        );
+
+        data.cover_photo = fileName;
+      }
+
       const user = await UserRepository.getUserDetails(userId);
       if (user) {
         await this.prisma.user.update({

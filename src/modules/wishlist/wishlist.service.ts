@@ -147,9 +147,9 @@ export class WishlistService {
       user_id: item.user_id,
       product_id: item.product_id,
       product_title: item.product.product_title,
-      product_photo: item.product.photo 
-        ? SojebStorage.url(`${appConfig().storageUrl.product}/${item.product.photo}`)
-        : null,
+      product_photo: item.product.photo && item.product.photo.length > 0
+      ? item.product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)) // map all images
+      : [],
       product_size: item.product.size,
       product_condition: item.product.condition,
       product_price: item.product.price,

@@ -44,7 +44,7 @@ export class OrderService {
         0,
       );
 
-      // ✅ Transaction শুরু
+     
       const result = await this.prisma.$transaction(async (tx) => {
         const order = await tx.order.create({
           data: {
@@ -74,7 +74,7 @@ export class OrderService {
           });
         }
 
-        // 3️⃣ ওই seller এর কার্ট থেকে পণ্য ডিলিট করা হচ্ছে
+    
         await tx.cartItem.deleteMany({
           where: {
             cart_id: cart.id,
@@ -148,7 +148,7 @@ export class OrderService {
       };
     }
 
-    const baseUrl = appConfig().storageUrl.product;
+   
     const formattedOrders = orders.map((o) => ({
       order_id: o.id,
       seller: {
@@ -157,7 +157,7 @@ export class OrderService {
         avatar: o.seller.avatar
           ? SojebStorage.url(
               `${appConfig().storageUrl.avatar}/${o.seller.avatar}`,
-            ) // Use avatar storage for user avatars
+            ) 
           : null,
       },
       total: o.grand_total,
@@ -168,8 +168,10 @@ export class OrderService {
         title: i.product.product_title,
         price: i.product.price,
         photo: i.product.photo
-          ? SojebStorage.url(`${baseUrl}/${i.product.photo}`)
-          : null,
+        ? i.product.photo.map((p: string) =>
+            SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)
+          )
+        : [],
         quantity: i.quantity,
         total_price: i.total_price,
       })),
@@ -229,8 +231,10 @@ export class OrderService {
       product_title: item.product.product_title,
       price: item.product.price,
       photo: item.product.photo
-        ? SojebStorage.url(`${baseUrl}/${item.product.photo}`)
-        : null,
+      ? item.product.photo.map((p: string) =>
+          SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)
+        )
+      : [],
       quantity: item.quantity,
       total_price: item.total_price,
     }));
@@ -268,4 +272,6 @@ export class OrderService {
       },
     };
   }
+
+  
 }

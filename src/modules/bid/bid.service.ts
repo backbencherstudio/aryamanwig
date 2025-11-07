@@ -8,6 +8,7 @@ import appConfig from 'src/config/app.config';
 import { UpdateStatusBidDto } from './dto/status-update-bid.dto';
 import { log } from 'node:console';
 import { getBoostTimeLeft } from 'src/common/utils/date.utils';
+import { last } from 'rxjs';
 
 @Injectable()
 export class BidService {
@@ -56,11 +57,9 @@ export class BidService {
       message: 'Bid created successfully',
       data: bid,
     }
-
-
-
-
   }
+
+
 
   // get all bids for a single product
   async getBidsForProduct(productId: string) {
@@ -87,7 +86,6 @@ export class BidService {
       throw new NotFoundException('Product not found');
     }
 
-    // এখন সেই প্রোডাক্টের সব বিড বের করবো
     const bids = await this.prisma.bid.findMany({
       where: { product_id: productId },
       include: {
@@ -96,6 +94,7 @@ export class BidService {
             id: true,
             name: true,
             avatar: true,
+            updated_at: true,
           },
         },
       },
@@ -122,18 +121,23 @@ export class BidService {
         product_title: product.product_title,
         location:product.location,
         price: product.price,
-        photo: product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${product.photo}`) : null,
+        // --- 💡 পরিবর্তন এখানে ---
+        photo: product.photo && product.photo.length > 0
+          ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+          : [],
+        // ------------------------- 
         condition: product.condition,
         size: product.size,
-        boost_until: getBoostTimeLeft(product.boost_until),
+        boost_until:product.boost_until,
       },
       bids: bids.map(bid => ({
         id: bid.id,
         bid_amount: bid.bid_amount,
+        last_updated: bid.updated_at,
         status: bid.status,
         bider_id: bid.user.id,
         bider_name: bid.user.name,
-        bider_avatar: bid.user.avatar ? SojebStorage.url(`${appConfig().storageUrl.product}/${bid.user.avatar}`) : null,
+        bider_avatar: bid.user.avatar ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${bid.user.avatar}`) : null,
       })),
     };
   }

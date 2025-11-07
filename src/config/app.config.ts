@@ -98,9 +98,11 @@ export default () => ({
     avatar: 'avatar',
     product: 'product',
     category: 'category',
+    coverPhoto: 'coverPhoto',
     websiteInfo: '/website-info',
     // chat
     attachment: 'attachment',
+    video: 'video',
   },
 
 
