@@ -15,10 +15,6 @@ import { id } from 'date-fns/locale';
 export class DashboradService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Fetches and paginates orders for a user, either as a buyer or a seller.
-   * This is a private helper method to keep the code DRY.
-   */
   private async fetchOrders(
     userId: string,
     role: 'buyer' | 'seller',
@@ -67,6 +63,8 @@ export class DashboradService {
         },
       }),
     ]);
+
+    console.log(orders);
 
     
     const formattedOrders = orders.map((order) => ({

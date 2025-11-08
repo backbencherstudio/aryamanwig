@@ -15,16 +15,12 @@ import { PaginationDto } from 'src/common/pagination';
 import { ProductStatus ,Prisma} from '@prisma/client';
 
 
-
-
-
 @Injectable()
 export class ProductsService {
 
   constructor(
     private readonly prisma: PrismaService,
   ) {}
-
 
   // create product
   async create(
