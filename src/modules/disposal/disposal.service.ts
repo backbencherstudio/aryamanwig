@@ -19,7 +19,7 @@ export class DisposalService {
   private readonly PICKUP_BASE_FEE = 80.0;
   private readonly MINIMUM_ORDER_VALUE = 120.0;
   private readonly ALLOWED_CITIES = ['zurich', 'schwyz'];
-  private readonly SEND_IN_FEE = 5.0;
+
 
 
   async createDisposal(

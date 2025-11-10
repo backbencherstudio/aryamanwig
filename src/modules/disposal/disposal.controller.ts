@@ -10,7 +10,7 @@ export class DisposalController {
 
   constructor(private readonly disposalService: DisposalService) {}
   
-
+  // Create Disposal Request
   @Post('create/:productId')
   async createRequest(
     @Param('productId') productId: string, 
