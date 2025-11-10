@@ -161,27 +161,26 @@ export class AuthService {
         });
       }
 
-      // ----------------------------------------------------
-      // create otp code
-      // const token = await UcodeRepository.createToken({
-      //   userId: user.data.id,
-      //   isOtp: true,
-      // });
+      //  create otp code
+      const token = await UcodeRepository.createToken({
+        userId: user.data.id,
+        isOtp: true,
+      });
 
-      // console.log("Cteate token : ", token);
+      console.log("Cteate token : ", token);
 
 
-      // send otp code to email
-      // const sndOtp = await this.mailService.sendOtpCodeToEmail({
-      //   email: email,
-      //   name: name,
-      //   otp: token,
-      // });
-      // console.log("Send Otp : ", sndOtp);
+      //send otp code to email
+      const sndOtp = await this.mailService.sendOtpCodeToEmail({
+        email: email,
+        name: name,
+        otp: token,
+      });
+      console.log("Send Otp : ", sndOtp);
 
       return {
         success: true,
-        message: 'your account has been created successfully',
+        message: 'We have sent a verification code to your email',
       };
 
       // ----------------------------------------------------
@@ -215,16 +214,8 @@ export class AuthService {
   // login user
   async login({ email, userId }) {
 
-
     const user = await UserRepository.getUserDetails(userId);
  
-    // if(!user || user.status !== 1){
-    //   return {
-    //     success: false,
-    //     message: 'User is not active',
-    //   };
-    // }
-
     try {
       const payload = { email: email, sub: userId, type: 'user' };
 

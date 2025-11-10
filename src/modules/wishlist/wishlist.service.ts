@@ -26,6 +26,10 @@ export class WishlistService {
       throw new ConflictException('Product not found');
     }
 
+    if (product.user_id === user) {
+      throw new ConflictException('You cannot add your own product to wishlist');
+    }
+
     const existingWishlistItem = await this.prisma.wishlist.findFirst({
       where: { product_id, user_id: user },
     });
@@ -95,9 +99,9 @@ export class WishlistService {
         product_description: item.product.product_description,
         stock: item.product.stock,
         price: item.product.price,
-        photo: item.product.photo 
-          ? SojebStorage.url(`${appConfig().storageUrl.product}/${item.product.photo}`)
-          : null,
+        photo: item.product.photo && item.product.photo.length > 0
+        ? item.product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)) 
+        : null,
       },
     }));
     
@@ -128,7 +132,9 @@ export class WishlistService {
         orderBy: { created_at: 'desc' },
         include: {
           product: true, 
+          
         },
+
       }),
     ]);
 
@@ -148,16 +154,18 @@ export class WishlistService {
       product_id: item.product_id,
       product_title: item.product.product_title,
       product_photo: item.product.photo && item.product.photo.length > 0
-      ? item.product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)) // map all images
+      ? item.product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)) 
       : [],
       product_size: item.product.size,
       product_condition: item.product.condition,
       product_price: item.product.price,
       product_stock: item.product.stock,
-      created_at: formatDate(item.product.created_at),
-      boost_time: getBoostTimeLeft(item.product.boost_until),
+      created_at: item.product.created_at,
+      boost_time:item.product.boost_until,
     }));
     
+
+    console.log(items)
    
     const paginatedData = paginateResponse(formattedItems, total, page, perPage);
 
@@ -194,11 +202,14 @@ export class WishlistService {
           product_description: item.product.product_description,
           stock: item.product.stock,
           price: item.product.price,
-          photo: item.product.photo ? SojebStorage.url(`${appConfig().storageUrl.product}/${item.product.photo}`): null,
+          photo: item.product.photo && item.product.photo.length > 0
+          ? item.product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)) 
+          : null, 
         },
       },
     };
   }
+
 
   // delete wishlist item by id
   async remove(id: string, user: string) {

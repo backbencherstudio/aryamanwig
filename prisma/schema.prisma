@@ -756,15 +756,6 @@ enum DisposalItemSize {
   EXTRA_LARGE
 }
 
-/*
-enum PaymentStatus {
-  DUE
-  PAID
-  FAILED
-  REFUNDED
-}
-*/
-
 model Disposal {
   id              String          @id @default(cuid())
   created_at      DateTime        @default(now())

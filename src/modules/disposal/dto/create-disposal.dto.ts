@@ -3,8 +3,6 @@ import { IsEnum, IsOptional, IsString, ValidateIf } from "class-validator";
 
 export class CreateDisposalDto {
 
-
-  
   @IsEnum(DisposalType)
   type: DisposalType;
     
@@ -24,6 +22,34 @@ export class CreateDisposalDto {
   @IsString()
   place_address?: string;
 
-  
+}  
 
+
+/*
+
+enum DisposalType {
+  PICKUP
+  SEND_IN
 }
+
+enum DisposalStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum DisposalItemSize {
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
+}
+
+
+type            DisposalType
+status          DisposalStatus?  @default(PENDING)
+item_size       DisposalItemSize? @default(SMALL)
+
+
+*/

@@ -128,13 +128,20 @@ export class AuthController {
     try {
       const user_id = req.user.id;
       const user_email = req.user.email;
+      const isEmailVerified = req.user?.email_verified_at;
 
-    
-       const response = await this.authService.login({
+      let response: any;
+      if (!isEmailVerified) {
+         return {
+          success: false,
+          message: 'Email not verified. Please verify your email to login.',
+        };
+      } else {
+        response = await this.authService.login({
           userId: user_id,
           email: user_email,
         });
-
+      }
       return response;
     } catch (error) {
       return {
@@ -145,51 +152,51 @@ export class AuthController {
   }
 
    // update user
-   @ApiOperation({ summary: 'Update user' })
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
-@Patch('update')
-@UseInterceptors(
-  FileFieldsInterceptor(
-    [
-      { name: 'image', maxCount: 1 },
-      { name: 'cover_image', maxCount: 1 },
-    ],
-    {
-      storage: memoryStorage(),
-      limits: {
-        fileSize: 5 * 1024 * 1024,
+    @ApiOperation({ summary: 'Update user' })
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard)
+    @Patch('update')
+    @UseInterceptors(
+      FileFieldsInterceptor(
+        [
+          { name: 'image', maxCount: 1 },
+          { name: 'cover_image', maxCount: 1 },
+        ],
+        {
+          storage: memoryStorage(),
+          limits: {
+            fileSize: 5 * 1024 * 1024,
+          },
+        },
+      ),
+    )
+    async updateUser(
+      @Req() req: Request,
+      @Body() data: UpdateUserDto,
+      @UploadedFiles()
+      files: {
+        image?: Express.Multer.File[];
+        cover_image?: Express.Multer.File[];
       },
-    },
-  ),
-)
-async updateUser(
-  @Req() req: Request,
-  @Body() data: UpdateUserDto,
-  @UploadedFiles()
-  files: {
-    image?: Express.Multer.File[];
-    cover_image?: Express.Multer.File[];
-  },
-) {
-  try {
-    const user_id = req.user.userId;
-    const image = files.image?.[0];
-    const cover_image = files.cover_image?.[0];
-    const response = await this.authService.updateUser(
-      user_id,
-      data,
-      image,
-      cover_image,
-    );
-    return response;
-  } catch (error) {
-    return {
-      success: false,
-      message: 'Failed to update user',
-    };
-  }
-}
+    ) {
+      try {
+        const user_id = req.user.userId;
+        const image = files.image?.[0];
+        const cover_image = files.cover_image?.[0];
+        const response = await this.authService.updateUser(
+          user_id,
+          data,
+          image,
+          cover_image,
+        );
+        return response;
+      } catch (error) {
+        return {
+          success: false,
+          message: 'Failed to update user',
+        };
+      }
+    }
 
 
   // Refresh Token
