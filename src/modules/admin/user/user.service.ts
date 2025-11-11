@@ -34,6 +34,7 @@ export class UserService {
     }
   }
 
+
   async findAll({
     q,
     type,
@@ -224,4 +225,6 @@ export class UserService {
       };
     }
   }
+
+
 }

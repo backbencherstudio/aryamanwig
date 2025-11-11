@@ -50,6 +50,7 @@ export class BidController {
 
 
   // TOPIC: buyer list
+  
 
   // *get my all bids with accepted
   @UseGuards(JwtAuthGuard)

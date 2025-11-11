@@ -749,12 +749,6 @@ enum DisposalStatus {
   CANCELLED
 }
 
-enum DisposalItemSize {
-  SMALL
-  MEDIUM
-  LARGE
-  EXTRA_LARGE
-}
 
 model Disposal {
   id              String          @id @default(cuid())
@@ -762,21 +756,32 @@ model Disposal {
   updated_at      DateTime        @default(now())
   deleted_at      DateTime?
 
+  productname   String?
+  productphoto  String?
+  producttype   String?
+  productquantity Int? 
+
   type            DisposalType
   status          DisposalStatus?  @default(PENDING)
-  item_size       DisposalItemSize? @default(SMALL)
+  item_size       ProductItemSize?
 
-  place_city     String?
   place_name     String?
   place_address  String?
+  latitude       Decimal?         @db.Decimal(10, 7)
+  longitude      Decimal?         @db.Decimal(10, 7)
 
-  payment_status PaymentStatus?   @default(DUE)
-
-  scheduled_at   DateTime?
-  final_total_amount Decimal?     @db.Decimal(10, 2)
 
   base_fee       Decimal?         @db.Decimal(10, 2)
   item_total_fee Decimal?         @db.Decimal(10, 2)
+
+  final_total_amount Decimal?     @db.Decimal(10, 2)
+
+  payment_status PaymentStatus?   @default(DUE)
+
+  // admin approve
+  admin_approved        Boolean?        @default(false)  
+  approved_at           DateTime?       
+
 
   product_id       String        
   product          Product        @relation(fields: [product_id], references: [id], onDelete: Cascade)
@@ -786,12 +791,6 @@ model Disposal {
 
   @@map("disposals")
 }
-
-
-
-
-
-
 
 
 

@@ -40,6 +40,7 @@ export class UserController {
     }
   }
 
+  // *
   @ApiResponse({ description: 'Get all users' })
   @Get()
   async findAll(
