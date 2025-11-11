@@ -1,19 +1,27 @@
-import { DisposalItemSize, DisposalStatus, DisposalType } from "@prisma/client";
-import { IsEnum, IsOptional, IsString, ValidateIf } from "class-validator";
+import {  DisposalType, ProductItemSize } from "@prisma/client";
+import { IsEnum, IsNumber, IsOptional, IsString, ValidateIf } from "class-validator";
 
 export class CreateDisposalDto {
 
+
+  @IsString()
+  productname: string;
+
+  @IsString()
+  producttype: string;
+
+  @IsNumber()
+  productquantity: number;
+
   @IsEnum(DisposalType)
   type: DisposalType;
+
     
-  @ValidateIf((o) => o.type === 'PICKUP')
-  @IsEnum(DisposalStatus)
-  status: DisposalStatus;
+  @IsOptional()
+  @IsEnum(ProductItemSize) 
+  product_item_size?: ProductItemSize;
 
-  @ValidateIf((o) => o.type === 'PICKUP')
-  @IsEnum(DisposalItemSize)
-  item_size: DisposalItemSize;
-
+ 
   @ValidateIf((o) => o.type === 'PICKUP')  
   @IsString()
   place_name: string;
@@ -22,34 +30,14 @@ export class CreateDisposalDto {
   @IsString()
   place_address?: string;
 
+
+  @IsOptional() 
+  place_latitude?: number;
+
+  @IsOptional()
+  place_longitude?: number;
+
+
 }  
 
 
-/*
-
-enum DisposalType {
-  PICKUP
-  SEND_IN
-}
-
-enum DisposalStatus {
-  PENDING
-  CONFIRMED
-  COMPLETED
-  CANCELLED
-}
-
-enum DisposalItemSize {
-  SMALL
-  MEDIUM
-  LARGE
-  EXTRA_LARGE
-}
-
-
-type            DisposalType
-status          DisposalStatus?  @default(PENDING)
-item_size       DisposalItemSize? @default(SMALL)
-
-
-*/

@@ -120,6 +120,7 @@ export class StripeController {
   } 
 
   // disposal payment 
+  /*
   @Post('pay-disposal/:product_id')
   @UseGuards(JwtAuthGuard)
   async payDisposal(
@@ -210,6 +211,7 @@ export class StripeController {
       );
     }
   }
+    */
   
   // Twint with product payment
   /*

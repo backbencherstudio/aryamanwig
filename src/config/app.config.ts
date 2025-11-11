@@ -99,6 +99,7 @@ export default () => ({
     product: 'product',
     category: 'category',
     coverPhoto: 'coverPhoto',
+    disposalPhoto: 'disposalPhoto',
     websiteInfo: '/website-info',
     // chat
     attachment: 'attachment',
