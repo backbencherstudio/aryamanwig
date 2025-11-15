@@ -165,7 +165,7 @@ export class WishlistService {
     }));
     
 
-    console.log(items)
+
    
     const paginatedData = paginateResponse(formattedItems, total, page, perPage);
 

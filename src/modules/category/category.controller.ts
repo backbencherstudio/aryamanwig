@@ -62,7 +62,7 @@ export class CategoryController {
         @UploadedFile() file?: Express.Multer.File
       ) {
   const user = req.user.userId;
-  console.log('Updating category:', id, 'by user:', user);
+
   return this.categoryService.update(id, updateCategoryDto, user, file);
   }
 

@@ -194,6 +194,7 @@ export class UserRepository {
     first_name,
     last_name,
     email,
+    location,
     password,
     phone_number,
     role_id = null,
@@ -203,6 +204,7 @@ export class UserRepository {
     first_name?: string;
     last_name?: string;
     email: string;
+    location: string;
     password: string;
     phone_number?: string;
     role_id?: string;
@@ -243,6 +245,9 @@ export class UserRepository {
           password,
           appConfig().security.salt,
         );
+      }
+      if (location) {
+        data['location'] = location;
       }
 
       if (type && ArrayHelper.inArray(type, Object.values(Role))) {

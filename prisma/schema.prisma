@@ -50,6 +50,7 @@ model User {
   password          String?   @db.VarChar(255)
   avatar            String?
   cover_photo       String?
+  location          String?   @db.VarChar(255)
   // domain            String?   @unique
   username          String?   @unique
 
@@ -746,7 +747,9 @@ enum DisposalStatus {
   PENDING
   CONFIRMED
   COMPLETED
+  PICKUP
   CANCELLED
+  PENALTY
 }
 
 
@@ -780,7 +783,12 @@ model Disposal {
 
   // admin approve
   admin_approved        Boolean?        @default(false)  
-  approved_at           DateTime?       
+  approved_at           DateTime?     
+
+
+  // admin comment
+  admin_comment        String?  
+  penalty_amount      Decimal?        @db.Decimal(10, 2)
 
 
   product_id       String        

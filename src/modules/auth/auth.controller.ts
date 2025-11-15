@@ -67,6 +67,7 @@ export class AuthController {
       const last_name = data.last_name;
       const email = data.email;
       const password = data.password;
+      const location = data.location;
       const type = data.type;
 
       const name = `${first_name} ${last_name}`.trim();
@@ -91,6 +92,13 @@ export class AuthController {
         );
       }
 
+      if (!location) {
+        throw new HttpException(
+          'Location not provided',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
       if (!email) {
         throw new HttpException('Email not provided', HttpStatus.UNAUTHORIZED);
       }
@@ -106,6 +114,7 @@ export class AuthController {
         first_name: first_name,
         last_name: last_name,
         email: email,
+        location: location,
         password: password,
         type: type,
       });

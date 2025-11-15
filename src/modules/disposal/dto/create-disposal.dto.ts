@@ -22,7 +22,7 @@ export class CreateDisposalDto {
   product_item_size?: ProductItemSize;
 
  
-  @ValidateIf((o) => o.type === 'PICKUP')  
+  @IsOptional()  
   @IsString()
   place_name: string;
 

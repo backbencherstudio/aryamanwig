@@ -79,7 +79,7 @@ export class BidService {
       },
     });
 
-    console.log(product);
+    
 
     if (!product) {
       throw new NotFoundException('Product not found');

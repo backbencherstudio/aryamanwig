@@ -9,6 +9,7 @@ import { BoostProductDto, BoostTierEnum } from './dto/boost-product.dto';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { PaginationDto } from 'src/common/pagination';
+import { SearchProductsDto } from './dto/search-products.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('products')
@@ -86,6 +87,22 @@ export class ProductsController {
     const user = req.user.userId;
     return this.productsService.getAllProductsForUser(user, query);
   }
+
+
+  // get all product for client
+  @Get('client-all-products/:id')
+  getAllProductsForClient(
+    @Req() req: any,                
+    @Query() query: PaginationDto,
+    @Param('id') id: string,
+ ) {
+   
+    return this.productsService.getAllProductsForClient(id, query);
+  }
+
+
+
+
   /*=================( Boosting Area Start)=================*/
 
   // Create Product Boost
@@ -113,12 +130,12 @@ export class ProductsController {
 
   /*=================( Search Area Start)=================*/
 
-  @Get('search')
+  @Get('search') 
   async searchProducts(
-    @Query() paginationDto: PaginationDto,
-    @Query('search') search?: string, 
+    @Query() searchDto: SearchProductsDto, 
   ) {
-    return this.productsService.searchProducts(paginationDto,search);
+    const { search, ...paginationDto } = searchDto;
+  return this.productsService.searchProducts(paginationDto, search);
   }
 
   /*=================( Filter Area Start)=================*/
