@@ -103,11 +103,12 @@ export class AuthService {
   }
 
   // register user
-  async register({ name,first_name,last_name,email,password,type,}:{
+  async register({ name,first_name,last_name,email,location,password,type,}:{
     name: string;
     first_name: string;
     last_name: string;
     email: string;
+    location: string;
     password: string;
     type?: string;
   }) {
@@ -131,6 +132,7 @@ export class AuthService {
         last_name: last_name,
         email: email,
         password: password,
+        location: location,
         type: type,
       });
 

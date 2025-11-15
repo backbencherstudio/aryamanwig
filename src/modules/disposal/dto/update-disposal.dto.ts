@@ -1,4 +1,8 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateDisposalDto } from './create-disposal.dto';
+import { IsIn, IsString } from 'class-validator';
 
-export class UpdateDisposalDto extends PartialType(CreateDisposalDto) {}
+export class UpdateDisposalStatusDto {
+ 
+  @IsString()
+  @IsIn(['APPROVED', 'CANCELLED'])
+  status: string;
+}

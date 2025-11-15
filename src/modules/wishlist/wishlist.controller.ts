@@ -17,7 +17,7 @@ export class WishlistController {
         @Req() req: any
   ) {
     const user = req.user.userId;
-    console.log(user)
+   
     return this.wishlistService.addToWishlist(createWishlistDto, user);
   }
 

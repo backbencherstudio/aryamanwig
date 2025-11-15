@@ -49,9 +49,20 @@ export class ReviewController {
     return this.reviewService.remove(id, user);
   }
 
-  // get all reviws for a user
-  @Get('user/:id/reviews')
-  getAllReviewsForUser(@Param('id') id: string) {
+  // get all reviws for client
+  @Get('client-reviews/:id')
+  getAllReviewsForClient(@Param('id') id: string) {
+    return this.reviewService.getAllReviewsForClient(id);
+  }
+
+
+  // get all reviws for user
+  @UseGuards(JwtAuthGuard)
+  @Get('user-review')
+  getAllReviewsForUser(
+    @Req() req: any
+  ) {
+    const id = req.user.userId;
     return this.reviewService.getAllReviewsForUser(id);
   }
 

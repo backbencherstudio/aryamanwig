@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Condition, CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -12,15 +16,11 @@ import { formatDate, getBoostTimeLeft } from 'src/common/utils/date.utils';
 import { ca, id } from 'date-fns/locale';
 import { paginateResponse } from 'src/common/pagination/pagination.service';
 import { PaginationDto } from 'src/common/pagination';
-import { ProductStatus ,Prisma} from '@prisma/client';
-
+import { ProductStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class ProductsService {
-
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // create product
   async create(
@@ -42,7 +42,6 @@ export class ProductsService {
       product_item_size,
     } = createProductDto;
 
-
     const existingProduct = await this.prisma.product.findFirst({
       where: { product_title, user_id: user },
     });
@@ -51,7 +50,6 @@ export class ProductsService {
       throw new ConflictException('Product with this title already exists');
     }
 
-    
     const category = await this.prisma.category.findUnique({
       where: { id: category_id },
     });
@@ -59,48 +57,44 @@ export class ProductsService {
       throw new ConflictException('Category does not exist');
     }
 
-
-    let photos:  string[] = [];
+    let photos: string[] = [];
     if (images && images.length > 0) {
-
-
       for (const image of images) {
+        const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
 
-      const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
-      
-      await SojebStorage.put(
-        appConfig().storageUrl.product + '/' + fileName,
-        image.buffer,
-      );
+        await SojebStorage.put(
+          appConfig().storageUrl.product + '/' + fileName,
+          image.buffer,
+        );
 
-      photos.push(fileName);
-    }
+        photos.push(fileName);
+      }
 
-    // Create product in DB
-    const newProduct = await this.prisma.product.create({
-      data: {
-        product_title,
-        product_description,
-        price,
-        stock,
-        photo: photos,
-        location,
-        size,
-        color,
-        time,
-        condition,
-        user_id: user,
-        category_id,
-        product_item_size,
-      },
-    });
+      // Create product in DB
+      const newProduct = await this.prisma.product.create({
+        data: {
+          product_title,
+          product_description,
+          price,
+          stock,
+          photo: photos,
+          location,
+          size,
+          color,
+          time,
+          condition,
+          user_id: user,
+          category_id,
+          product_item_size,
+        },
+      });
 
-    // let photoUrl = null;
-    // if(newProduct.photo) {
-    //    photoUrl = SojebStorage.url(`${appConfig().storageUrl.product}/${newProduct.photo}`);
-    // }
+      // let photoUrl = null;
+      // if(newProduct.photo) {
+      //    photoUrl = SojebStorage.url(`${appConfig().storageUrl.product}/${newProduct.photo}`);
+      // }
 
-    return {
+      return {
         success: true,
         message: 'Product created successfully',
         data: {
@@ -125,7 +119,7 @@ export class ProductsService {
     };
 
     const [total, products] = await this.prisma.$transaction([
-      this.prisma.product.count({ where: whereClause }), 
+      this.prisma.product.count({ where: whereClause }),
       this.prisma.product.findMany({
         where: whereClause,
         skip,
@@ -144,7 +138,6 @@ export class ProductsService {
       }),
     ]);
 
-
     if (total === 0) {
       return {
         success: true,
@@ -155,18 +148,26 @@ export class ProductsService {
 
     const formattedProducts = products.map((product) => ({
       id: product.id,
-      product_photo: product.photo && product.photo.length > 0
-          ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+      product_photo:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
           : [],
       title: product.product_title,
       size: product.size,
       condition: product.condition,
-      created_time:product.created_at,
+      created_time: product.created_at,
       boost_time: product.boost_until,
       price: product.price,
     }));
 
-    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+    const paginatedData = paginateResponse(
+      formattedProducts,
+      total,
+      page,
+      perPage,
+    );
 
     return {
       success: true,
@@ -177,7 +178,6 @@ export class ProductsService {
 
   // Get a product by ID
   async findOne(id: string) {
-
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
@@ -186,39 +186,42 @@ export class ProductsService {
         bids: {
           orderBy: { created_at: 'asc' },
           take: 1,
-          select: { id: true, bid_amount: true }, 
-        }
+          select: { id: true, bid_amount: true },
+        },
       },
     });
-
 
     if (!product) {
       throw new NotFoundException(`Product with ID ${id} not found`);
     }
-    
+
     // Seller er total product count
     const totalItems = await this.prisma.product.count({
       where: { user_id: product.user_id },
     });
 
-    console.log(`Total products by seller ${product.user_id}: ${totalItems}`);
-
     return {
       success: true,
       message: 'Product retrieved successfully',
       data: {
-
         seller_Info: {
           user_id: product.user.id,
-          name: product.user.name ,
-          profile_photo: product.user.avatar ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${product.user.avatar}`): null,
+          name: product.user.name,
+          profile_photo: product.user.avatar
+            ? SojebStorage.url(
+                `${appConfig().storageUrl.avatar}/${product.user.avatar}`,
+              )
+            : null,
           total_items: totalItems,
         },
- 
+
         product_id: product.id,
-        product_photo: product.photo && product.photo.length > 0
-          ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
-          : [],
+        product_photo:
+          product.photo && product.photo.length > 0
+            ? product.photo.map((p) =>
+                SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+              )
+            : [],
         title: product.product_title,
         status: product.status,
         location: product.location,
@@ -230,7 +233,8 @@ export class ProductsService {
         color: product.color || 'Not Specified',
         uploaded: product.created_at,
         remaining_time: product.boost_until,
-        minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
+        minimum_bid:
+          product.bids.length > 0 ? product.bids[0].bid_amount : null,
         category: {
           id: product.category.id,
           category_name: product.category.category_name,
@@ -240,40 +244,47 @@ export class ProductsService {
   }
 
   //update product
-  async update(id: string, 
-         updateProductDto: UpdateProductDto,
-         user: string,
-         newImages?: Express.Multer.File[]) {
-
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    user: string,
+    newImages?: Express.Multer.File[],
+  ) {
     const { images_to_delete, ...updateData } = updateProductDto;
 
     const product = await this.prisma.product.findUnique({
       where: { id },
     });
 
+    if (!product)
+      throw new NotFoundException(`Product with ID ${id} not found`);
+    if (product.user_id !== user)
+      throw new ConflictException('You are not allowed to update this product');
 
-    if (!product) throw new NotFoundException(`Product with ID ${id} not found`);
-    if (product.user_id !== user) throw new ConflictException('You are not allowed to update this product');
-    
-     
     let photos: string[] = product.photo || [];
 
-    if (updateProductDto.images_to_delete && updateProductDto.images_to_delete.length > 0) {
+    if (
+      updateProductDto.images_to_delete &&
+      updateProductDto.images_to_delete.length > 0
+    ) {
       for (const img of updateProductDto.images_to_delete) {
         await SojebStorage.delete(`${appConfig().storageUrl.product}/${img}`);
-        photos = photos.filter(p => p !== img); // remove from array
+        photos = photos.filter((p) => p !== img); // remove from array
       }
     }
 
     if (newImages && newImages.length > 0) {
       for (const image of newImages) {
         const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
-        await SojebStorage.put(`${appConfig().storageUrl.product}/${fileName}`, image.buffer);
+        await SojebStorage.put(
+          `${appConfig().storageUrl.product}/${fileName}`,
+          image.buffer,
+        );
         photos.push(fileName);
       }
     }
 
-    if(updateProductDto.category_id) {
+    if (updateProductDto.category_id) {
       const category = await this.prisma.category.findUnique({
         where: { id: updateProductDto.category_id },
       });
@@ -283,7 +294,10 @@ export class ProductsService {
       }
     }
 
-    if(updateProductDto.product_title && updateProductDto.product_title !== product.product_title) {
+    if (
+      updateProductDto.product_title &&
+      updateProductDto.product_title !== product.product_title
+    ) {
       const existingProduct = await this.prisma.product.findFirst({
         where: { product_title: updateProductDto.product_title, user_id: user },
       });
@@ -311,12 +325,14 @@ export class ProductsService {
       where: { id },
       data: {
         ...updateData,
-        photo: photos
+        photo: photos,
       },
     });
 
-    const photoUrls = updatedProduct.photo?.map(p => 
-      SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)) || [];
+    const photoUrls =
+      updatedProduct.photo?.map((p) =>
+        SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+      ) || [];
 
     return {
       success: true,
@@ -339,7 +355,6 @@ export class ProductsService {
 
   // delete product
   async remove(id: string, user: string) {
-    
     const product = await this.prisma.product.findUnique({
       where: { id },
     });
@@ -364,11 +379,9 @@ export class ProductsService {
 
   // get all products for a user
   async getAllProductsForUser(user: string, query: PaginationDto) {
-  
     const { page, perPage } = query;
     const skip = (page - 1) * perPage;
 
-    
     const whereClause = {
       status: ProductStatus.APPROVED,
     };
@@ -378,7 +391,7 @@ export class ProductsService {
         where: { user_id: user, ...whereClause },
       }),
       this.prisma.product.findMany({
-        where: { user_id: user, ...whereClause }, 
+        where: { user_id: user, ...whereClause },
         skip,
         take: perPage,
         orderBy: { created_at: 'desc' },
@@ -406,18 +419,21 @@ export class ProductsService {
       return {
         success: true,
         message: 'No products found for this user',
-        data: paginateResponse([], total, page, perPage), 
+        data: paginateResponse([], total, page, perPage),
       };
     }
 
     const formattedProducts = products.map((product) => ({
       id: product.id,
       photo: product.photo,
-       product_photo_url: product.photo && product.photo.length > 0
-          ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
+      product_photo_url:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
           : [],
       title: product.product_title,
-     
+
       price: product.price,
       description: product.product_description,
       location: product.location,
@@ -425,12 +441,16 @@ export class ProductsService {
       size: product.size,
       color: product.color || 'Not Specified',
       uploaded: product.created_at,
-      remaining_time:product.boost_until,
+      remaining_time: product.boost_until,
       is_in_wishlist: product.wishlists.length > 0,
     }));
 
-
-    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+    const paginatedData = paginateResponse(
+      formattedProducts,
+      total,
+      page,
+      perPage,
+    );
 
     return {
       success: true,
@@ -439,30 +459,112 @@ export class ProductsService {
     };
   }
 
-  /*=================( Boosting Area Start)=================*/
-  
-  private readonly TIER_DETAILS = {
-      [BoostTierEnum.TIER_1]: {
-        days: 3,
-        price: 4.90,
-        name: 'Muss Schnell Weg',
-      },
-      [BoostTierEnum.TIER_2]: {
-        days: 5,
-        price: 9.90,
-        name: 'Muss Zackig Weg',
-      },
-      [BoostTierEnum.TIER_3]: {
-        days: 7,
-        price: 19.90,
-        name: 'Muss Sofort Weg',
-      },
-  };
+  // get all product for client
+   async getAllProductsForClient(user: string, query: PaginationDto) {
+    const { page, perPage } = query;
+    const skip = (page - 1) * perPage;
 
+    const whereClause = {
+      status: ProductStatus.APPROVED,
+    };
+
+    const [total, products] = await this.prisma.$transaction([
+      this.prisma.product.count({
+        where: { user_id: user, ...whereClause },
+      }),
+      this.prisma.product.findMany({
+        where: { user_id: user, ...whereClause },
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          product_title: true,
+          product_description: true,
+          location: true,
+          size: true,
+          color: true,
+          condition: true,
+          created_at: true,
+          boost_until: true,
+          price: true,
+          photo: true,
+          wishlists: {
+            where: { user_id: user },
+            select: { id: true },
+          },
+        },
+      }),
+    ]);
+
+    if (total === 0) {
+      return {
+        success: true,
+        message: 'No products found for this user',
+        data: paginateResponse([], total, page, perPage),
+      };
+    }
+
+    const formattedProducts = products.map((product) => ({
+      id: product.id,
+      photo: product.photo,
+      product_photo_url:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
+          : [],
+      title: product.product_title,
+
+      price: product.price,
+      description: product.product_description,
+      location: product.location,
+      condition: product.condition === 'NEW' ? 'Like New' : product.condition,
+      size: product.size,
+      color: product.color || 'Not Specified',
+      uploaded: product.created_at,
+      remaining_time: product.boost_until,
+      is_in_wishlist: product.wishlists.length > 0,
+    }));
+
+    const paginatedData = paginateResponse(
+      formattedProducts,
+      total,
+      page,
+      perPage,
+    );
+
+    return {
+      success: true,
+      message: 'Products retrieved successfully',
+      ...paginatedData,
+    };
+  } 
+
+
+
+  /*=================( Boosting Area Start)=================*/
+
+  private readonly TIER_DETAILS = {
+    [BoostTierEnum.TIER_1]: {
+      days: 3,
+      price: 4.9,
+      name: 'Muss Schnell Weg',
+    },
+    [BoostTierEnum.TIER_2]: {
+      days: 5,
+      price: 9.9,
+      name: 'Muss Zackig Weg',
+    },
+    [BoostTierEnum.TIER_3]: {
+      days: 7,
+      price: 19.9,
+      name: 'Muss Sofort Weg',
+    },
+  };
 
   // boost product
   async boost(boostProductDto: BoostProductDto, user: string) {
-
     const { product_id, boost_tier } = boostProductDto;
 
     const tierDetails = this.TIER_DETAILS[boost_tier];
@@ -510,8 +612,8 @@ export class ProductsService {
       data: {
         is_boosted: true,
         boost_until: boostUntil,
-        boost_tier: boost_tier, 
-        boost_payment_status: 'COMPLETED', 
+        boost_tier: boost_tier,
+        boost_payment_status: 'COMPLETED',
       },
       select: {
         id: true,
@@ -524,7 +626,7 @@ export class ProductsService {
         price: true,
         boost_payment_status: true,
         boost_tier: true,
-      }
+      },
     });
 
     return {
@@ -533,10 +635,13 @@ export class ProductsService {
       boost_status: updatedProduct.boost_payment_status,
       data: {
         id: updatedProduct.id,
-        photo: updatedProduct.photo, 
-        product_photo_url: updatedProduct.photo && updatedProduct.photo.length > 0
-          ? updatedProduct.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
-          : [],
+        photo: updatedProduct.photo,
+        product_photo_url:
+          updatedProduct.photo && updatedProduct.photo.length > 0
+            ? updatedProduct.photo.map((p) =>
+                SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+              )
+            : [],
         title: updatedProduct.product_title,
         size: updatedProduct.size,
         condition: updatedProduct.condition,
@@ -544,12 +649,11 @@ export class ProductsService {
         boost_time: updatedProduct.boost_until,
         price: updatedProduct.price,
         boost_tier_name: tierDetails.name,
-        boost_price_paid: tierDetails.price, 
+        boost_price_paid: tierDetails.price,
       },
     };
   }
 
-  
   // paginated boosted products
   async getBoostedProducts(page: number, perPage: number) {
     const nowUTC = new Date();
@@ -566,7 +670,7 @@ export class ProductsService {
         where: whereClause,
         skip,
         take: perPage,
-        orderBy: { boost_until: 'desc' }, 
+        orderBy: { boost_until: 'desc' },
         select: {
           id: true,
           product_title: true,
@@ -590,9 +694,12 @@ export class ProductsService {
 
     const formattedProducts = boostedProducts.map((product) => ({
       id: product.id,
-      photo: product.photo && product.photo.length > 0
-        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
-        : [],
+      photo:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
+          : [],
       title: product.product_title,
       size: product.size,
       condition: product.condition,
@@ -600,8 +707,13 @@ export class ProductsService {
       boost_time: product.boost_until,
       price: product.price,
     }));
-    
-    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+
+    const paginatedData = paginateResponse(
+      formattedProducts,
+      total,
+      page,
+      perPage,
+    );
 
     return {
       success: true,
@@ -651,9 +763,12 @@ export class ProductsService {
 
     const formattedProducts = boostedProducts.map((product) => ({
       id: product.id,
-      photo: product.photo && product.photo.length > 0
-        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
-        : [],
+      photo:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
+          : [],
       title: product.product_title,
       size: product.size,
       condition: product.condition,
@@ -662,7 +777,12 @@ export class ProductsService {
       price: product.price,
     }));
 
-    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+    const paginatedData = paginateResponse(
+      formattedProducts,
+      total,
+      page,
+      perPage,
+    );
 
     return {
       success: true,
@@ -671,14 +791,10 @@ export class ProductsService {
     };
   }
 
-
   /*=================( Search Area Start)=================*/
 
   // search products
-  async searchProducts(
-    paginationDto: PaginationDto,
-    search?: string,
-  ) {
+  async searchProducts(paginationDto: PaginationDto, search?: string) {
     const { page, perPage } = paginationDto;
     const skip = (page - 1) * perPage;
 
@@ -686,13 +802,12 @@ export class ProductsService {
       status: ProductStatus.APPROVED,
     };
 
-    
     if (search && search.trim() !== '') {
       whereClause = {
         ...whereClause,
         product_title: {
           contains: search,
-          mode: 'insensitive', 
+          mode: 'insensitive',
         },
       };
     }
@@ -736,7 +851,7 @@ export class ProductsService {
       photo:
         product.photo && product.photo.length > 0
           ? product.photo.map((p) =>
-              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
             )
           : [],
     }));
@@ -750,27 +865,22 @@ export class ProductsService {
   /*=================( Filter Area Start)=================*/
 
   // filter products by price range and categories
-  async filterProducts(
-    filterDto: FilterProductDto, 
-    user: string, 
-  ) {
-  
-    const { min_price, 
-            max_price, 
-            categories, 
-            location, 
-            time_in_hours } = filterDto;
+  async filterProducts(filterDto: FilterProductDto, user: string) {
+    const { min_price, max_price, categories, location, time_in_hours } =
+      filterDto;
 
-    // 🔹 Time filter 
+    // 🔹 Time filter
     let timeFilter: any = {};
     if (time_in_hours) {
       const now = new Date();
-      const timeThreshold = new Date(now.getTime() + time_in_hours * 60 * 60 * 1000); 
-      timeFilter = { 
+      const timeThreshold = new Date(
+        now.getTime() + time_in_hours * 60 * 60 * 1000,
+      );
+      timeFilter = {
         is_boosted: true,
-        boost_until: { gte: now, lte: timeThreshold } 
+        boost_until: { gte: now, lte: timeThreshold },
       };
-    } 
+    }
 
     // 🔹 Fetch from DB
     const products = await this.prisma.product.findMany({
@@ -779,8 +889,12 @@ export class ProductsService {
           { status: ProductStatus.APPROVED },
           min_price ? { price: { gte: min_price } } : {},
           max_price ? { price: { lte: max_price } } : {},
-          categories && categories.length ? { category_id: { in: categories } } : {},
-          location ? { location: { contains: location, mode: 'insensitive' } } : {},
+          categories && categories.length
+            ? { category_id: { in: categories } }
+            : {},
+          location
+            ? { location: { contains: location, mode: 'insensitive' } }
+            : {},
           timeFilter,
         ],
       },
@@ -797,10 +911,10 @@ export class ProductsService {
         boost_until: true,
         price: true,
         photo: true,
-        wishlists:{
+        wishlists: {
           where: { user_id: user },
           select: { id: true },
-        }
+        },
       },
     });
 
@@ -813,12 +927,14 @@ export class ProductsService {
       };
     }
 
-
-    const formattedProducts = products.map(product => ({
+    const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo && product.photo.length > 0
-        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
-        : [],
+      photo:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
+          : [],
       title: product.product_title,
       status: product.status,
       size: product.size,
@@ -842,9 +958,9 @@ export class ProductsService {
   /*=================( Category Area Start)=================*/
   // get all products in a category
   async findAllProductsInCategory(
-  categoryId: string,
-  user: string,
-  paginationDto: PaginationDto,
+    categoryId: string,
+    user: string,
+    paginationDto: PaginationDto,
   ) {
     const { page, perPage } = paginationDto;
     const skip = (page - 1) * perPage;
@@ -857,9 +973,9 @@ export class ProductsService {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
-    const whereClause = { 
+    const whereClause = {
       category_id: categoryId,
-      status: ProductStatus.APPROVED
+      status: ProductStatus.APPROVED,
     };
 
     const [total, products] = await this.prisma.$transaction([
@@ -868,7 +984,7 @@ export class ProductsService {
         where: whereClause,
         skip,
         take: perPage,
-        orderBy: { created_at: 'desc' }, 
+        orderBy: { created_at: 'desc' },
         select: {
           id: true,
           product_title: true,
@@ -883,11 +999,11 @@ export class ProductsService {
             where: { user_id: user },
             select: { id: true },
           },
-          bids:{
+          bids: {
             orderBy: { created_at: 'asc' },
             take: 1,
-            select: { id: true, bid_amount: true }
-          }
+            select: { id: true, bid_amount: true },
+          },
         },
       }),
     ]);
@@ -899,13 +1015,15 @@ export class ProductsService {
         data: paginateResponse([], total, page, perPage),
       };
     }
-    
-  
+
     const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo && product.photo.length > 0
-        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
-        : [],
+      photo:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
+          : [],
       title: product.product_title,
       size: product.size,
       status: product.status,
@@ -917,8 +1035,12 @@ export class ProductsService {
       minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
     }));
 
-    
-    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+    const paginatedData = paginateResponse(
+      formattedProducts,
+      total,
+      page,
+      perPage,
+    );
 
     return {
       success: true,
@@ -929,9 +1051,9 @@ export class ProductsService {
 
   // get category based latest products
   async findLatestProductsInCategory(
-  categoryId: string,
-  user: string,
-  paginationDto: PaginationDto,
+    categoryId: string,
+    user: string,
+    paginationDto: PaginationDto,
   ) {
     const { page, perPage } = paginationDto;
     const skip = (page - 1) * perPage;
@@ -944,9 +1066,9 @@ export class ProductsService {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
-    const whereClause = { 
-      category_id: categoryId , 
-      status: ProductStatus.APPROVED
+    const whereClause = {
+      category_id: categoryId,
+      status: ProductStatus.APPROVED,
     };
 
     const [total, products] = await this.prisma.$transaction([
@@ -979,7 +1101,6 @@ export class ProductsService {
       }),
     ]);
 
-
     if (total === 0) {
       return {
         success: true,
@@ -987,13 +1108,15 @@ export class ProductsService {
         ...paginateResponse([], total, page, perPage),
       };
     }
-    
 
     const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo && product.photo.length > 0
-        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
-        : [],
+      photo:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
+          : [],
       title: product.product_title,
       status: product.status,
       size: product.size,
@@ -1005,21 +1128,25 @@ export class ProductsService {
       minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
     }));
 
-    
-    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+    const paginatedData = paginateResponse(
+      formattedProducts,
+      total,
+      page,
+      perPage,
+    );
 
     return {
       success: true,
       message: 'Latest products retrieved successfully',
-      ...paginatedData, 
+      ...paginatedData,
     };
   }
 
   // get category based oldest products
   async findOldestProductsInCategory(
-  categoryId: string,
-  user: string,
-  paginationDto: PaginationDto,
+    categoryId: string,
+    user: string,
+    paginationDto: PaginationDto,
   ) {
     const { page, perPage } = paginationDto;
     const skip = (page - 1) * perPage;
@@ -1032,9 +1159,9 @@ export class ProductsService {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
-    const whereClause = { 
+    const whereClause = {
       category_id: categoryId,
-      status: ProductStatus.APPROVED
+      status: ProductStatus.APPROVED,
     };
 
     const [total, products] = await this.prisma.$transaction([
@@ -1043,7 +1170,7 @@ export class ProductsService {
         where: whereClause,
         skip,
         take: perPage,
-        orderBy: { created_at: 'asc' }, 
+        orderBy: { created_at: 'asc' },
         select: {
           id: true,
           product_title: true,
@@ -1061,13 +1188,12 @@ export class ProductsService {
           bids: {
             orderBy: { created_at: 'asc' },
             take: 1,
-            select: { id: true, bid_amount: true }, 
-          }
+            select: { id: true, bid_amount: true },
+          },
         },
       }),
     ]);
 
-    
     if (total === 0) {
       return {
         success: true,
@@ -1075,12 +1201,15 @@ export class ProductsService {
         ...paginateResponse([], total, page, perPage),
       };
     }
-    
+
     const formattedProducts = products.map((product) => ({
       id: product.id,
-      photo: product.photo && product.photo.length > 0
-        ? product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
-        : [],
+      photo:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
+          : [],
       title: product.product_title,
       status: product.status,
       size: product.size,
@@ -1088,19 +1217,21 @@ export class ProductsService {
       created_time: product.created_at,
       boost_time_left: product.boost_until,
       price: product.price,
-      is_in_wishlist: product.wishlists.length > 0, 
+      is_in_wishlist: product.wishlists.length > 0,
       minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
     }));
 
-    
-    const paginatedData = paginateResponse(formattedProducts, total, page, perPage);
+    const paginatedData = paginateResponse(
+      formattedProducts,
+      total,
+      page,
+      perPage,
+    );
 
     return {
       success: true,
       message: 'Oldest products retrieved successfully',
-      ...paginatedData, 
+      ...paginatedData,
     };
   }
-
-
 }

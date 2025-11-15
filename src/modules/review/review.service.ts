@@ -224,6 +224,57 @@ export class ReviewService {
   }
 
   // get all reviws for a user
+  async getAllReviewsForClient(id: string) {
+    const reviews = await this.prisma.review.findMany({
+      where: { review_receiver: id },
+      orderBy: { id: 'desc' },
+      include: {
+        user: true,
+      },
+    });
+
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+      },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    const aggregate = await this.prisma.review.aggregate({
+      where: { review_receiver: id },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+
+  
+   
+
+    const formattedReviews = reviews.map((review) => ({
+      id: review.id,
+      rating: review.rating,
+      comment: review.comment,
+      name: review.user.name,
+      avatar: review.user.avatar ?  SojebStorage.url(`${appConfig().storageUrl.avatar}/${review.user.avatar}`): null,
+      created_ago: review.created_at,
+    }));
+
+    return {
+      success: true,
+      message: 'Reviews retrieved successfully',
+      data: {
+        totalReviews: aggregate._count.rating,
+        averageRating: Number(aggregate._avg.rating?.toFixed(2)) || 0,
+        reviews: formattedReviews,
+      },
+    };
+  }
+
+
+  //
   async getAllReviewsForUser(id: string) {
     const reviews = await this.prisma.review.findMany({
       where: { review_receiver: id },
