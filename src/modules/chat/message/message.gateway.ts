@@ -44,9 +44,9 @@ export class MessageGateway
     }
   }
 
-  // Map to store connected clients
-  public clients = new Map<string, string>(); // userId -> socketId
-  private activeUsers = new Map<string, string>(); // username -> socketId
+ 
+  public clients = new Map<string, string>(); 
+  private activeUsers = new Map<string, string>(); 
 
   onModuleInit() { }
 
@@ -65,7 +65,6 @@ export class MessageGateway
       
       const decoded: any = jwt.verify(token, appConfig().jwt.secret);
 
-      // Destructuring এর মাধ্যমে userId এবং username বের করে নিন
       const { sub: userId, name: username } = decoded;
 
       if (!userId || !username) {

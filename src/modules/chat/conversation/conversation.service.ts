@@ -15,7 +15,7 @@ export class ConversationService {
     private readonly messageGateway: MessageGateway,
   ) {}
 
-  // create conversation
+  // *create conversation
   async create(createConversationDto: CreateConversationDto, sender: string) {
 
     const { participant_id } = createConversationDto;
@@ -101,7 +101,7 @@ export class ConversationService {
       };
   }
   
-  //  conversation list of user
+  //  *conversation list of user
   async findAll(userId: string) {
     const conversations = await this.prisma.conversation.findMany({
       where: {
@@ -131,6 +131,7 @@ export class ConversationService {
           take: 1,
           select: {
             text: true,
+            attachments: true,
             createdAt: true,
           },
         },
@@ -151,6 +152,7 @@ export class ConversationService {
       lastMessage: conv.messages[0]
         ? {
             text: conv.messages[0].text,
+            attachments: conv.messages[0].attachments ? SojebStorage.url(`${appConfig().storageUrl.attachment}/${conv.messages[0].attachments}`) : null,
             createdAt: conv.messages[0].createdAt,
           }
         : null,
