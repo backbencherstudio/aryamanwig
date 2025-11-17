@@ -11,24 +11,35 @@ export class ProfileController {
 
    constructor(
     private readonly profileService: ProfileService,
-    private readonly productsService: ProductsService
+    
   ) {}
 
 
-
-   @UseGuards(JwtAuthGuard)
-  @Get('profile-with-products')
-  async getProfileWithProducts(
+  // *user dashboard with profile and products
+  @UseGuards(JwtAuthGuard)
+  @Get('me/dashboard') 
+  async getMyDashboard(
     @Req() req: any,
-    @Query() query: PaginationDto, // Handle pagination for products
+    @Query() query: PaginationDto 
   ) {
-    const userId = req.user.userId;
-
-    // Fetch both profile and products
-    const result = await this.profileService.getProfileAndProducts(userId, query);
-
-    return result;
+    const user = req.user.userId;
+    return this.profileService.getProfileAndProductsandReviews(user, query);
   }
+
+
+  // *client dashboard with profile and products
+  @UseGuards(JwtAuthGuard) 
+  @Get('client-deshborad/:id') 
+  async getClientProfile(
+    @Param('id') id: string, 
+    @Query() query: PaginationDto 
+  ) {
+    
+    return this.profileService.getProfileAndProducts(id, query);
+  }
+   
+
+
 
 
   @UseGuards(JwtAuthGuard)

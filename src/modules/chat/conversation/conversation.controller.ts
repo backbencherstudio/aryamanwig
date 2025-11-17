@@ -24,7 +24,7 @@ export class ConversationController {
 
   constructor(private readonly conversationService: ConversationService) {}
 
-  // create conversation
+  // *create conversation
   @Post('create-conversation')
   @ApiOperation({ summary: 'Create a new conversation' })
   async create(
@@ -36,11 +36,12 @@ export class ConversationController {
   }
 
 
-  //  conversation list of user
-  @Get('conversation-list')
-  async findAll(@Req() req) {
-    const user = req.user.userId;
-    return this.conversationService.findAll(user);
+  //  *conversation list of user
+  @Get('conversation-list/:userId')
+  async findAll(
+    @Req() req,
+    @Param('userId') userId: string) {
+    return this.conversationService.findAll(userId);
   }
 
 

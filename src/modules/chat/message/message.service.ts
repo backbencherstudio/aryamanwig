@@ -17,7 +17,7 @@ export class MessageService {
     private readonly messageGateway: MessageGateway,
   ) {}
 
-  // Send message (with Prisma transaction)
+  // *Send message (with Prisma transaction)
   async create(
     createMessageDto: CreateMessageDto,
     sender: string,
@@ -65,7 +65,7 @@ export class MessageService {
         conversationId,
         senderId: sender,
         status: MessageStatus.SENT,
-        attachments: savedFileNames.length > 0 ? savedFileNames : [], // save array (maybe empty)
+        attachments: savedFileNames.length > 0 ? savedFileNames : [], 
       },
       include: {
         sender: {
@@ -112,30 +112,8 @@ export class MessageService {
     };
   }
 
-  // upload video file
-  async uploadVideo(file: Express.Multer.File, userId: string) {
-   
-    if (!file) {
-      throw new NotFoundException('No video file provided');
-    }
-    const fileName = `${StringHelper.randomString(8)}_${file.originalname}`;
-    const videoStoragePath = `${appConfig().storageUrl.video}/${fileName}`;
-
-    await SojebStorage.put(
-      appConfig().storageUrl.video + '/' + fileName,
-      file.buffer,
-    );
-
-   const videoUrl = SojebStorage.url(videoStoragePath);
-
-    return {
-      message: 'Video uploaded successfully',
-      filename: fileName,
-      url: videoUrl,
-    };
-  }
-
-  // get all messages for a conversation
+ 
+  // *get all messages for a conversation
   async findAll(conversationId: string, userId: string, paginationdto: PaginationDto) {
     const { page, perPage } = paginationdto;
     const skip = (page - 1) * perPage;
@@ -176,12 +154,10 @@ export class MessageService {
     const formattedMessages = messages.map((msg) => ({
       id: msg.id,
       text: msg.text,
-      createdAt: msg.createdAt,
-      updatedAt: msg.updatedAt,
-      status: msg.status,
       attachments: (msg.attachments || []).map((f) =>
         SojebStorage.url(`${appConfig().storageUrl.attachment}/${f}`),
-      ),
+       ),
+      createdAt: msg.createdAt,
       sender: {
         id: msg.sender.id,
         name: msg.sender.name,
@@ -200,6 +176,9 @@ export class MessageService {
       ...paginationResult,
     };
   }
+
+
+
 
   // unread message count
    async getUnreadMessage(userId: string, conversationId: string) {

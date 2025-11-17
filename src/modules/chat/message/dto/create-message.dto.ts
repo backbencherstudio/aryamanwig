@@ -9,7 +9,8 @@ export class CreateMessageDto {
   })
   @IsNotEmpty()
   @IsString()
-  text: string;
+  @IsOptional()
+  text?: string;
 
   @ApiProperty({
     description: 'The ID of the conversation this message belongs to',

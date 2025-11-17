@@ -35,9 +35,9 @@ export class MessageController {
   ) { }
 
 
-  //send message
+  //*send message
   @Post('send-message')
-   @UseInterceptors(
+  @UseInterceptors(
     FilesInterceptor('attachments', 10, {
       storage: memoryStorage(),
       limits: {
@@ -54,28 +54,9 @@ export class MessageController {
     const user = req.user.userId;
     return this.messageService.create(createMessageDto, user, files);
   }
- 
 
-  // add video upload
-  @Post('upload-video')
-  @UseInterceptors(
-    FileInterceptor('video', {
-      storage: memoryStorage(),
-      limits: {
-        fileSize: 50 * 1024 * 1024, // 50 MB
-      },
-    }),
-  )
-  @ApiOperation({ summary: 'Upload a video file' })
-  async uploadVideo(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
-    const user = req.user.userId;
-    return this.messageService.uploadVideo(file, user);
-  }
-
-
-
-
-  //get all message for a conversation
+  
+  //*get all message for a conversation
   @Get('all-message/:conversationId')
   @ApiOperation({ summary: 'Get all messages for a conversation' })
   async findAll(
