@@ -21,7 +21,6 @@ import { Roles } from '../../../common/guard/role/roles.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('chat/conversation')
 export class ConversationController {
-
   constructor(private readonly conversationService: ConversationService) {}
 
   // *create conversation
@@ -35,15 +34,11 @@ export class ConversationController {
     return this.conversationService.create(createConversationDto, user);
   }
 
-
   //  *conversation list of user
   @Get('conversation-list/:userId')
-  async findAll(
-    @Req() req,
-    @Param('userId') userId: string) {
+  async findAll(@Req() req, @Param('userId') userId: string) {
     return this.conversationService.findAll(userId);
   }
-
 
   // get conversation by id
   @Get('single-conversation/:id')
@@ -61,8 +56,4 @@ export class ConversationController {
     const user = req.user.userId;
     return this.conversationService.remove(id, user);
   }
-
-
-
-
 }

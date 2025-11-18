@@ -113,28 +113,17 @@ export class MessageGateway
     }
   }
 
-  /*=======================Tanvir's Code=======================*/
+  // note: start socket=======================
   
-
-
-
-
-
-
-
-
-
-
-
-  /*=======================Tanvir's Code=======================*/
 
   @SubscribeMessage('joinRoom')
   handleRoomJoin(client: Socket, body: { room_id: string }) {
     const roomId = body.room_id;
 
-    client.join(roomId); // join the room using user_id
+    client.join(roomId); 
     client.emit('joinedRoom', { room_id: roomId });
   }
+
 
   @SubscribeMessage('sendMessage')
   async listenForMessages(
@@ -288,3 +277,26 @@ export class MessageGateway
     }
   }
 }
+
+
+
+
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
+
