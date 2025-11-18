@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import appConfig from '../../../config/app.config';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -25,7 +29,6 @@ export class MessageService {
   ) {
     const { text, conversationId } = createMessageDto;
 
-    
     const participant = await this.prisma.participant.findFirst({
       where: { conversationId, userId: sender },
     });
@@ -45,27 +48,26 @@ export class MessageService {
       throw new NotFoundException('Conversation not found');
     }
 
-    
     const savedFileNames: string[] = [];
 
     if (files && files.length > 0) {
       for (const file of files) {
         const fileName = `${StringHelper.randomString(8)}_${file.originalname}`;
         await SojebStorage.put(
-                appConfig().storageUrl.attachment + '/' + fileName,
-                file.buffer,
-              );  
+          appConfig().storageUrl.attachment + '/' + fileName,
+          file.buffer,
+        );
         savedFileNames.push(fileName);
       }
     }
-   
+
     const message = await this.prisma.message.create({
       data: {
         text,
         conversationId,
         senderId: sender,
         status: MessageStatus.SENT,
-        attachments: savedFileNames.length > 0 ? savedFileNames : [], 
+        attachments: savedFileNames.length > 0 ? savedFileNames : [],
       },
       include: {
         sender: {
@@ -78,15 +80,13 @@ export class MessageService {
         },
       },
     });
-    
 
     await this.prisma.conversation.update({
       where: { id: conversationId },
       data: { updatedAt: new Date() },
     });
-   
 
-     const formatted = {
+    const formatted = {
       id: message.id,
       text: message.text,
       createdAt: message.createdAt,
@@ -100,10 +100,37 @@ export class MessageService {
         name: message.sender.name,
         email: message.sender.email,
         avatar: message.sender.avatar
-          ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${message.sender.avatar}`)
+          ? SojebStorage.url(
+              `${appConfig().storageUrl.avatar}/${message.sender.avatar}`,
+            )
           : null,
       },
     };
+
+
+    // note: socket implementation for message sending
+    const senderSocketId = this.messageGateway.clients.get(sender);
+
+    if (senderSocketId) {
+        
+        this.messageGateway.server
+            .to(conversationId)     
+            .except(senderSocketId) 
+            .emit('message', {      
+                from: sender,
+                data: formatted,
+            });
+    } else {
+        this.messageGateway.server
+            .to(conversationId)
+            .emit('message', {
+                from: sender,
+                data: formatted,
+            });
+    }
+
+
+
 
     return {
       message: 'Message sent successfully',
@@ -112,9 +139,12 @@ export class MessageService {
     };
   }
 
- 
   // *get all messages for a conversation
-  async findAll(conversationId: string, userId: string, paginationdto: PaginationDto) {
+  async findAll(
+    conversationId: string,
+    userId: string,
+    paginationdto: PaginationDto,
+  ) {
     const { page, perPage } = paginationdto;
     const skip = (page - 1) * perPage;
     const take = perPage;
@@ -125,7 +155,9 @@ export class MessageService {
     });
 
     if (!participant) {
-      throw new UnauthorizedException('You are not a participant of this conversation.');
+      throw new UnauthorizedException(
+        'You are not a participant of this conversation.',
+      );
     }
 
     const [totalMessages, messages] = await this.prisma.$transaction([
@@ -156,19 +188,26 @@ export class MessageService {
       text: msg.text,
       attachments: (msg.attachments || []).map((f) =>
         SojebStorage.url(`${appConfig().storageUrl.attachment}/${f}`),
-       ),
+      ),
       createdAt: msg.createdAt,
       sender: {
         id: msg.sender.id,
         name: msg.sender.name,
         email: msg.sender.email,
         avatar: msg.sender.avatar
-          ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${msg.sender.avatar}`)
+          ? SojebStorage.url(
+              `${appConfig().storageUrl.avatar}/${msg.sender.avatar}`,
+            )
           : null,
       },
     }));
 
-    const paginationResult = paginateResponse(formattedMessages, page, perPage, totalMessages);
+    const paginationResult = paginateResponse(
+      formattedMessages,
+      page,
+      perPage,
+      totalMessages,
+    );
 
     return {
       message: 'Messages retrieved successfully',
@@ -177,17 +216,16 @@ export class MessageService {
     };
   }
 
-
-
-
   // unread message count
-   async getUnreadMessage(userId: string, conversationId: string) {
+  async getUnreadMessage(userId: string, conversationId: string) {
     const participant = await this.prisma.participant.findFirst({
       where: { conversationId, userId },
     });
 
     if (!participant) {
-      throw new UnauthorizedException('You are not a participant of this conversation.');
+      throw new UnauthorizedException(
+        'You are not a participant of this conversation.',
+      );
     }
 
     const lastReadAt = participant.lastReadAt || new Date(0);
@@ -238,7 +276,9 @@ export class MessageService {
     });
 
     if (!participant) {
-      throw new UnauthorizedException('You are not a participant of this conversation.');
+      throw new UnauthorizedException(
+        'You are not a participant of this conversation.',
+      );
     }
 
     const lastReadAt = participant.lastReadAt || new Date(0);
@@ -266,10 +306,8 @@ export class MessageService {
     };
   }
 
-
   // Delete a message
   async deleteMessage(userId: string, messageId: string) {
-
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
       include: {
@@ -288,28 +326,27 @@ export class MessageService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      await tx.message.delete({
+        where: { id: messageId },
+      });
 
-        await tx.message.delete({
-          where: { id: messageId },
-        });
-
-        if (message.attachments && message.attachments.length > 0) {
-          for (const fname of message.attachments) {          
-            await SojebStorage.delete(`${appConfig().storageUrl.attachment}/${fname}`);
+      if (message.attachments && message.attachments.length > 0) {
+        for (const fname of message.attachments) {
+          await SojebStorage.delete(
+            `${appConfig().storageUrl.attachment}/${fname}`,
+          );
+        }
       }
-    }
     });
 
-   return {
-     message: 'Message deleted successfully',
-     success: true,
-   };
-
+    return {
+      message: 'Message deleted successfully',
+      success: true,
+    };
   }
-  
-  // delete all message 
+
+  // delete all message
   async deleteAllMessages(userId: string, conversationId: string) {
-    
     const participant = await this.prisma.participant.findFirst({
       where: { conversationId, userId },
     });
@@ -319,10 +356,11 @@ export class MessageService {
     }
 
     if (participant.userId !== userId) {
-      throw new UnauthorizedException('You are not authorized to delete this message.');
+      throw new UnauthorizedException(
+        'You are not authorized to delete this message.',
+      );
     }
 
-    
     const messages = await this.prisma.message.findMany({
       where: { conversationId },
       select: { id: true, attachments: true },
@@ -339,7 +377,9 @@ export class MessageService {
     for (const msg of messages) {
       if (msg.attachments && msg.attachments.length > 0) {
         for (const fname of msg.attachments) {
-          await SojebStorage.delete(`${appConfig().storageUrl.attachment}/${fname}`);
+          await SojebStorage.delete(
+            `${appConfig().storageUrl.attachment}/${fname}`,
+          );
         }
       }
     }
@@ -349,7 +389,4 @@ export class MessageService {
       success: true,
     };
   }
-  
-
 }
-
