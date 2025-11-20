@@ -12,6 +12,10 @@ export class CreateUserDto {
 
   @IsNotEmpty()
   @ApiProperty()
+  contact_number?: string;
+
+  @IsNotEmpty()
+  @ApiProperty()
   last_name?: string;
 
   @IsNotEmpty()

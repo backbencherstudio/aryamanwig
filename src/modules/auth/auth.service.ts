@@ -16,6 +16,8 @@ import { DateHelper } from '../../common/helper/date.helper';
 import { StripePayment } from '../../common/lib/Payment/stripe/StripePayment';
 import { StringHelper } from '../../common/helper/string.helper';
 import { log } from 'node:console';
+import { MessageGateway } from '../chat/message/message.gateway';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +25,7 @@ export class AuthService {
     private jwtService: JwtService,
     private prisma: PrismaService,
     private mailService: MailService,
+    private readonly messageGateway: MessageGateway,
     @InjectRedis() private readonly redis: Redis,
   ) { }
 
@@ -103,13 +106,14 @@ export class AuthService {
   }
 
   // register user
-  async register({ name,first_name,last_name,email,location,password,type,}:{
+  async register({ name,first_name,last_name,email,location,password,type, contact_number }:{
     name: string;
     first_name: string;
     last_name: string;
     email: string;
     location: string;
     password: string;
+    contact_number: string;
     type?: string;
   }) {
     try {
@@ -133,6 +137,7 @@ export class AuthService {
         email: email,
         password: password,
         location: location,
+        contact_number: contact_number,
         type: type,
       });
 
@@ -180,31 +185,32 @@ export class AuthService {
       });
       console.log("Send Otp : ", sndOtp);
 
+
+      // add notification for new user registration to admin
+      const adminUser = await UserRepository.getAdminUser();
+
+      const notificationPayload: any = {
+        sender_id: user.data.id,
+        receiver_id: adminUser.id,
+        text: 'New user registered',
+        type: 'new_user',
+       }
+
+      const userSocketId = this.messageGateway.clients.get(adminUser.id);
+
+      if(userSocketId){
+        this.messageGateway.server.to(userSocketId).emit("notification", notificationPayload);
+      }
+      await NotificationRepository.createNotification(
+        notificationPayload
+      );
+
       return {
         success: true,
         message: 'We have sent a verification code to your email',
       };
 
-      // ----------------------------------------------------
-
-      // Generate verification token
-      // const token = await UcodeRepository.createVerificationToken({
-      //   userId: user.data.id,
-      //   email: email,
-      // });
-
-      // // Send verification email with token
-      // await this.mailService.sendVerificationLink({
-      //   email,
-      //   name: email,
-      //   token: token.token,
-      //   type: type,
-      // });
-
-      // return {
-      //   success: true,
-      //   message: 'We have sent a verification link to your email',
-      // };
+  
     } catch (error) {
       return {
         success: false,
@@ -216,7 +222,20 @@ export class AuthService {
   // login user
   async login({ email, userId }) {
 
-    const user = await UserRepository.getUserDetails(userId);
+     const useractive = await this.prisma.user.findFirst({
+        where: {
+          id: userId,
+          status: 1
+        },
+      });
+
+      if(!useractive){
+        return {
+          success: false,
+          message: 'please wait for admin approved',
+        };
+      }
+
  
     try {
       const payload = { email: email, sub: userId, type: 'user' };
@@ -258,6 +277,7 @@ export class AuthService {
           access_token: accessToken,
           refresh_token: refreshToken,
         },
+        userid: user.id,
         type: user.type,
       };
     } catch (error) {
@@ -301,6 +321,10 @@ export class AuthService {
       if (updateUserDto.city) {
         data.city = updateUserDto.city;
       }
+      if (updateUserDto.contact_number) {
+        data.contact_number = updateUserDto.contact_number;
+      }
+     
       // if (updateUserDto.zip_code) {
       //   data.zip_code = updateUserDto.zip_code;
       // }
@@ -467,7 +491,7 @@ export class AuthService {
 
   // --------------Google Login -----------------
 
- // forgot password
+ // *forgot password
   async forgotPassword(email) {
     try {
       const user = await UserRepository.exist({
@@ -505,41 +529,27 @@ export class AuthService {
     }
   }
 
-  async resetPassword({ email, token, password }) {
+  // *reset token
+  async resendToken(email: string) {
     try {
       const user = await UserRepository.exist({
         field: 'email',
         value: email,
       });
-
       if (user) {
-        const existToken = await UcodeRepository.validateToken({
-          email: email,
-          token: token,
+        const token = await UcodeRepository.createToken({
+          userId: user.id,
+          isOtp: true,
         });
-
-        if (existToken) {
-          await UserRepository.changePassword({
-            email: email,
-            password: password,
-          });
-
-          // delete otp code
-          await UcodeRepository.deleteToken({
-            email: email,
-            token: token,
-          });
-
-          return {
-            success: true,
-            message: 'Password updated successfully',
-          };
-        } else {
-          return {
-            success: false,
-            message: 'Invalid token',
-          };
-        }
+        await this.mailService.sendOtpCodeToEmail({
+          email: email,
+          name: user.name,
+          otp: token,
+        });
+        return {
+          success: true,
+          message: 'We have sent an OTP code to your email',
+        };
       } else {
         return {
           success: false,
@@ -554,6 +564,88 @@ export class AuthService {
     }
   }
 
+  // * verify token
+
+  async verifyToken({ email, token }) {
+   try {
+     const user = await UserRepository.exist({
+       field: 'email',
+       value: email,
+     });
+
+     if (!user) {
+       return {
+         success: false,
+         message: 'Email not found',
+       };
+     }
+
+     const didVerify = await UcodeRepository.validateToken3({
+       email: email,
+       token: token,
+     });
+
+     if (didVerify) {
+       return {
+         success: true,
+         message: 'Token verified successfully',
+       };
+     } else {
+       return {
+         success: false,
+         message: 'Invalid, expired, or already used token',
+       };
+     }
+   } catch (error) {
+     return {
+       success: false,
+       message: error.message || 'Failed to verify token',
+     };
+   }
+ }
+
+  async resetPassword({ email, token, password }) {
+    try {
+      
+      const verificationCheck = await UcodeRepository.checkVerifiedToken({
+        email: email,
+        token: token,
+      });
+
+    
+      if (!verificationCheck.valid) {
+        return {
+          success: false,
+          message: verificationCheck.message, 
+        };
+      }
+
+      
+      await UserRepository.changePassword({
+        email: email,
+        password: password,
+      });
+
+   
+      await UcodeRepository.deleteToken({
+        email: email,
+        token: token,
+      });
+
+      return {
+        success: true,
+        message: 'Password updated successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  
+  // *verify email to verify the email
   async verifyEmail({ email, token }) {
     try {
       const user = await UserRepository.exist({
@@ -590,7 +682,7 @@ export class AuthService {
         } else {
           return {
             success: false,
-            message: 'Invalid token',
+            message: 'Invalid token ',
           };
         }
       } else {

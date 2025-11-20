@@ -7,11 +7,16 @@ import { DateHelper } from 'src/common/helper/date.helper';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
 import { OrderStatus, ProductStatus } from '@prisma/client';
+import { MessageGateway } from 'src/modules/chat/message/message.gateway';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { UserRepository } from 'src/common/repository/user/user.repository';
 
 @Injectable()
 export class DashboradService {
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService,
+  private readonly messageGateway: MessageGateway,
+  ) {}
 
 
    // * Get all new user requests (pending users)
@@ -86,6 +91,27 @@ export class DashboradService {
           status: 1, 
         },
       });
+
+
+      const adminUser = await UserRepository.getAdminUser();
+
+      const notificationPayload: any = {
+        sender_id: adminUser.id,
+        receiver_id: userId,
+        text: 'Your account has been approved',
+        type: 'user_approval',
+        entity_id: userId,
+      };
+
+      const userSocketId = this.messageGateway.clients.get(userId);
+
+      if(userSocketId){
+        this.messageGateway.server.to(userSocketId).emit("notification", notificationPayload);
+      }
+
+      await NotificationRepository.createNotification(
+        notificationPayload
+      );
 
       return {
         success: true,

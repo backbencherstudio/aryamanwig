@@ -7,6 +7,8 @@ import { enUS } from 'date-fns/locale';
 import { use } from 'passport';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
+import { MessageGateway } from '../chat/message/message.gateway';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 
 
 @Injectable()
@@ -14,6 +16,7 @@ export class ReviewService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly messageGateway: MessageGateway,
   ) {}
 
   // create review
@@ -80,6 +83,26 @@ export class ReviewService {
         order: true,
       }
     });
+
+
+    const notificationPayload: any = {
+      sender_id: buyerId,
+      receiver_id: review_receiver,
+      text: 'You have received a new review',
+      type: 'Review_Product',
+      entity_id: newReview.id,
+    };
+
+    const userSocketId = this.messageGateway.clients.get(review_receiver);
+
+    if(userSocketId){
+      this.messageGateway.server.to(userSocketId).emit("notification", notificationPayload);
+    }
+
+    await NotificationRepository.createNotification(
+      notificationPayload
+    );
+
          
     return {
       success: true,

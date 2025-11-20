@@ -92,7 +92,8 @@ export class MessageService {
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
       status: message.status,
-      attachments: (message.attachments || []).map((f) =>
+      attchment:message.attachments,
+      attachments_url: (message.attachments || []).map((f) =>
         SojebStorage.url(`${appConfig().storageUrl.attachment}/${f}`),
       ),
       sender: {
@@ -109,28 +110,23 @@ export class MessageService {
 
 
     // note: socket implementation for message sending
-    const senderSocketId = this.messageGateway.clients.get(sender);
-
-    if (senderSocketId) {
-        
-        this.messageGateway.server
-            .to(conversationId)     
-            .except(senderSocketId) 
-            .emit('message', {      
-                from: sender,
-                data: formatted,
-            });
-    } else {
-        this.messageGateway.server
-            .to(conversationId)
-            .emit('message', {
-                from: sender,
-                data: formatted,
-            });
+   const participants = conversation.participants;
+   const receiver = participants.find(p => p.userId !== sender); 
+    
+    if (receiver) {
+     this.messageGateway.server
+      .to(receiver.userId)
+      .emit('message', {
+        from: sender,
+        data: formatted,
+      });
     }
 
-
-
+    /*
+     socket.on('message', (msg) => {
+      console.log('New message received:', msg);
+    });
+    */
 
     return {
       message: 'Message sent successfully',
@@ -186,7 +182,8 @@ export class MessageService {
     const formattedMessages = messages.map((msg) => ({
       id: msg.id,
       text: msg.text,
-      attachments: (msg.attachments || []).map((f) =>
+      attachments: msg.attachments,
+      attachments_url: (msg.attachments || []).map((f) =>
         SojebStorage.url(`${appConfig().storageUrl.attachment}/${f}`),
       ),
       createdAt: msg.createdAt,
@@ -194,7 +191,8 @@ export class MessageService {
         id: msg.sender.id,
         name: msg.sender.name,
         email: msg.sender.email,
-        avatar: msg.sender.avatar
+        avater: msg.sender.avatar,
+        avatar_url: msg.sender.avatar
           ? SojebStorage.url(
               `${appConfig().storageUrl.avatar}/${msg.sender.avatar}`,
             )
