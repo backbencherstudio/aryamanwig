@@ -17,10 +17,15 @@ import { ca, id } from 'date-fns/locale';
 import { paginateResponse } from 'src/common/pagination/pagination.service';
 import { PaginationDto } from 'src/common/pagination';
 import { ProductStatus, Prisma } from '@prisma/client';
+import { MessageGateway } from '../chat/message/message.gateway';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { UserRepository } from 'src/common/repository/user/user.repository';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+     private readonly messageGateway: MessageGateway,
+  ) {}
 
   // create product
   async create(
@@ -628,6 +633,30 @@ export class ProductsService {
         boost_tier: true,
       },
     });
+
+     const adminUser = await UserRepository.getAdminUser();
+     const userinfo = await UserRepository.getUserById(user);
+
+    const notificationPayload: any = {
+      sender_id: user,
+      receiver_id: adminUser.id,
+      text: `Product "${updatedProduct.product_title}" has been boosted successfully by ${userinfo.name}.`,
+      type: 'Boost_Product',
+      entity_id: updatedProduct.id,
+    };
+
+    const userSocketId = this.messageGateway.clients.get(adminUser.id);
+
+    if(userSocketId){
+      this.messageGateway.server.to(userSocketId).emit("notification", notificationPayload);
+    }
+
+    await NotificationRepository.createNotification(
+      notificationPayload
+    );
+
+
+
 
     return {
       success: true,

@@ -53,6 +53,7 @@ model User {
   location          String?   @db.VarChar(255)
   // domain            String?   @unique
   username          String?   @unique
+  contact_number    String?   @db.VarChar(20)
 
   phone_number  String?
   country       String?
@@ -62,7 +63,7 @@ model User {
   zip_code      String?
   gender        String?
   date_of_birth DateTime? @db.Date
-
+  
   
 
   // google id
@@ -398,6 +399,8 @@ model Ucode {
   token      String?
   email      String?
   expired_at DateTime?
+
+  token_verify  DateTime?  
 
   @@map("ucodes")
 }

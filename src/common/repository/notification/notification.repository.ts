@@ -2,7 +2,12 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-type NotificationType = 'Review_Product' | 'New_Message';
+type NotificationType = 'new_user' |
+                        'Review_Product' | 
+                        'user_approval' |
+                        'disposal' |
+                        'Boost_Product' ;
+                        
 
 export class NotificationRepository {
   

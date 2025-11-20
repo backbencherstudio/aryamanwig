@@ -25,7 +25,7 @@ export class DashboradController {
   }
 
   // * add approve user request
-  @Post('approve-user/:userId')
+  @Patch('approve-user/:userId')
   async approveUser(@Param('userId') userId: string) {
     return this.dashboradService.approveUser(userId);
   }

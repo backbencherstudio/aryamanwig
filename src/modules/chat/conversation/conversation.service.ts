@@ -59,7 +59,8 @@ export class ConversationService {
           participants: existingConversation.participants.map((p) => ({
             userId: p.user.id,
             name: p.user.name,
-            avatar: p.user.avatar
+            avater: p.user.avatar,
+            avatar_url: p.user.avatar
               ? SojebStorage.url(
                   `${appConfig().storageUrl.avatar}/${p.user.avatar}`,
                 )
@@ -96,7 +97,8 @@ export class ConversationService {
       participants: newConversation.participants.map((p) => ({
         userId: p.user.id,
         name: p.user.name,
-        avatar: p.user.avatar
+        avater: p.user.avatar,
+        avatar_url: p.user.avatar
           ? SojebStorage.url(
               `${appConfig().storageUrl.avatar}/${p.user.avatar}`,
             )
@@ -155,7 +157,8 @@ export class ConversationService {
       participants: conv.participants.map((p) => ({
         userId: p.user.id,
         name: p.user.name,
-        avatar: p.user.avatar
+        avater: p.user.avatar,
+        avatar_url: p.user.avatar
           ? SojebStorage.url(
               `${appConfig().storageUrl.avatar}/${p.user.avatar}`,
             )
@@ -232,7 +235,8 @@ export class ConversationService {
       participants: conversation.participants.map((p) => ({
         userId: p.user.id,
         name: p.user.name,
-        avatar: p.user.avatar
+        avater: p.user.avatar,
+        avatar_url: p.user.avatar
           ? SojebStorage.url(
               `${appConfig().storageUrl.avatar}/${p.user.avatar}`,
             )

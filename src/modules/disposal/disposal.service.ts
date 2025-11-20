@@ -17,10 +17,15 @@ import { StringHelper } from 'src/common/helper/string.helper';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
 import { UpdateDisposalHistoryDto } from './dto/update-disposal-history';
+import { MessageGateway } from '../chat/message/message.gateway';
+import { UserRepository } from 'src/common/repository/user/user.repository';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 
 @Injectable()
 export class DisposalService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService,
+   private readonly messageGateway: MessageGateway, 
+  ) {}
 
   private readonly PICKUP_ITEM_PRICES = {
     [ProductItemSize.SMALL]: 10.0,
@@ -168,6 +173,28 @@ export class DisposalService {
       },
     });
 
+
+    const adminUser = await UserRepository.getAdminUser();  
+
+    const notificationPayload: any = {
+        sender_id: userId,
+        receiver_id: adminUser.id,
+        text: `New disposal request created by user ${userId}`,
+        type: 'disposal',
+       }
+
+    const userSocketId = this.messageGateway.clients.get(adminUser.id);
+    
+    if(userSocketId){
+       this.messageGateway.server.to(userSocketId).emit("notification", notificationPayload);
+    }
+         
+    await NotificationRepository.createNotification(
+         notificationPayload
+    );
+
+
+
     return {
       success: true,
       message: 'Pickup request created. Please wait for admin confirmation.',
@@ -221,6 +248,25 @@ export class DisposalService {
         final_total_amount: final_total_amount,
       },
     });
+
+    const adminUser = await UserRepository.getAdminUser();  
+
+    const notificationPayload: any = {
+        sender_id: userId,
+        receiver_id: adminUser.id,
+        text: `New disposal request created by user ${userId}`,
+        type: 'disposal',
+       }
+
+    const userSocketId = this.messageGateway.clients.get(adminUser.id);
+    
+    if(userSocketId){
+       this.messageGateway.server.to(userSocketId).emit("notification", notificationPayload);
+    }
+         
+    await NotificationRepository.createNotification(
+         notificationPayload
+    );
 
     return {
       success: true,
@@ -396,6 +442,13 @@ export class DisposalService {
       where: { id: disposalId },
       data: dataToUpdate,
     });
+
+
+    const adminUser = await UserRepository.getAdminUser();  
+      
+
+
+
 
     return {
       success: true,

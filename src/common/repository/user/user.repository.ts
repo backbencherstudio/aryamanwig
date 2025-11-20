@@ -193,6 +193,7 @@ export class UserRepository {
     name,
     first_name,
     last_name,
+    contact_number,
     email,
     location,
     password,
@@ -203,6 +204,7 @@ export class UserRepository {
     name?: string;
     first_name?: string;
     last_name?: string;
+    contact_number?: string;
     email: string;
     location: string;
     password: string;
@@ -224,12 +226,18 @@ export class UserRepository {
       if (phone_number) {
         data['phone_number'] = phone_number;
       }
+
+      if (contact_number) {
+        data['contact_number'] = contact_number;
+      }
+
       if (email) {
         // Check if email already exist
         const userEmailExist = await UserRepository.exist({
           field: 'email',
           value: String(email),
         });
+        
 
         if (userEmailExist) {
           return {
@@ -602,4 +610,36 @@ export class UserRepository {
     });
     return user;
   }
+
+  // get admin users
+  static async getAdminUser() {
+    const users = await prisma.user.findFirst({
+      where: {
+        type: 'admin',
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+    return users;
+  }
+ 
+  // get user by id
+  static async getUserById(user_id: string) {
+    const user = await prisma.user.findFirst({
+      where: {
+        id: user_id,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+    return user;
+  }
+
+
 }

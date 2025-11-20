@@ -52,6 +52,7 @@ export class MessageController {
     @UploadedFiles() files?: Express.Multer.File[],
   ) {
     const user = req.user.userId;
+    console.log(`User ID: ${user}`);
     return this.messageService.create(createMessageDto, user, files);
   }
 

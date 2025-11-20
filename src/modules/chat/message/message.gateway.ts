@@ -54,6 +54,7 @@ export class MessageGateway
     console.log('Websocket server started');
   }
 
+  /*
   async handleConnection(client: Socket, ...args: any[]) {
     try {
       const token = client.handshake.auth.token;
@@ -65,9 +66,9 @@ export class MessageGateway
       
       const decoded: any = jwt.verify(token, appConfig().jwt.secret);
 
-      const { sub: userId, name: username } = decoded;
+      const { sub: userId } = decoded;
 
-      if (!userId || !username) {
+      if (!userId) {
         client.disconnect();
         return;
       }
@@ -75,18 +76,70 @@ export class MessageGateway
       this.clients.set(userId, client.id);
       await ChatRepository.updateUserStatus(userId, 'online');
       
+
       this.server.emit('userStatusChange', {
         user_id: userId,
         status: 'online',
       });
 
-      console.log(`User '${username}' (ID: ${userId}) connected`);
+      console.log(`User ${userId} connected`);
 
     } catch (error) {
       client.disconnect();
       console.error('Error handling connection:', error);
     }
-  }
+  }*/
+
+  async handleConnection(client: Socket, ...args: any[]) {
+  
+
+    try {
+   
+      const authHeader = client.handshake.headers.authorization;
+      
+      if (!authHeader) {
+        client.disconnect();
+        return;
+      }
+
+      const token = authHeader.split(' ')[1];
+
+      if (!token) {
+        console.error('[DEBUG] Token not found after split. Disconnecting client.');
+        client.disconnect();
+        return;
+      }
+
+      console.log('[DEBUG] Token extracted successfully. Verifying...');
+
+     
+      const decoded: any = jwt.verify(token, appConfig().jwt.secret);
+
+      console.log('[DEBUG] JWT verification successful. Decoded payload:', decoded);
+
+     
+      const { sub: userId } = decoded;
+
+      
+      if (!userId) {
+        console.error('[DEBUG] Payload missing `sub` (userId). Disconnecting client.');
+        client.disconnect();
+        return;
+      }
+
+      
+      this.clients.set(userId, client.id);
+
+      client.join(`user_${userId}`);
+
+      console.log(`User joined room: user_${userId}`);   
+
+    } catch (error) {
+      
+      console.error('Error handling connection:', error.message); 
+      client.disconnect();
+    }
+  }  
 
   async handleDisconnect(client: Socket) {
     const userId = [...this.clients.entries()].find(
@@ -113,15 +166,14 @@ export class MessageGateway
     }
   }
 
-  // note: start socket=======================
-  
 
-  @SubscribeMessage('joinRoom')
+
+  @SubscribeMessage('joinroom')
   handleRoomJoin(client: Socket, body: { room_id: string }) {
-    const roomId = body.room_id;
-
-    client.join(roomId); 
-    client.emit('joinedRoom', { room_id: roomId });
+    const room_id = body.room_id;
+    console.log('room connected', room_id); 
+    client.join(room_id); 
+    client.emit('joinedRoom', { room_id: room_id });
   }
 
 

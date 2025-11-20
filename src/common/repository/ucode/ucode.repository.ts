@@ -8,6 +8,7 @@ import { UserRepository } from '../user/user.repository';
 const prisma = new PrismaClient();
 
 export class UcodeRepository {
+  
   /**
    * create ucode token
    * @returns
@@ -18,12 +19,18 @@ export class UcodeRepository {
     isOtp = false,
     email = null,
   }): Promise<string> {
-    // OTP valid for 5 minutes
     const otpExpiryTime = 5 * 60 * 1000;
     expired_at = new Date(Date.now() + otpExpiryTime);
 
     const userDetails = await UserRepository.getUserDetails(userId);
+
     if (userDetails && userDetails.email) {
+      await prisma.ucode.deleteMany({
+        where: {
+          email: email ?? userDetails.email,
+        },
+      });
+
       let token: string;
       if (isOtp) {
         // create 6 digit otp code
@@ -49,7 +56,9 @@ export class UcodeRepository {
   /**
    * validate ucode token
    * @returns
+   *
    */
+
   static async validateToken({
     email,
     token,
@@ -129,6 +138,93 @@ export class UcodeRepository {
     }
   }
 
+
+    static async validateToken3({
+    email,
+    token,
+  }: {
+    email: string;
+    token: string;
+  }) {
+    try {
+      const now = new Date(Date.now());
+
+      
+      const existToken = await prisma.ucode.findFirst({
+        where: {
+          email: email,
+          token: token,
+        },
+      });
+
+      if (!existToken) {
+        return false; 
+      }
+
+     
+      if (existToken.token_verify) {
+        return false; 
+      }
+
+      
+      if (existToken.expired_at && existToken.expired_at < now) {
+        return false; 
+      }
+
+      
+      await prisma.ucode.update({
+        where: {
+          id: existToken.id,
+        },
+        data: {
+          token_verify: now,
+        },
+      });
+
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+
+   static async checkVerifiedToken({
+    email,
+    token,
+  }: {
+    email: string;
+    token: string;
+  }) {
+    const ucode = await prisma.ucode.findFirst({
+      where: {
+        email: email,
+        token: token,
+      },
+    });
+
+    if (!ucode) {
+      return { valid: false, message: 'Invalid token.' };
+    }
+
+    
+    if (!ucode.token_verify) {
+      return { valid: false, message: 'Token has not been verified.' };
+    }
+
+  
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    if (ucode.token_verify < fiveMinutesAgo) {
+      return {
+        valid: false,
+        message: 'Verification session expired (5 minutes). Please verify again.',
+      };
+    }
+
+ 
+    return { valid: true, message: 'Token is valid for reset.' };
+  }
+
+  
   /**
    * delete ucode token
    * @returns

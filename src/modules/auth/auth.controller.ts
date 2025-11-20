@@ -16,7 +16,10 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { memoryStorage } from 'multer';
-import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FileInterceptor,
+} from '@nestjs/platform-express';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -34,7 +37,6 @@ import { AppleAuthGuard } from './guards/apple-auth.guard';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-
   constructor(private authService: AuthService) {}
 
   // get user details
@@ -45,7 +47,7 @@ export class AuthController {
   async me(@Req() req: Request) {
     try {
       const user_id = req.user.userId;
-     
+
       const response = await this.authService.me(user_id);
 
       return response;
@@ -60,9 +62,8 @@ export class AuthController {
   // register user
   @ApiOperation({ summary: 'Register a user' })
   @Post('register')
-  async create(@Body() data: CreateUserDto) { 
+  async create(@Body() data: CreateUserDto) {
     try {
-      
       const first_name = data.first_name;
       const last_name = data.last_name;
       const email = data.email;
@@ -73,9 +74,7 @@ export class AuthController {
       const name = `${first_name} ${last_name}`.trim();
 
       if (!name) {
-        throw new HttpException(
-          'Name not provided', 
-          HttpStatus.UNAUTHORIZED);
+        throw new HttpException('Name not provided', HttpStatus.UNAUTHORIZED);
       }
 
       if (!first_name) {
@@ -88,6 +87,13 @@ export class AuthController {
       if (!last_name) {
         throw new HttpException(
           'Last name not provided',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      if (!data.contact_number) {
+        throw new HttpException(
+          'Contact number not provided',
           HttpStatus.UNAUTHORIZED,
         );
       }
@@ -114,6 +120,7 @@ export class AuthController {
         first_name: first_name,
         last_name: last_name,
         email: email,
+        contact_number: data.contact_number,
         location: location,
         password: password,
         type: type,
@@ -141,7 +148,7 @@ export class AuthController {
 
       let response: any;
       if (!isEmailVerified) {
-         return {
+        return {
           success: false,
           message: 'Email not verified. Please verify your email to login.',
         };
@@ -160,53 +167,52 @@ export class AuthController {
     }
   }
 
-   // update user
-    @ApiOperation({ summary: 'Update user' })
-    @ApiBearerAuth()
-    @UseGuards(JwtAuthGuard)
-    @Patch('update')
-    @UseInterceptors(
-      FileFieldsInterceptor(
-        [
-          { name: 'image', maxCount: 1 },
-          { name: 'cover_image', maxCount: 1 },
-        ],
-        {
-          storage: memoryStorage(),
-          limits: {
-            fileSize: 5 * 1024 * 1024,
-          },
+  // update user
+  @ApiOperation({ summary: 'Update user' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Patch('update')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'image', maxCount: 1 },
+        { name: 'cover_image', maxCount: 1 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: {
+          fileSize: 5 * 1024 * 1024,
         },
-      ),
-    )
-    async updateUser(
-      @Req() req: Request,
-      @Body() data: UpdateUserDto,
-      @UploadedFiles()
-      files: {
-        image?: Express.Multer.File[];
-        cover_image?: Express.Multer.File[];
       },
-    ) {
-      try {
-        const user_id = req.user.userId;
-        const image = files.image?.[0];
-        const cover_image = files.cover_image?.[0];
-        const response = await this.authService.updateUser(
-          user_id,
-          data,
-          image,
-          cover_image,
-        );
-        return response;
-      } catch (error) {
-        return {
-          success: false,
-          message: 'Failed to update user',
-        };
-      }
+    ),
+  )
+  async updateUser(
+    @Req() req: Request,
+    @Body() data: UpdateUserDto,
+    @UploadedFiles()
+    files: {
+      image?: Express.Multer.File[];
+      cover_image?: Express.Multer.File[];
+    },
+  ) {
+    try {
+      const user_id = req.user.userId;
+      const image = files.image?.[0];
+      const cover_image = files.cover_image?.[0];
+      const response = await this.authService.updateUser(
+        user_id,
+        data,
+        image,
+        cover_image,
+      );
+      return response;
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to update user',
+      };
     }
-
+  }
 
   // Refresh Token
   @ApiOperation({ summary: 'Refresh token' })
@@ -250,9 +256,8 @@ export class AuthController {
     }
   }
 
-
   // --------------change password---------
-
+  // *forgot password
   @ApiOperation({ summary: 'Forgot password' })
   @Post('forgot-password')
   async forgotPassword(@Body() data: { email: string }) {
@@ -270,7 +275,7 @@ export class AuthController {
     }
   }
 
-  // verify email to verify the email
+  // *verify email to verify the email
   @ApiOperation({ summary: 'Verify email' })
   @Post('verify-email')
   async verifyEmail(@Body() data: VerifyEmailDto) {
@@ -291,6 +296,51 @@ export class AuthController {
       return {
         success: false,
         message: 'Failed to verify email',
+      };
+    }
+  }
+
+  // * resend token
+  @ApiOperation({ summary: 'Resend password reset token' })
+  @Post('resend-token')
+  async resendPasswordResetToken(@Body() data: { email: string }) {
+    try {
+      const email = data.email;
+      if (!email) {
+        throw new HttpException('Email not provided', HttpStatus.UNAUTHORIZED);
+      }
+      return await this.authService.resendToken(email);
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to resend password reset token',
+      };
+    }
+  }
+
+  // * verify token
+  @ApiOperation({ summary: 'Verify password reset token' })
+  @Post('verify-token')
+  async verifyPasswordResetToken(
+    @Body() data: { email: string; token: string },
+  ) {
+    try {
+      const email = data.email;
+      const token = data.token;
+      if (!email) {
+        throw new HttpException('Email not provided', HttpStatus.UNAUTHORIZED);
+      }
+      if (!token) {
+        throw new HttpException('Token not provided', HttpStatus.UNAUTHORIZED);
+      }
+      return await this.authService.verifyToken({
+        email: email,
+        token: token,
+      });
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to verify token',
       };
     }
   }
@@ -392,7 +442,6 @@ export class AuthController {
     }
   }
 
-  
   // --------------end change password---------
 
   // -------change email address------
@@ -519,7 +568,6 @@ export class AuthController {
   }
   // --------- end 2FA ---------
 
-
   // ------------- Google Login --------------
 
   // Google login
@@ -548,7 +596,6 @@ export class AuthController {
     });
   }
 
-
   // apple login
   @Get('apple')
   @UseGuards(AppleAuthGuard)
@@ -572,8 +619,4 @@ export class AuthController {
       },
     });
   }
-
-
-
-
 }
