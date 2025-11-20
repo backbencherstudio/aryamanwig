@@ -114,6 +114,7 @@ export class ConversationService {
 
   //  *conversation list of user
   async findAll(userId: string) {
+   
     const conversations = await this.prisma.conversation.findMany({
       where: {
         participants: {
@@ -152,30 +153,42 @@ export class ConversationService {
       },
     });
 
-    const formattedConversations = conversations.map((conv) => ({
-      id: conv.id,
-      participants: conv.participants.map((p) => ({
-        userId: p.user.id,
-        name: p.user.name,
-        avater: p.user.avatar,
-        avatar_url: p.user.avatar
-          ? SojebStorage.url(
-              `${appConfig().storageUrl.avatar}/${p.user.avatar}`,
-            )
-          : null,
-      })),
-      lastMessage: conv.messages[0]
-        ? {
-            text: conv.messages[0].text,
-            attachments: conv.messages[0].attachments
+    const formattedConversations = conversations.map((conv) => {
+      
+      const opponentParticipant = conv.participants.find(
+        (p) => p.userId !== userId,
+      );
+
+      const opponentData = opponentParticipant ? {
+            userId: opponentParticipant.user.id,
+            name: opponentParticipant.user.name,
+            avater: opponentParticipant.user.avatar,
+            avatar_url: opponentParticipant.user.avatar
               ? SojebStorage.url(
-                  `${appConfig().storageUrl.attachment}/${conv.messages[0].attachments}`,
+                  `${appConfig().storageUrl.avatar}/${opponentParticipant.user.avatar}`,
                 )
               : null,
-            createdAt: conv.messages[0].createdAt,
           }
-        : null,
-    }));
+        : null;
+
+      return {
+        id: conv.id,
+        opponent: opponentData,
+        lastMessage: conv.messages[0] ? {
+              text: conv.messages[0].text,
+              createdAt: conv.messages[0].createdAt,
+              attachments: conv.messages[0].attachments,
+              attachment_urls: conv.messages[0].attachments
+                ? conv.messages[0].attachments.map((att) =>
+                    SojebStorage.url(
+                      `${appConfig().storageUrl.attachment}/${att}`,
+                    ),
+                  )
+                : [],
+            }
+          : null,
+      };
+    });
 
     return {
       message: 'Conversations retrieved successfully',
