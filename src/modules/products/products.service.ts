@@ -16,7 +16,7 @@ import { formatDate, getBoostTimeLeft } from 'src/common/utils/date.utils';
 import { ca, id } from 'date-fns/locale';
 import { paginateResponse } from 'src/common/pagination/pagination.service';
 import { PaginationDto } from 'src/common/pagination';
-import { ProductStatus, Prisma } from '@prisma/client';
+import { ProductStatus, Prisma, BoostPaymentStatus } from '@prisma/client';
 import { MessageGateway } from '../chat/message/message.gateway';
 import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 import { UserRepository } from 'src/common/repository/user/user.repository';
@@ -618,7 +618,8 @@ export class ProductsService {
         is_boosted: true,
         boost_until: boostUntil,
         boost_tier: boost_tier,
-        boost_payment_status: 'COMPLETED',
+        boost_payment_status: 'PENDING',
+        boost_price: tierDetails.price,
       },
       select: {
         id: true,
@@ -628,14 +629,14 @@ export class ProductsService {
         condition: true,
         created_at: true,
         boost_until: true,
-        price: true,
+        boost_price: true,
         boost_payment_status: true,
         boost_tier: true,
       },
     });
 
-     const adminUser = await UserRepository.getAdminUser();
-     const userinfo = await UserRepository.getUserById(user);
+    const adminUser = await UserRepository.getAdminUser();
+    const userinfo = await UserRepository.getUserById(user);
 
     const notificationPayload: any = {
       sender_id: user,
@@ -656,8 +657,6 @@ export class ProductsService {
     );
 
 
-
-
     return {
       success: true,
       message: 'Product boosted successfully',
@@ -676,14 +675,13 @@ export class ProductsService {
         condition: updatedProduct.condition,
         created_time: updatedProduct.created_at,
         boost_time: updatedProduct.boost_until,
-        price: updatedProduct.price,
         boost_tier_name: tierDetails.name,
-        boost_price_paid: tierDetails.price,
+        boost_price: updatedProduct.boost_price,
       },
     };
   }
 
-  // paginated boosted products
+  // *get all boosted products(admin)
   async getBoostedProducts(page: number, perPage: number) {
     const nowUTC = new Date();
     const skip = (page - 1) * perPage;
@@ -691,6 +689,7 @@ export class ProductsService {
     const whereClause = {
       is_boosted: true,
       boost_until: { gte: nowUTC },
+      boost_payment_status: BoostPaymentStatus.COMPLETED,
     };
 
     const [total, boostedProducts] = await this.prisma.$transaction([
@@ -707,8 +706,15 @@ export class ProductsService {
           condition: true,
           created_at: true,
           boost_until: true,
-          price: true,
+          boost_tier: true,
+          boost_payment_status: true,
+          boost_price: true,
           photo: true,
+          user:{
+            select: {
+              name:true
+            }
+          },
         },
       }),
     ]);
@@ -733,8 +739,11 @@ export class ProductsService {
       size: product.size,
       condition: product.condition,
       created_time: product.created_at,
+      boost_tier: product.boost_tier,
       boost_time: product.boost_until,
-      price: product.price,
+      seller_name: product.user.name,
+      boost_payment_status: product.boost_payment_status,
+      boost_price: product.boost_price,
     }));
 
     const paginatedData = paginateResponse(
@@ -752,7 +761,7 @@ export class ProductsService {
   }
 
   // paginated boosted products for a user
-  async getUserBoostedProducts(user: string, page: number, perPage: number) {
+  async getUserBoostedProductsPending(user: string, page: number, perPage: number) {
     const nowUTC = new Date();
     const skip = (page - 1) * perPage;
 
@@ -760,6 +769,7 @@ export class ProductsService {
       user_id: user,
       is_boosted: true,
       boost_until: { gte: nowUTC },
+      boost_payment_status: BoostPaymentStatus.PENDING,
     };
 
     const [total, boostedProducts] = await this.prisma.$transaction([
@@ -776,8 +786,9 @@ export class ProductsService {
           condition: true,
           created_at: true,
           boost_until: true,
-          price: true,
+          boost_price: true,
           photo: true,
+          boost_payment_status: true,
         },
       }),
     ]);
@@ -803,7 +814,8 @@ export class ProductsService {
       condition: product.condition,
       created_time: product.created_at,
       boost_time_left: product.boost_until,
-      price: product.price,
+      boost_payment_status: product.boost_payment_status,
+      boost_price: product.boost_price,
     }));
 
     const paginatedData = paginateResponse(
@@ -819,6 +831,80 @@ export class ProductsService {
       ...paginatedData,
     };
   }
+
+  // paginated boosted products for a user
+  async getUserBoostedProductsCompleted(user: string, page: number, perPage: number) {
+    const nowUTC = new Date();
+    const skip = (page - 1) * perPage;
+
+    const whereClause = {
+      user_id: user,
+      is_boosted: true,
+      boost_until: { gte: nowUTC },
+      boost_payment_status: BoostPaymentStatus.COMPLETED,
+    };
+
+    const [total, boostedProducts] = await this.prisma.$transaction([
+      this.prisma.product.count({ where: whereClause }),
+      this.prisma.product.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          product_title: true,
+          size: true,
+          condition: true,
+          created_at: true,
+          boost_until: true,
+          boost_price: true,
+          photo: true,
+          boost_payment_status: true,
+        },
+      }),
+    ]);
+
+    if (total === 0) {
+      return {
+        success: true,
+        message: 'No active boosted products found for this user',
+        data: paginateResponse([], total, page, perPage),
+      };
+    }
+
+    const formattedProducts = boostedProducts.map((product) => ({
+      id: product.id,
+      photo:
+        product.photo && product.photo.length > 0
+          ? product.photo.map((p) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
+          : [],
+      title: product.product_title,
+      size: product.size,
+      condition: product.condition,
+      created_time: product.created_at,
+      boost_time_left: product.boost_until,
+      boost_payment_status: product.boost_payment_status,
+      boost_price: product.boost_price,
+    }));
+
+    const paginatedData = paginateResponse(
+      formattedProducts,
+      total,
+      page,
+      perPage,
+    );
+
+    return {
+      success: true,
+      message: 'User boosted products retrieved successfully',
+      ...paginatedData,
+    };
+  }
+
+ 
 
   /*=================( Search Area Start)=================*/
 

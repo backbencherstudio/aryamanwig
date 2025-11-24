@@ -12,10 +12,11 @@ export class CartService {
 
   constructor(private prisma: PrismaService) {}
 
-  // add to cart
+  // *add to cart
   async addToCart(userId: string, dto: CreateCartDto) {
     
-    const { product_id, quantity } = dto;
+    const { product_id } = dto;
+    const quantity = 1;
 
     const product = await this.prisma.product.findUnique({
       where: { id: product_id },
@@ -27,9 +28,9 @@ export class CartService {
 
     if (!product) throw new NotFoundException('Product not found');
 
-    if (product.user_id === userId) {
-      throw new NotFoundException('Cannot add your own product to cart');
-    } 
+    // if (product.user_id === userId) {
+    //   throw new NotFoundException('Cannot add your own product to cart');
+    // } 
 
 
     const checkBid = await this.prisma.bid.findFirst({
@@ -103,7 +104,7 @@ export class CartService {
     };
   }
 
-  // update cart item
+  // *update cart item
   async updateCartItem(cartItemId: string, dto: UpdateCartDto) {
  
     const { quantity } = dto;
@@ -136,7 +137,7 @@ export class CartService {
 
   }
 
-  // remove cart item
+  // *remove cart item
   async removeCartItem(cartItemId: string) {
 
     const cartItem = await this.prisma.cartItem.findUnique({
@@ -150,9 +151,8 @@ export class CartService {
     return { success: true, message: 'Item deleted from cart' };
   }
   
-  // my cart list
-   async getMyCart(userId: string) {
-
+  // *my cart list
+  async getMyCart(userId: string) {
     const cart = await this.prisma.cart.findFirst({
       where: { user_id: userId },
       include: {
@@ -166,13 +166,6 @@ export class CartService {
                 size: true,
                 condition: true,
                 photo: true,
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    avatar: true,
-                  },
-                },
               },
             },
           },
@@ -180,56 +173,32 @@ export class CartService {
       },
     });
 
-    
     if (!cart || cart.cartItems.length === 0) {
       return { success: true, message: 'Your cart is empty', data: [] };
     }
 
-    
-    const grouped = [];
-
-    for (const item of cart.cartItems) {
-
-      const seller = item.product.user;
-
-      
-      let existingSeller = grouped.find((g) => g.seller_id === seller.id);
-
-     
-      if (!existingSeller) {
-        existingSeller = {
-          seller_id: seller.id,
-          seller_name: seller.name,
-          seller_avatar: seller.avatar
-            ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${seller.avatar}`)
-            : null,
-          products: [],
-        };
-        grouped.push(existingSeller);
-      }
-
-      
-     existingSeller.products.push({
-          cart_item_ids: item.id,
-          product_id: item.product.id,
-          product_title: item.product.product_title,
-          price: item.product.price,
-          quantity: item.quantity,
-          total_price: item.total_price,
-          size: item.product.size,
-          condition: item.product.condition,
-          photo: item.product.photo
-          ? item.product.photo.map((p: string) =>
-              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)
-            )
-          : [],
-      });
-      }
-       
-
    
+    const formattedCartItems = cart.cartItems.map((item) => {
+     
+      const firstPhoto = item.product.photo && item.product.photo.length > 0
+        ? SojebStorage.url(`${appConfig().storageUrl.product}/${item.product.photo[0]}`)
+        : null; 
+
+      return {
+        cart_item_id: item.id, 
+        product_id: item.product.id,
+        product_title: item.product.product_title,
+        price: item.product.price, 
+        quantity: item.quantity,
+        total_price: item.total_price, 
+        size: item.product.size,
+        condition: item.product.condition,
+        photo: firstPhoto, 
+      };
+    });
+
     const grandTotal = cart.cartItems.reduce(
-      (sum, i) => sum + parseFloat(i.total_price.toString()),
+      (sum, item) => sum + parseFloat(item.total_price.toString()),
       0,
     );
 
@@ -237,91 +206,14 @@ export class CartService {
       success: true,
       message: 'Cart fetched successfully',
       data: {
-        sellers: grouped,
+        items: formattedCartItems, 
         grand_total: grandTotal,
       },
     };
   }
 
-  // my cart with sellers id
-  async getMyCartBySeller(userId: string, sellerId: string) {
 
-    const cart = await this.prisma.cart.findFirst({
-      where: { user_id: userId },
-      include: {
-        cartItems: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                product_title: true,
-                price: true,
-                size: true,
-                condition: true,
-                photo: true,
-                user: { 
-                  select: { 
-                    id: true,
-                    name: true,
-                    avatar: true
-                } },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!cart) {
-      return { success: true, message: 'Your cart is empty', data: [] };
-    }
-
-
-    const items = cart.cartItems.filter((i) => i.product.user.id === sellerId);
-
-    if (items.length === 0) {
-      return {
-        success: true,
-        message: 'No products found for this seller',
-        data: [],
-      };
-    }
-
-    const subtotal = items.reduce(
-      (sum, i) => sum + parseFloat(i.total_price.toString()),
-      0,
-    );
-
-    return {
-      success: true,
-      message: 'Seller cart fetched successfully',
-      data: {
-        seller: {
-          seller_id: sellerId,
-          seller_name: items[0].product.user.name,
-          seller_avatar: items[0].product.user.avatar
-            ? SojebStorage.url(`${appConfig().storageUrl.product}/${items[0].product.user.avatar}`)
-            : null,
-        },
-        products: items.map((i) => ({
-          cart_item_id: i.id,
-          product_id: i.product.id,
-          product_title: i.product.product_title,
-          price: i.product.price,
-          quantity: i.quantity,
-          total_price: i.total_price,
-          size: i.product.size,
-          condition: i.product.condition,
-          photo: i.product.photo
-          ? i.product.photo.map((p: string) =>
-              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)
-            )
-          : [],
-        })),
-        subtotal,
-      },
-    };
-  }
+  
 
   
 }

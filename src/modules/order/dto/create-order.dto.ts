@@ -1,32 +1,19 @@
+// CreateOrderDto (Example Structure - Assuming shipping details remain)
+import { IsString, IsNotEmpty, IsArray, ArrayMinSize, ValidateNested, IsEmail } from 'class-validator';
 
-import { IsNotEmpty, IsString, IsEmail } from 'class-validator';
 export class CreateOrderDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  cartItemIds: string[]; 
 
-  @IsNotEmpty()
-  @IsString()
-  shipping_name: string;
-
-  @IsNotEmpty()
-  @IsEmail()
-  email: string;
-
-  @IsNotEmpty()
-  @IsString()
-  shipping_country: string;
-
-  @IsNotEmpty()
-  @IsString()
-  shipping_state: string;
-
-  @IsNotEmpty()
-  @IsString()
-  shipping_city: string;
-
-  @IsNotEmpty()
-  @IsString()
-  shipping_zip_code: string;
-
-  @IsNotEmpty()
-  @IsString()
-  shipping_address: string;
+ 
+  @IsString() @IsNotEmpty() shipping_name: string;
+  @IsEmail() @IsNotEmpty() email: string;
+  @IsString() @IsNotEmpty() shipping_country: string;
+  @IsString() @IsNotEmpty() shipping_state: string;
+  @IsString() @IsNotEmpty() shipping_city: string;
+  @IsString() @IsNotEmpty() shipping_zip_code: string;
+  @IsString() @IsNotEmpty() shipping_address: string;
 }

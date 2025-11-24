@@ -19,8 +19,8 @@ export class DashboradService {
   ) {}
 
 
-   // * Get all new user requests (pending users)
-   async newUserRequests(paginationDto: PaginationDto) {
+  // * Get all new user requests (pending users)
+  async newUserRequests(paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
     const skip = (page - 1) * perPage;
 
@@ -503,7 +503,7 @@ export class DashboradService {
           const skip = (page - 1) * perPage;
     
           const whereClause = {
-            order_status: OrderStatus.PENDING,
+            order_status: OrderStatus.PROCESSING,
           }
     
           const total = await this.prisma.order.count({ where: whereClause });
@@ -565,8 +565,7 @@ export class DashboradService {
   }
    
   
-  // *recent cancelled orders
-   
+  // *recent cancelled orders 
   async cancelledOrders( paginationDto: PaginationDto) {
     
           const { page, perPage } = paginationDto;

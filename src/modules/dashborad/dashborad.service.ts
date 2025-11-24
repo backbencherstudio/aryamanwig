@@ -10,7 +10,6 @@ import { Product } from '../products/entities/product.entity';
 import { MonthWithDay } from 'src/common/utils/date.utils';
 import { id } from 'date-fns/locale';
 
-
 @Injectable()
 export class DashboradService {
   constructor(private readonly prisma: PrismaService) {}
@@ -36,7 +35,7 @@ export class DashboradService {
         skip,
         take: perPage,
         orderBy: { created_at: 'desc' },
-       
+
         select: {
           id: true,
           order_status: true,
@@ -65,9 +64,6 @@ export class DashboradService {
       }),
     ]);
 
-    
-
-    
     const formattedOrders = orders.map((order) => ({
       order_id: order.id,
       order_status: order.order_status,
@@ -79,7 +75,9 @@ export class DashboradService {
               name: order.seller?.name,
               email: order.seller?.email,
               avatar: order.seller?.avatar
-                ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${order.seller.avatar}`)
+                ? SojebStorage.url(
+                    `${appConfig().storageUrl.avatar}/${order.seller.avatar}`,
+                  )
                 : null,
             }
           : {
@@ -87,7 +85,9 @@ export class DashboradService {
               name: order.buyer?.name,
               email: order.buyer?.email,
               avatar: order.buyer?.avatar
-                ? SojebStorage.url(`${appConfig().storageUrl.avatar}/${order.buyer.avatar}`)
+                ? SojebStorage.url(
+                    `${appConfig().storageUrl.avatar}/${order.buyer.avatar}`,
+                  )
                 : null,
             },
       items: order.order_items.map((item) => ({
@@ -97,13 +97,15 @@ export class DashboradService {
         product_title: item.product.product_title,
         price: item.product.price,
         product_owner_id: item.product.user_id,
-        product_photo: item.product.photo && item.product.photo.length > 0
-          ? item.product.photo.map(p => SojebStorage.url(`${appConfig().storageUrl.product}/${p}`))
-          : []
-
+        product_photo:
+          item.product.photo && item.product.photo.length > 0
+            ? item.product.photo.map((p) =>
+                SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+              )
+            : [],
       })),
     }));
-    
+
     return { total, orders: formattedOrders };
   }
 
@@ -111,7 +113,11 @@ export class DashboradService {
 
   async totalBroughtItem(userId: string, paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
-    const { total, orders } = await this.fetchOrders(userId, 'buyer', paginationDto);
+    const { total, orders } = await this.fetchOrders(
+      userId,
+      'buyer',
+      paginationDto,
+    );
     return {
       success: true,
       message: 'Total brought items fetched successfully',
@@ -121,7 +127,12 @@ export class DashboradService {
 
   async boughtPendingItem(userId: string, paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
-    const { total, orders } = await this.fetchOrders(userId, 'buyer', paginationDto, 'PENDING');
+    const { total, orders } = await this.fetchOrders(
+      userId,
+      'buyer',
+      paginationDto,
+      'PROCESSING',
+    );
     return {
       success: true,
       message: 'Bought pending items fetched successfully',
@@ -131,7 +142,12 @@ export class DashboradService {
 
   async boughtDeliveredItem(userId: string, paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
-    const { total, orders } = await this.fetchOrders(userId, 'buyer', paginationDto, 'DELIVERED');
+    const { total, orders } = await this.fetchOrders(
+      userId,
+      'buyer',
+      paginationDto,
+      'DELIVERED',
+    );
     return {
       success: true,
       message: 'Bought delivered items fetched successfully',
@@ -141,7 +157,12 @@ export class DashboradService {
 
   async boughtCancelledItem(userId: string, paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
-    const { total, orders } = await this.fetchOrders(userId, 'buyer', paginationDto, 'CANCELLED');
+    const { total, orders } = await this.fetchOrders(
+      userId,
+      'buyer',
+      paginationDto,
+      'CANCELLED',
+    );
     return {
       success: true,
       message: 'Bought cancelled items fetched successfully',
@@ -153,7 +174,11 @@ export class DashboradService {
 
   async totalSellingItem(userId: string, paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
-    const { total, orders } = await this.fetchOrders(userId, 'seller', paginationDto);
+    const { total, orders } = await this.fetchOrders(
+      userId,
+      'seller',
+      paginationDto,
+    );
     return {
       success: true,
       message: 'Total selling items fetched successfully',
@@ -163,7 +188,12 @@ export class DashboradService {
 
   async sellingPendingItem(userId: string, paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
-    const { total, orders } = await this.fetchOrders(userId, 'seller', paginationDto, 'PENDING');
+    const { total, orders } = await this.fetchOrders(
+      userId,
+      'seller',
+      paginationDto,
+      'PROCESSING',
+    );
     return {
       success: true,
       message: 'Selling pending items fetched successfully',
@@ -173,7 +203,12 @@ export class DashboradService {
 
   async sellingDeliveredItem(userId: string, paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
-    const { total, orders } = await this.fetchOrders(userId, 'seller', paginationDto, 'DELIVERED');
+    const { total, orders } = await this.fetchOrders(
+      userId,
+      'seller',
+      paginationDto,
+      'DELIVERED',
+    );
     return {
       success: true,
       message: 'Selling delivered items fetched successfully',
@@ -183,7 +218,12 @@ export class DashboradService {
 
   async sellingCancelledItem(userId: string, paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
-    const { total, orders } = await this.fetchOrders(userId, 'seller', paginationDto, 'CANCELLED');
+    const { total, orders } = await this.fetchOrders(
+      userId,
+      'seller',
+      paginationDto,
+      'CANCELLED',
+    );
     return {
       success: true,
       message: 'Selling cancelled items fetched successfully',
@@ -192,7 +232,4 @@ export class DashboradService {
   }
 
   /*================= Selling Item For User =====================*/
-  
-   
-
 }

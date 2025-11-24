@@ -91,7 +91,6 @@ export class DashboradController {
 
 
   // *recent cancelled orders
- 
   @Get('recent-cancelled-orders')
   getCancelledOrders(@Query() paginationDto: PaginationDto) {
     return this.dashboradService.cancelledOrders(paginationDto);

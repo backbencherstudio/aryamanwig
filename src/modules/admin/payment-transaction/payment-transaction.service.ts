@@ -6,134 +6,57 @@ import { UserRepository } from '../../../common/repository/user/user.repository'
 export class PaymentTransactionService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(user_id?: string) {
-    try {
-      const userDetails = await UserRepository.getUserDetails(user_id);
+  // * Get all payment transactions with earning calculation
+  async getAllTransactions() {
+    const tx = await this.prisma.paymentTransaction.findMany({
+      where: { status: 'succeeded' },
+      orderBy: { created_at: 'desc' },
+    });
 
-      const whereClause = {};
-      if (userDetails.type == 'vendor') {
-        whereClause['user_id'] = user_id;
-      }
+    const result = [];
 
-      const paymentTransactions = await this.prisma.paymentTransaction.findMany(
-        {
-          where: {
-            ...whereClause,
-          },
-          select: {
-            id: true,
-            reference_number: true,
-            status: true,
-            provider: true,
-            amount: true,
-            currency: true,
-            paid_amount: true,
-            paid_currency: true,
-            created_at: true,
-            updated_at: true,
-          },
-        },
-      );
+    for (const item of tx) {
+      let productName = null;
+      let sellerName = null;
+      let price = Number(item.amount ?? 0);
 
-      return {
-        success: true,
-        data: paymentTransactions,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-
-  async findOne(id: string, user_id?: string) {
-    try {
-      const userDetails = await UserRepository.getUserDetails(user_id);
-
-      const whereClause = {};
-      if (userDetails.type == 'vendor') {
-        whereClause['user_id'] = user_id;
-      }
-
-      const paymentTransaction =
-        await this.prisma.paymentTransaction.findUnique({
-          where: {
-            id: id,
-            ...whereClause,
-          },
-          select: {
-            id: true,
-            reference_number: true,
-            status: true,
-            provider: true,
-            amount: true,
-            currency: true,
-            paid_amount: true,
-            paid_currency: true,
-            created_at: true,
-            updated_at: true,
+      // ---------------- ORDER TRANSACTION ----------------
+      if (item.order_id) {
+        const order = await this.prisma.order.findUnique({
+          where: { id: item.order_id },
+          include: {
+            seller: true,
+            order_items: {
+              include: { product: true },
+            },
           },
         });
 
-      if (!paymentTransaction) {
-        return {
-          success: false,
-          message: 'Payment transaction not found',
-        };
+        if (order) {
+          productName = order.order_items?.[0]?.product?.product_title ?? '-';
+          sellerName = order.seller?.name ?? '-';
+        }
       }
 
-      return {
-        success: true,
-        data: paymentTransaction,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
+      // Earnings Calculation
+      const sellerAmount = price * 0.95; 
+      const platformEarning = price * 0.05; 
 
-  async remove(id: string, user_id?: string) {
-    try {
-      const userDetails = await UserRepository.getUserDetails(user_id);
-
-      const whereClause = {};
-      if (userDetails.type == 'vendor') {
-        whereClause['user_id'] = user_id;
-      }
-
-      const paymentTransaction =
-        await this.prisma.paymentTransaction.findUnique({
-          where: {
-            id: id,
-            ...whereClause,
-          },
-        });
-
-      if (!paymentTransaction) {
-        return {
-          success: false,
-          message: 'Payment transaction not found',
-        };
-      }
-
-      await this.prisma.paymentTransaction.delete({
-        where: {
-          id: id,
-        },
+      result.push({
+        id: item.id,
+        productName,
+        productPrice: `$${price}`,
+        paymentAmount: `$${price}`,
+        sellerName,
+        sellerAmount: `$${sellerAmount.toFixed(2)}`,
+        earning: `$${platformEarning.toFixed(2)}`,
+        created_at: item.created_at,
       });
-
-      return {
-        success: true,
-        message: 'Payment transaction deleted successfully',
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
     }
+
+    return {
+      success: true,
+      data: result,
+    };
   }
 }

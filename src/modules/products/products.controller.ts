@@ -113,20 +113,28 @@ export class ProductsController {
     return this.productsService.boost(boostProductDto, user);
   }
 
-  // get all boosted products
+  // *get all boosted products(admin)
   @Get('boosted-products')
   async getBoostedProducts(@Query() query: PaginationDto) { 
     const { page, perPage } = query;
     return this.productsService.getBoostedProducts(page, perPage);
   }
 
-  @Get('user-boosted-products')
-  async getUserBoostedProducts(@Req() req: any, @Query() query: PaginationDto) { 
+  // *get all boosted products for a user(pending)
+  @Get('user-boosted-products-pending')
+  async getUserBoostedProductsPending(@Req() req: any, @Query() query: PaginationDto) { 
     const user = req.user.userId;
     const { page, perPage } = query;
-    return this.productsService.getUserBoostedProducts(user, page, perPage);
+    return this.productsService.getUserBoostedProductsPending(user, page, perPage);
   }
 
+  // *get all boosted products for a user(completed)
+  @Get('user-boosted-products-completed')
+  async getUserBoostedProductsCompleted(@Req() req: any, @Query() query: PaginationDto) { 
+    const user = req.user.userId;
+    const { page, perPage } = query;
+    return this.productsService.getUserBoostedProductsCompleted(user, page, perPage);
+  }
 
   /*=================( Search Area Start)=================*/
 

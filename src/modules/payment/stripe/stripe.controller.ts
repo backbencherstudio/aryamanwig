@@ -9,6 +9,7 @@ import {
   NotFoundException,
   ForbiddenException,
   InternalServerErrorException,
+  Query,
 } from '@nestjs/common';
 import { StripeService } from './stripe.service';
 import { Request } from 'express';
@@ -16,86 +17,198 @@ import { TransactionRepository } from '../../../common/repository/transaction/tr
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderService } from 'src/modules/order/order.service';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
-import { CreateOrderDto } from 'src/modules/order/dto/create-order.dto';
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
-import { DisposalStatus, OrderStatus, PaymentStatus } from '@prisma/client';
+import {
+  BoostPaymentStatus,
+  DisposalStatus,
+  OrderStatus,
+  PaymentStatus,
+} from '@prisma/client';
 import { DisposalService } from 'src/modules/disposal/disposal.service';
-import { CreateDisposalDto } from 'src/modules/disposal/dto/create-disposal.dto';
+import { Stripe } from 'stripe';
 
 @Controller('payment/stripe')
 export class StripeController {
   constructor(
     private readonly stripeService: StripeService,
     private readonly prisma: PrismaService,
-    private readonly orderService: OrderService,
-    private readonly disposalService: DisposalService,
   ) {}
 
-  @Post('pay/:orderId')
+
+  // =====================================================================
+  // ========================== PAYMENT CREATE ============================
+  // =====================================================================
+
+  @Post('pay/:id')
   @UseGuards(JwtAuthGuard)
   async pay(
-   @Req() req: any,
-   @Param('orderId') orderId: string) {
+    @Req() req: any,
+    @Param('id') id: string,
+    @Query('type') type: 'order' | 'disposal' | 'boost' = 'order',
+  ) {
     try {
       const buyer_id = req.user.userId;
 
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        select: {
-          grand_total: true,
-          buyer_id: true,
-          seller_id: true,
-          payment_status: true,
-          buyer: { select: { id: true, email: true, name: true, billing_id: true } },
-        },
-      });
-      
-      if (!order) {
-        throw new NotFoundException(`Order with ID ${orderId} not found.`);
-      }
+      let entity: any = null;
+      let totalAmount: number = 0;
+      let metadata: any = {};
+      let customerBillingId = null;
 
-      if (order.buyer_id !== buyer_id) {
-        throw new ForbiddenException(
-          'You do not have permission to pay for this order.',
-        );
-      }
+      // -----------------------------------
+      // ORDER PAYMENT
+      // -----------------------------------
+      if (type === 'order') {
+        entity = await this.prisma.order.findUnique({
+          where: { id },
+          select: {
+            grand_total: true,
+            buyer_id: true,
+            seller_id: true,
+            payment_status: true,
+            buyer: { select: { billing_id: true } },
+          },
+        });
 
-      if (order.payment_status !== PaymentStatus.DUE) {
-        return {
-          success: false,
-          message: `Payment status is already ${order.payment_status}.`,
-          order_id: orderId,
+        if (!entity) return this.fail(`Order ${id} not found`);
+
+        if (entity.buyer_id !== buyer_id)
+          return this.fail('This order does not belong to you');
+
+        if (entity.payment_status !== PaymentStatus.DUE)
+          return {
+            success: false,
+            message: `Already ${entity.payment_status}`,
+            id,
+          };
+
+        totalAmount = Number(entity.grand_total);
+        customerBillingId = entity.buyer.billing_id;
+
+        if (isNaN(totalAmount))
+          throw new InternalServerErrorException('Invalid order amount');
+
+        metadata = {
+          type: 'order',
+          order_id: id,
+          buyer_id,
+          seller_id: entity.seller_id,
+          total_pay: totalAmount.toString(),
         };
       }
 
-      const totalAmount = Number(order.grand_total);
-      const sellerId = order.seller_id;
-      const customerBillingId = order.buyer.billing_id;
+       // -----------------------------------
+      // BOOST PAYMENT
+      // -----------------------------------
+      else if (type === 'boost') {
+        entity = await this.prisma.product.findUnique({
+          where: { id },
+          select: {
+            boost_price: true,
+            user_id: true,
+            boost_payment_status: true,
+            user: { select: { billing_id: true } },
+          },
+        });
 
-      if (!customerBillingId) {
-        throw new NotFoundException(
-          'Customer missing Stripe billing ID. Cannot proceed with payment.',
-        );
+        if (!entity) return this.fail(`Boost ${id} not found`);
+        if (entity.user_id !== buyer_id)
+          return this.fail('Not your boost');
+        if (entity.boost_payment_status !== BoostPaymentStatus.PENDING)
+          return {
+            success: false,
+            message: `Already ${entity.boost_payment_status}`,
+            id,
+          };
+
+        totalAmount = Number(entity.boost_price);
+
+        if (isNaN(totalAmount))
+          throw new InternalServerErrorException('Invalid boost amount');
+
+        customerBillingId = entity.user.billing_id;
+
+        metadata = {
+          type: 'boost',
+          boost_id: id,
+          user_id: buyer_id,
+          total_pay: totalAmount.toString(),
+        };
       }
+
+       // -----------------------------------
+      // DISPOSAL PAYMENT
+      // -----------------------------------
+      else if (type === 'disposal') {
+        entity = await this.prisma.disposal.findUnique({
+          where: { id, status: DisposalStatus.CONFIRMED },
+          select: {
+            final_total_amount: true,
+            user_id: true,
+            payment_status: true,
+            user: { select: { billing_id: true } },
+          },
+        });
+
+        if (!entity) return this.fail(`Disposal ${id} not found`);
+        if (entity.user_id !== buyer_id)
+          return this.fail('This disposal does not belong to you');
+        if (entity.payment_status !== PaymentStatus.DUE)
+          return {
+            success: false,
+            message: `Already ${entity.payment_status}`,
+            id,
+          };
+
+        totalAmount = Number(entity.final_total_amount ?? 0);
+
+        if (isNaN(totalAmount))
+          throw new InternalServerErrorException('Invalid disposal amount');
+
+        customerBillingId = entity.user.billing_id;
+
+        metadata = {
+          type: 'disposal',
+          disposal_id: id,
+          user_id: buyer_id,
+          total_pay: totalAmount.toString(),
+        };
+      }
+
+      if (!customerBillingId) 
+        return this.fail('Stripe Customer Billing ID not found!');
+
+       // ------------------------------------
+      // STRIPE AMOUNT FIX (always integer)
+      // ------------------------------------
+      const stripeAmount = Number(totalAmount);
+
+      console.log({
+        RAW_TOTAL:
+          entity?.grand_total ??
+          entity?.boost_price ??
+          entity?.final_total_amount,
+        PARSED_TOTAL: totalAmount,
+        STRIPE_AMOUNT: stripeAmount,
+      });
+
+      // ------------------------------------
+      // CREATE PAYMENT INTENT
+      // ------------------------------------
 
       const paymentIntent = await StripePayment.createPaymentIntent({
         customer_id: customerBillingId,
-        amount: Math.round(totalAmount),
+        amount: stripeAmount,
         currency: 'usd',
-        metadata: {
-          order_id: orderId,
-          buyer_id: buyer_id,
-          seller_id: sellerId,
-          total_pay: totalAmount.toString(),
-          type: 'order',
-        },
+        metadata,
       });
 
       await this.prisma.paymentTransaction.create({
         data: {
           user_id: buyer_id,
-          order_id: orderId,
-          type: 'order',
+          order_id: type === 'order' ? id : null,
+          disposal_id: type === 'disposal' ? id : null,
+          boost_id: type === 'boost' ? id : null,
+          type,
           provider: 'stripe',
           reference_number: paymentIntent.id,
           amount: totalAmount,
@@ -104,29 +217,19 @@ export class StripeController {
         },
       });
 
-
       return {
         success: true,
-        message: 'Payment Intent created successfully. Proceed with client-side payment.',
+        message: 'Payment Intent created',
         clientSecret: paymentIntent.client_secret,
-        order_id: orderId,
-        totalAmount: totalAmount,
+        id,
+        type,
+        totalAmount,
       };
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ForbiddenException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException(
-        `Error initiating payment for order ${orderId}: ${error.message}`,
-      );
+      console.log(error);
+      throw new InternalServerErrorException('Payment processing failed');
     }
   }
-
-
-
 
   @Post('webhook')
   async handleWebhook(
@@ -137,83 +240,93 @@ export class StripeController {
       const payload = req.rawBody.toString();
       const event = await this.stripeService.handleWebhook(payload, signature);
 
-      // Handle events
+      if (!event.data || !event.data.object) return { received: true };
+
+      const pi = event.data.object as Stripe.PaymentIntent;
+      const meta = pi.metadata || {};
+
       switch (event.type) {
-        case 'customer.created':
-          break;
-
-        case 'payment_intent.created':
-          break;
-
         case 'payment_intent.succeeded':
-          const paymentIntent = event.data.object;
-          const successMetadata = paymentIntent.metadata;
-
-          if (successMetadata.order_id) {
+          if (meta.order_id) {
             await this.prisma.order.update({
-              where: { id: successMetadata.order_id },
-              data: { payment_status: PaymentStatus.PAID },
+              where: { id: meta.order_id },
+              data: {
+                payment_status: PaymentStatus.PAID,
+                order_status: OrderStatus.PROCESSING,
+              },
             });
-          } else if (successMetadata.disposal_id) {
+          }
+          if (meta.boost_id) {
+            await this.prisma.product.update({
+              where: { id: meta.boost_id },
+              data: { boost_payment_status: BoostPaymentStatus.COMPLETED },
+            });
+          }
+          if (meta.disposal_id) {
             await this.prisma.disposal.update({
-              where: { id: successMetadata.disposal_id },
-              data: { payment_status: PaymentStatus.PAID },
+              where: { id: meta.disposal_id },
+              data: {
+                payment_status: PaymentStatus.PAID,
+                status: DisposalStatus.PICKUP,
+              },
             });
           }
 
           await TransactionRepository.updateTransaction({
-            reference_number: paymentIntent.id,
+            reference_number: pi.id,
             status: 'succeeded',
-            paid_amount: paymentIntent.amount / 100,
-            paid_currency: paymentIntent.currency,
-            raw_status: paymentIntent.status,
+            paid_amount: (pi.amount_received ?? 0) / 100,
+            paid_currency: pi.currency,
+            raw_status: pi.status,
           });
           break;
 
         case 'payment_intent.payment_failed':
-          const failedPaymentIntent = event.data.object;
-          const failedMetadata = failedPaymentIntent.metadata;
-
-          await this.prisma.order.update({
-            where: { id: failedMetadata.order_id },
-            data: {
-              payment_status: PaymentStatus.FAILED,
-              order_status: OrderStatus.CANCELLED,
-            },
-          });
+          if (meta.order_id) {
+            await this.prisma.order.update({
+              where: { id: meta.order_id },
+              data: {
+                payment_status: PaymentStatus.FAILED,
+                order_status: OrderStatus.CANCELLED,
+              },
+            });
+          }
+          if (meta.boost_id) {
+            await this.prisma.product.update({
+              where: { id: meta.boost_id },
+              data: { boost_payment_status: BoostPaymentStatus.FAILED },
+            });
+          }
+          if (meta.disposal_id) {
+            await this.prisma.disposal.update({
+              where: { id: meta.disposal_id },
+              data: { payment_status: PaymentStatus.FAILED },
+            });
+          }
 
           await TransactionRepository.updateTransaction({
-            reference_number: failedPaymentIntent.id,
+            reference_number: pi.id,
             status: 'failed',
-            raw_status: failedPaymentIntent.status,
+            raw_status: pi.status,
           });
+          break;
 
         case 'payment_intent.canceled':
-          const canceledPaymentIntent = event.data.object;
-
           await TransactionRepository.updateTransaction({
-            reference_number: canceledPaymentIntent.id,
+            reference_number: pi.id,
             status: 'canceled',
-            raw_status: canceledPaymentIntent.status,
+            raw_status: pi.status,
           });
           break;
-        case 'payment_intent.requires_action':
-          const requireActionPaymentIntent = event.data.object;
 
+        case 'payment_intent.requires_action':
           await TransactionRepository.updateTransaction({
-            reference_number: requireActionPaymentIntent.id,
+            reference_number: pi.id,
             status: 'requires_action',
-            raw_status: requireActionPaymentIntent.status,
+            raw_status: pi.status,
           });
           break;
-        case 'payout.paid':
-          const paidPayout = event.data.object;
-          console.log(paidPayout);
-          break;
-        case 'payout.failed':
-          const failedPayout = event.data.object;
-          console.log(failedPayout);
-          break;
+
         default:
           console.log(`Unhandled event type ${event.type}`);
       }
@@ -224,4 +337,24 @@ export class StripeController {
       return { received: false };
     }
   }
+
+
+   // =====================================================================
+  // ======================= UTILITY RESPONSE METHODS ===================
+  // =====================================================================
+
+  private fail(message: string) {
+    return { success: false, message };
+  }
+
+  private error(err: any) {
+    console.error('PAYMENT ERROR:', err);
+
+    return {
+      success: false,
+      message: err?.message ?? 'Payment failed',
+      details: err?.response ?? null,
+    };
+  }
+
 }

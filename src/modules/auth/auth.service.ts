@@ -54,7 +54,8 @@ export class AuthService {
         },
         select: {
           id: true,
-          name: true,
+          first_name: true,
+          last_name: true,
           email: true,
           avatar: true,
           address: true,
@@ -321,8 +322,8 @@ export class AuthService {
       if (updateUserDto.city) {
         data.city = updateUserDto.city;
       }
-      if (updateUserDto.contact_number) {
-        data.contact_number = updateUserDto.contact_number;
+      if (updateUserDto.phone_number) {
+        data.phone_number = updateUserDto.phone_number;
       }
      
       // if (updateUserDto.zip_code) {

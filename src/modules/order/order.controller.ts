@@ -18,33 +18,23 @@ import { PaginationDto } from 'src/common/pagination/dto/offset-pagination.dto';
 
 @Controller('order')
 export class OrderController {
-
   constructor(private readonly orderService: OrderService) {}
 
-  // create order
+  //create order
   @UseGuards(JwtAuthGuard)
-  @Post('create/:sellerId')
-  createOrder(
-    @Req() req,
-    @Param('sellerId') sellerId: string,
-    @Body() dto: CreateOrderDto,
-  ) {
-    const buyerId = req.user.userId;
-    return this.orderService.createOrder(buyerId, sellerId, dto);
+  @Post('create')
+  createOrderForSelectedItems(@Req() req, @Body() dto: CreateOrderDto) {
+    const userId = req.user.userId;
+    return this.orderService.createOrder(userId, dto);
   }
 
-
-  // get my all orders
+  // get my all orders with pending
   @UseGuards(JwtAuthGuard)
   @Get('my-orders')
-  getMyOrders(
-    @Req() req,
-    @Query() paginationDto: PaginationDto,
-  ) {
+  getMyOrders(@Req() req, @Query() paginationDto: PaginationDto) {
     const userId = req.user.userId;
     return this.orderService.getMyOrders(userId, paginationDto);
   }
-
 
   // get single order
   @UseGuards(JwtAuthGuard)
@@ -52,7 +42,4 @@ export class OrderController {
   getSingleOrder(@Param('orderId') orderId: string) {
     return this.orderService.getSingleOrder(orderId);
   }
-  
-
-
 }

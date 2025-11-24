@@ -17,60 +17,9 @@ export class PaymentTransactionController {
     private readonly paymentTransactionService: PaymentTransactionService,
   ) {}
 
-  @ApiOperation({ summary: 'Get all packages' })
-  @Get()
-  async findAll(@Req() req: Request) {
-    try {
-      const user_id = req.user.userId;
-
-      const paymentTransactions =
-        await this.paymentTransactionService.findAll(user_id);
-
-      return paymentTransactions;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-
-  @ApiOperation({ summary: 'Get one package' })
-  @Get(':id')
-  async findOne(@Req() req: Request, @Param('id') id: string) {
-    try {
-      const user_id = req.user.userId;
-
-      const paymentTransaction = await this.paymentTransactionService.findOne(
-        id,
-        user_id,
-      );
-
-      return paymentTransaction;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-
-  @Delete(':id')
-  async remove(@Req() req: Request, @Param('id') id: string) {
-    try {
-      const user_id = req.user.userId;
-
-      const paymentTransaction = await this.paymentTransactionService.remove(
-        id,
-        user_id,
-      );
-
-      return paymentTransaction;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
+  // * Get all payment transactions with earning calculation
+  @Get('list')
+  async getAll() {
+    return this.paymentTransactionService.getAllTransactions();
   }
 }
