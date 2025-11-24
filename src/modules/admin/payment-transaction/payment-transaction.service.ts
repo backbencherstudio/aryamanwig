@@ -6,6 +6,7 @@ import { UserRepository } from '../../../common/repository/user/user.repository'
 export class PaymentTransactionService {
   constructor(private prisma: PrismaService) {}
 
+  // * Get all payment transactions with earning calculation
   async getAllTransactions() {
     const tx = await this.prisma.paymentTransaction.findMany({
       where: { status: 'succeeded' },
@@ -38,8 +39,8 @@ export class PaymentTransactionService {
       }
 
       // Earnings Calculation
-      const sellerAmount = price * 0.95; // 95%
-      const platformEarning = price * 0.05; // 5%
+      const sellerAmount = price * 0.95; 
+      const platformEarning = price * 0.05; 
 
       result.push({
         id: item.id,
@@ -59,5 +60,3 @@ export class PaymentTransactionService {
     };
   }
 }
-
-

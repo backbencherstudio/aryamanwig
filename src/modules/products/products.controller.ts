@@ -128,6 +128,7 @@ export class ProductsController {
     return this.productsService.getUserBoostedProductsPending(user, page, perPage);
   }
 
+  // *get all boosted products for a user(completed)
   @Get('user-boosted-products-completed')
   async getUserBoostedProductsCompleted(@Req() req: any, @Query() query: PaginationDto) { 
     const user = req.user.userId;

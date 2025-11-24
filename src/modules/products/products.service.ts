@@ -703,7 +703,6 @@ export class ProductsService {
           id: true,
           product_title: true,
           size: true,
-          
           condition: true,
           created_at: true,
           boost_until: true,
@@ -711,6 +710,11 @@ export class ProductsService {
           boost_payment_status: true,
           boost_price: true,
           photo: true,
+          user:{
+            select: {
+              name:true
+            }
+          },
         },
       }),
     ]);
@@ -737,6 +741,7 @@ export class ProductsService {
       created_time: product.created_at,
       boost_tier: product.boost_tier,
       boost_time: product.boost_until,
+      seller_name: product.user.name,
       boost_payment_status: product.boost_payment_status,
       boost_price: product.boost_price,
     }));
@@ -827,7 +832,7 @@ export class ProductsService {
     };
   }
 
-
+  // paginated boosted products for a user
   async getUserBoostedProductsCompleted(user: string, page: number, perPage: number) {
     const nowUTC = new Date();
     const skip = (page - 1) * perPage;

@@ -52,17 +52,17 @@ model User {
   username          String?   @unique
   contact_number    String?   @db.VarChar(20)
 
-  phone_number  String?
-  country       String?
-  state         String?
-  city          String?
-  
+  phone_number String?
+  country      String?
+  state        String?
+  city         String?
+
   address       String?
   zip_code      String?
   gender        String?
   date_of_birth DateTime? @db.Date
 
-  fcm_token   String? 
+  fcm_token   String?
   device_type String? // ঐচ্ছিক: যেমন 'android', 'ios', 'web'
 
   // google id
@@ -530,13 +530,13 @@ model PaymentTransaction {
   user_id String?
   user    User?   @relation(fields: [user_id], references: [id])
 
-  order_id    String?
-  order    Order? @relation("OrderPaymentTransaction", fields: [order_id], references: [id], onDelete: Cascade)
-   
+  order_id String?
+  order    Order?  @relation("OrderPaymentTransaction", fields: [order_id], references: [id], onDelete: Cascade)
+
   disposal_id String?
   disposal    Disposal? @relation("DisposalPaymentTransaction", fields: [disposal_id], references: [id], onDelete: Cascade)
-  
-  boost_id    String?
+
+  boost_id String?
   boost    Product? @relation("ProductBoostPayments", fields: [boost_id], references: [id], onDelete: Cascade)
 
   type String? @default("order")
@@ -771,9 +771,7 @@ model Disposal {
   product_id String
   product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
- 
   payment_transactions PaymentTransaction[] @relation("DisposalPaymentTransaction")
-
 
   user_id String
   user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)

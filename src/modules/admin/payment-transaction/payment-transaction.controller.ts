@@ -17,10 +17,8 @@ export class PaymentTransactionController {
     private readonly paymentTransactionService: PaymentTransactionService,
   ) {}
 
+  // * Get all payment transactions with earning calculation
   @Get('list')
-  @ApiOperation({
-    summary: 'Get all payment transactions with earning calculation',
-  })
   async getAll() {
     return this.paymentTransactionService.getAllTransactions();
   }
