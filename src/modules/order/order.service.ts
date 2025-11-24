@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { OrderStatus, Prisma } from '@prisma/client';
-// import { OrderProductDto, ShippingInfoDto } from './dto/create-order.dto';
 import { Decimal, Or } from '@prisma/client/runtime/library';
 import { CreateOrderDto } from './dto/create-order.dto';
 import appConfig from 'src/config/app.config';
@@ -14,96 +17,111 @@ export class OrderService {
   constructor(private prisma: PrismaService) {}
 
   // create order
-  async createOrder(buyerId: string, sellerId: string, dto: CreateOrderDto) {
-    try {
-      const cart = await this.prisma.cart.findFirst({
-        where: { user_id: buyerId },
-        include: {
-          cartItems: {
-            include: {
-              product: {
-                include: { user: true },
-              },
-            },
-          },
+  async createOrder(userId: string, dto: CreateOrderDto) {
+    const {
+      cartItemIds,
+      shipping_name,
+      email,
+      shipping_country,
+      shipping_state,
+      shipping_city,
+      shipping_zip_code,
+      shipping_address,
+    } = dto;
+
+    // Fetch cart items with product info
+    const cartItems = await this.prisma.cartItem.findMany({
+      where: {
+        id: { in: cartItemIds },
+        cart: { user_id: userId },
+      },
+      include: {
+        product: {
+          select: { id: true, user_id: true, price: true, stock: true },
+        },
+      },
+    });
+
+    if (!cartItems.length) throw new NotFoundException('Cart items not found');
+
+    if (cartItems.length !== cartItemIds.length)
+      throw new BadRequestException('Some cart items do not belong to you');
+
+    // Ensure all items are from the same seller
+    const sellerIds = [
+      ...new Set(cartItems.map((item) => item.product.user_id)),
+    ];
+    if (sellerIds.length > 1) {
+      throw new BadRequestException(
+        'You cannot order products from multiple sellers at the same time.',
+      );
+    }
+
+    const sellerId = sellerIds[0];
+
+    // Check stock availability
+    for (const item of cartItems) {
+      if (item.quantity > item.product.stock) {
+        throw new BadRequestException(
+          `Not enough stock for product ${item.product.id}`,
+        );
+      }
+    }
+
+    const totalAmount = cartItems.reduce(
+      (sum, item) => sum + Number(item.total_price),
+      0,
+    );
+
+    const newOrder = await this.prisma.$transaction(async (tx) => {
+      // Create order
+      const order = await tx.order.create({
+        data: {
+          buyer_id: userId,
+          seller_id: sellerId,
+          grand_total: new Decimal(totalAmount),
+          shipping_name,
+          email,
+          shipping_country,
+          shipping_state,
+          shipping_city,
+          shipping_zip_code,
+          shipping_address,
         },
       });
 
-      if (!cart) throw new NotFoundException('Cart not found');
+      // Create all order items & update product stock
+      for (const item of cartItems) {
+        await tx.orderItem.create({
+          data: {
+            order_id: order.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            total_price: item.total_price,
+          },
+        });
 
-      const items = cart.cartItems.filter(
-        (i) => i.product.user.id === sellerId,
-      );
-
-      if (items.length === 0) {
-        throw new NotFoundException('No products found for this seller');
+        // Update product stock
+        await tx.product.update({
+          where: { id: item.product_id },
+          data: { stock: item.product.stock - item.quantity },
+        });
       }
 
-      const grandTotal = items.reduce(
-        (sum, i) => sum + parseFloat(i.total_price.toString()),
-        0,
-      );
-
-     
-      const result = await this.prisma.$transaction(async (tx) => {
-        const order = await tx.order.create({
-          data: {
-            buyer_id: buyerId,
-            seller_id: sellerId,
-            grand_total: new Decimal(grandTotal),
-            order_status: 'PENDING',
-            payment_status: 'DUE',
-            shipping_name: dto.shipping_name,
-            email: dto.email,
-            shipping_country: dto.shipping_country,
-            shipping_state: dto.shipping_state,
-            shipping_city: dto.shipping_city,
-            shipping_zip_code: dto.shipping_zip_code,
-            shipping_address: dto.shipping_address,
-          },
-        });
-
-        for (const item of items) {
-          await tx.orderItem.create({
-            data: {
-              order_id: order.id,
-              product_id: item.product_id,
-              quantity: item.quantity,
-              total_price: item.total_price,
-            },
-          });
-        }
-
-    
-        await tx.cartItem.deleteMany({
-          where: {
-            cart_id: cart.id,
-            product: { user_id: sellerId },
-          },
-        });
-
-        return order;
+      // Remove ordered items from cart
+      await tx.cartItem.deleteMany({
+        where: { id: { in: cartItemIds } },
       });
 
-      return {
-        success: true,
-        message: 'Order created successfully',
-        data: {
-          order_id: result.id,
-          seller_id: sellerId,
-          total: grandTotal,
-          items: items.map((i) => ({
-            product_id: i.product.id,
-            title: i.product.product_title,
-            price: i.product.price,
-            quantity: i.quantity,
-            total_price: i.total_price,
-          })),
-        },
-      };
-    } catch (error) {
-      
-    }
+      return order;
+    });
+
+    return {
+      success: true,
+      message: 'Order created successfully.',
+      order_id: newOrder.id,
+      grand_total: totalAmount,
+    };
   }
 
   // get my all orders
@@ -111,7 +129,7 @@ export class OrderService {
     const { page, perPage } = paginationDto;
     const skip = (page - 1) * perPage;
 
-    const whereClause = { buyer_id: userId };
+    const whereClause = { buyer_id: userId,order_status: OrderStatus.PENDING };
 
     const [total, orders] = await this.prisma.$transaction([
       this.prisma.order.count({ where: whereClause }),
@@ -148,7 +166,6 @@ export class OrderService {
       };
     }
 
-   
     const formattedOrders = orders.map((o) => ({
       order_id: o.id,
       seller: {
@@ -157,7 +174,7 @@ export class OrderService {
         avatar: o.seller.avatar
           ? SojebStorage.url(
               `${appConfig().storageUrl.avatar}/${o.seller.avatar}`,
-            ) 
+            )
           : null,
       },
       total: o.grand_total,
@@ -168,10 +185,10 @@ export class OrderService {
         title: i.product.product_title,
         price: i.product.price,
         photo: i.product.photo
-        ? i.product.photo.map((p: string) =>
-            SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)
-          )
-        : [],
+          ? i.product.photo.map((p: string) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
+          : [],
         quantity: i.quantity,
         total_price: i.total_price,
       })),
@@ -193,7 +210,6 @@ export class OrderService {
 
   // get single order
   async getSingleOrder(orderId: string) {
-
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -231,10 +247,10 @@ export class OrderService {
       product_title: item.product.product_title,
       price: item.product.price,
       photo: item.product.photo
-      ? item.product.photo.map((p: string) =>
-          SojebStorage.url(`${appConfig().storageUrl.product}/${p}`)
-        )
-      : [],
+        ? item.product.photo.map((p: string) =>
+            SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+          )
+        : [],
       quantity: item.quantity,
       total_price: item.total_price,
     }));
@@ -272,6 +288,4 @@ export class OrderService {
       },
     };
   }
-
-  
 }

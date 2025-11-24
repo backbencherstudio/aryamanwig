@@ -40,6 +40,21 @@ export class NotificationRepository {
       },
     });
 
+ 
+    const user = await prisma.user.findFirst({
+      where: { id: receiver_id },
+      select: { id: true, fcm_token: true, name: true }
+    });
+
+    if (!user || !user.fcm_token) {
+    return { success: true, message: "Notification saved but no FCM token" };
+    }
+
+    
+
+
+
+
     return newNotification;
   }
 }

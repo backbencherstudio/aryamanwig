@@ -31,14 +31,11 @@ model Account {
   @@map("accounts")
 }
 
-
-
 model User {
   id String @id @default(cuid())
 
   status       Int?    @default(0) @db.SmallInt
   availability String?
-  
 
   email String? @unique
 
@@ -59,18 +56,20 @@ model User {
   country       String?
   state         String?
   city          String?
+  
   address       String?
   zip_code      String?
   gender        String?
   date_of_birth DateTime? @db.Date
-  
-  
+
+  fcm_token   String? 
+  device_type String? // ঐচ্ছিক: যেমন 'android', 'ios', 'web'
 
   // google id
-   googleId          String?   @unique // Store Google ID for OAuth
-   apple_id          String?   @unique
-   accessToken       String?
-   refreshToken      String?
+  googleId     String? @unique // Store Google ID for OAuth
+  apple_id     String? @unique
+  accessToken  String?
+  refreshToken String?
 
   // billing id. e.g. stripe customer id
   billing_id String?
@@ -78,14 +77,13 @@ model User {
   is_two_factor_enabled Int?    @default(0)
   two_factor_secret     String? // secret key for two factor authentication
 
-
   // --- Conversation & Messaging ---
-  sentMessages        Message[]            @relation("messageSender")
-  participants        Participant[]        @relation("participantUser")
-  notificationsSent   Notification[]       @relation("notificationSender")
-  notificationsReceived Notification[]     @relation("notificationReceiver")
+  sentMessages          Message[]      @relation("messageSender")
+  participants          Participant[]  @relation("participantUser")
+  notificationsSent     Notification[] @relation("notificationSender")
+  notificationsReceived Notification[] @relation("notificationReceiver")
 
-  accounts              Account[]
+  accounts             Account[]
   user_payment_methods UserPaymentMethod[]
   user_settings        UserSetting[]
   ucodes               Ucode[]
@@ -117,8 +115,6 @@ model User {
 
   // 
 
-
-
   approved_at DateTime?
   created_at  DateTime  @default(now())
   updated_at  DateTime  @default(now())
@@ -142,11 +138,10 @@ enum ProductStatus {
   REJECTED
 }
 
-
 enum BoostTier {
-  TIER_1 
-  TIER_2 
-  TIER_3 
+  TIER_1
+  TIER_2
+  TIER_3
 }
 
 enum BoostPaymentStatus {
@@ -170,9 +165,9 @@ model Product {
 
   product_title       String
   product_description String
-  stock               Int     @default(1)
-  price               Decimal @db.Decimal(10, 2)
-  photo               String[] @db.Text
+  stock               Int             @default(1)
+  price               Decimal         @db.Decimal(10, 2)
+  photo               String[]        @db.Text
   product_item_size   ProductItemSize @default(SMALL)
 
   location String?
@@ -180,13 +175,14 @@ model Product {
   color    String?
   time     DateTime?
 
-  boost_until DateTime? 
+  boost_until DateTime?
   is_boosted  Boolean   @default(false)
 
-  boost_tier            BoostTier? 
-  boost_payment_status  BoostPaymentStatus? 
+  boost_tier           BoostTier?
+  boost_payment_status BoostPaymentStatus?
+  boost_price          Decimal?            @db.Decimal(10, 2)
 
-  condition Condition? @default(NEW)
+  condition Condition?    @default(NEW)
   status    ProductStatus @default(PENDING)
 
   // product_Owner
@@ -201,10 +197,12 @@ model Product {
   OrderItem   OrderItem[]
 
   // relationship with disposal requests
-  disposals         Disposal[]
+  disposals Disposal[]
 
   // relation with bid
   bids Bid[] @relation("ProductBids")
+
+  payment_transactions PaymentTransaction[] @relation("ProductBoostPayments")
 
   @@map("products")
 }
@@ -259,23 +257,20 @@ model Review {
   order_id String?
   order    Order?  @relation("OrderToReview", fields: [order_id], references: [id])
 
-  review_receiver String? 
-  review_sender   String? 
+  review_receiver String?
+  review_sender   String?
 
   user User? @relation(fields: [review_sender], references: [id])
 
   @@unique([order_id])
-
   @@map("reviews")
 }
 
 model Cart {
-
   id        String     @id @default(cuid())
   user_id   String
   user      User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   cartItems CartItem[]
-  
 
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
@@ -301,7 +296,6 @@ model CartItem {
   @@map("cart_items")
 }
 
-
 enum OrderStatus {
   PENDING
   PROCESSING
@@ -320,9 +314,9 @@ enum PaymentStatus {
 
 model Order {
   id             String        @id @default(cuid())
-  buyer_id       String 
+  buyer_id       String
   buyer          User          @relation("OrderBuyer", fields: [buyer_id], references: [id], onDelete: Cascade)
-  seller_id      String 
+  seller_id      String
   seller         User          @relation("OrderSeller", fields: [seller_id], references: [id], onDelete: Cascade)
   order_status   OrderStatus   @default(PENDING)
   payment_status PaymentStatus @default(DUE)
@@ -335,15 +329,17 @@ model Order {
   shipping_city     String
   shipping_zip_code String
   shipping_address  String
-  created_at        DateTime    @default(now())
-  updated_at        DateTime    @default(now())
-  delivery_date     DateTime?  
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @default(now())
+  delivery_date     DateTime?
 
   reviews Review[] @relation("OrderToReview")
 
-  order_items       OrderItem[]
-  User              User?       @relation(fields: [userId], references: [id])
-  userId            String?
+  payment_transactions PaymentTransaction[] @relation("OrderPaymentTransaction")
+
+  order_items OrderItem[]
+  User        User?       @relation(fields: [userId], references: [id])
+  userId      String?
 
   @@map("orders")
 }
@@ -359,7 +355,6 @@ model OrderItem {
 
   @@map("order_items")
 }
-
 
 model Bid {
   id         String   @id @default(cuid())
@@ -384,9 +379,6 @@ enum BidStatus {
   REJECTED
 }
 
-
-
-
 model Ucode {
   id         String   @id @default(cuid())
   created_at DateTime @default(now())
@@ -400,7 +392,7 @@ model Ucode {
   email      String?
   expired_at DateTime?
 
-  token_verify  DateTime?  
+  token_verify DateTime?
 
   @@map("ucodes")
 }
@@ -538,8 +530,17 @@ model PaymentTransaction {
   user_id String?
   user    User?   @relation(fields: [user_id], references: [id])
 
-  order_id         String?
-  type             String?  @default("order")
+  order_id    String?
+  order    Order? @relation("OrderPaymentTransaction", fields: [order_id], references: [id], onDelete: Cascade)
+   
+  disposal_id String?
+  disposal    Disposal? @relation("DisposalPaymentTransaction", fields: [disposal_id], references: [id], onDelete: Cascade)
+  
+  boost_id    String?
+  boost    Product? @relation("ProductBoostPayments", fields: [boost_id], references: [id], onDelete: Cascade)
+
+  type String? @default("order")
+
   withdraw_via     String?  @default("wallet")
   provider         String?
   reference_number String?
@@ -555,112 +556,91 @@ model PaymentTransaction {
 
 // ---------Start Chat schema---------//
 
-/*
-enum MessageStatus {
-  PENDING
-  SENT
-  DELIVERED
-  READ
-}
-
-// message is used for conversation
-model Message {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-  deleted_at DateTime?
-
-  status MessageStatus? @default(PENDING)
-
-  sender_id String?
-  sender    User?   @relation("sender", fields: [sender_id], references: [id])
-
-  receiver_id String?
-  receiver    User?   @relation("receiver", fields: [receiver_id], references: [id])
-
-  conversation_id String?
-  conversation    Conversation? @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
-  message         String?
-
-  attachment_id String?
-  attachment    Attachment? @relation(fields: [attachment_id], references: [id])
-
-  last_message_conversation Conversation? @relation("last_message")
-
-  @@map("messages")
-}
-
-// this table stores attachment of message
-model Attachment {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-  deleted_at DateTime?
-
-  name     String?
-  type     String?
-  size     Int?
-  file     String?
-  file_alt String?
-
-  messages Message[]
-
-  @@map("attachments")
-}
-
-// this table stores conversation
-model Conversation {
-  id String @id @default(cuid())
-
-  creator_id String?
-  creator    User?   @relation("creator", fields: [creator_id], references: [id])
-
-  participant_id String?
-  participant    User?   @relation("participant", fields: [participant_id], references: [id])
-
-  last_message_id String?  @unique
-  last_message    Message? @relation("last_message", fields: [last_message_id], references: [id])
-
-  // deleted
-  deleted_by_creator        Boolean   @default(false)
-  deleted_by_participant    Boolean   @default(false)
-  deleted_by_creator_at     DateTime?
-  deleted_by_participant_at DateTime?
-
-  // blocked
-  blocked_by_creator     Boolean @default(false)
-  blocked_by_participant Boolean @default(false)
-
-  messages Message[]
-
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-  deleted_at DateTime?
-
-  @@map("conversations")
-}
-*/
+/**
+ * enum MessageStatus {
+ * PENDING
+ * SENT
+ * DELIVERED
+ * READ
+ * }
+ * // message is used for conversation
+ * model Message {
+ * id         String    @id @default(cuid())
+ * created_at DateTime  @default(now())
+ * updated_at DateTime  @default(now())
+ * deleted_at DateTime?
+ * status MessageStatus? @default(PENDING)
+ * sender_id String?
+ * sender    User?   @relation("sender", fields: [sender_id], references: [id])
+ * receiver_id String?
+ * receiver    User?   @relation("receiver", fields: [receiver_id], references: [id])
+ * conversation_id String?
+ * conversation    Conversation? @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+ * message         String?
+ * attachment_id String?
+ * attachment    Attachment? @relation(fields: [attachment_id], references: [id])
+ * last_message_conversation Conversation? @relation("last_message")
+ * @@map("messages")
+ * }
+ * // this table stores attachment of message
+ * model Attachment {
+ * id         String    @id @default(cuid())
+ * created_at DateTime  @default(now())
+ * updated_at DateTime  @default(now())
+ * deleted_at DateTime?
+ * name     String?
+ * type     String?
+ * size     Int?
+ * file     String?
+ * file_alt String?
+ * messages Message[]
+ * @@map("attachments")
+ * }
+ * // this table stores conversation
+ * model Conversation {
+ * id String @id @default(cuid())
+ * creator_id String?
+ * creator    User?   @relation("creator", fields: [creator_id], references: [id])
+ * participant_id String?
+ * participant    User?   @relation("participant", fields: [participant_id], references: [id])
+ * last_message_id String?  @unique
+ * last_message    Message? @relation("last_message", fields: [last_message_id], references: [id])
+ * // deleted
+ * deleted_by_creator        Boolean   @default(false)
+ * deleted_by_participant    Boolean   @default(false)
+ * deleted_by_creator_at     DateTime?
+ * deleted_by_participant_at DateTime?
+ * // blocked
+ * blocked_by_creator     Boolean @default(false)
+ * blocked_by_participant Boolean @default(false)
+ * messages Message[]
+ * created_at DateTime  @default(now())
+ * updated_at DateTime  @default(now())
+ * deleted_at DateTime?
+ * @@map("conversations")
+ * }
+ */
 
 model Conversation {
-  id           String             @id @default(cuid())
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id           String        @id @default(cuid())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   messages     Message[]
   participants Participant[]
 }
 
 model Participant {
-  id             String             @id @default(cuid())
+  id             String       @id @default(cuid())
   conversationId String
-  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  userId         String
-  user           User            @relation("participantUser", fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation("participantUser", fields: [userId], references: [id], onDelete: Cascade)
 
-  role           String?         @default("participant")
-  joinedAt       DateTime        @default(now())
+  role     String?  @default("participant")
+  joinedAt DateTime @default(now())
 
-  lastReadAt     DateTime?
+  lastReadAt DateTime?
 
   @@unique([conversationId, userId])
 }
@@ -673,53 +653,52 @@ enum MessageStatus {
 }
 
 model Message {
-  id             String          @id @default(cuid())
-  text           String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id        String   @id @default(cuid())
+  text      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  status         MessageStatus   @default(PENDING)
+  status MessageStatus @default(PENDING)
 
-  senderId       String
-  sender         User            @relation("messageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId String
+  sender   User   @relation("messageSender", fields: [senderId], references: [id], onDelete: Cascade)
 
   conversationId String
-  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  attachments    String[]           @db.Text
+  attachments String[] @db.Text
 }
 
 model NotificationEvent {
-  id             String          @id @default(uuid())
-  created_at     DateTime        @default(now())
-  updated_at     DateTime        @default(now()) @updatedAt
-  deleted_at     DateTime?
-  status         Int?            @default(1) @db.SmallInt
-  type           String?
-  text           String?
-  notifications  Notification[]
+  id            String         @id @default(uuid())
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @default(now()) @updatedAt
+  deleted_at    DateTime?
+  status        Int?           @default(1) @db.SmallInt
+  type          String?
+  text          String?
+  notifications Notification[]
 }
 
 model Notification {
-  id                     String                @id @default(cuid())
-  created_at             DateTime            @default(now())
-  updated_at             DateTime            @default(now()) @updatedAt
-  deleted_at             DateTime?
-  read_at                DateTime?
-  status                 Int?                @default(1) @db.SmallInt
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now()) @updatedAt
+  deleted_at DateTime?
+  read_at    DateTime?
+  status     Int?      @default(1) @db.SmallInt
 
-  sender_id              String?
-  sender                 User?               @relation("notificationSender", fields: [sender_id], references: [id])
+  sender_id String?
+  sender    User?   @relation("notificationSender", fields: [sender_id], references: [id])
 
-  receiver_id            String?
-  receiver               User?               @relation("notificationReceiver", fields: [receiver_id], references: [id])
+  receiver_id String?
+  receiver    User?   @relation("notificationReceiver", fields: [receiver_id], references: [id])
 
-  notification_event_id  String?
-  notification_event     NotificationEvent?  @relation(fields: [notification_event_id], references: [id])
+  notification_event_id String?
+  notification_event    NotificationEvent? @relation(fields: [notification_event_id], references: [id])
 
-  entity_id              String?
+  entity_id String?
 }
-
 
 // model Attachment {
 //   id         String    @id @default(cuid())
@@ -738,7 +717,6 @@ model Notification {
 //   @@map("attachments")
 // }
 
-
 // disposal product related models
 
 enum DisposalType {
@@ -755,55 +733,53 @@ enum DisposalStatus {
   PENALTY
 }
 
-
 model Disposal {
-  id              String          @id @default(cuid())
-  created_at      DateTime        @default(now())
-  updated_at      DateTime        @default(now())
-  deleted_at      DateTime?
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
 
-  productname   String?
-  productphoto  String?
-  producttype   String?
-  productquantity Int? 
+  productname     String?
+  productphoto    String?
+  producttype     String?
+  productquantity Int?
 
-  type            DisposalType
-  status          DisposalStatus?  @default(PENDING)
-  item_size       ProductItemSize?
+  type      DisposalType
+  status    DisposalStatus?  @default(PENDING)
+  item_size ProductItemSize?
 
-  place_name     String?
-  place_address  String?
-  latitude       Decimal?         @db.Decimal(10, 7)
-  longitude      Decimal?         @db.Decimal(10, 7)
+  place_name    String?
+  place_address String?
+  latitude      Decimal? @db.Decimal(10, 7)
+  longitude     Decimal? @db.Decimal(10, 7)
 
+  base_fee       Decimal? @db.Decimal(10, 2)
+  item_total_fee Decimal? @db.Decimal(10, 2)
 
-  base_fee       Decimal?         @db.Decimal(10, 2)
-  item_total_fee Decimal?         @db.Decimal(10, 2)
+  final_total_amount Decimal? @db.Decimal(10, 2)
 
-  final_total_amount Decimal?     @db.Decimal(10, 2)
-
-  payment_status PaymentStatus?   @default(DUE)
+  payment_status PaymentStatus? @default(DUE)
 
   // admin approve
-  admin_approved        Boolean?        @default(false)  
-  approved_at           DateTime?     
-
+  admin_approved Boolean?  @default(false)
+  approved_at    DateTime?
 
   // admin comment
-  admin_comment        String?  
-  penalty_amount      Decimal?        @db.Decimal(10, 2)
+  admin_comment  String?
+  penalty_amount Decimal? @db.Decimal(10, 2)
 
+  product_id String
+  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
-  product_id       String        
-  product          Product        @relation(fields: [product_id], references: [id], onDelete: Cascade)
  
-  user_id         String        
-  user            User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  payment_transactions PaymentTransaction[] @relation("DisposalPaymentTransaction")
+
+
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("disposals")
 }
-
-
 
 // ---------End Chat schema---------
 

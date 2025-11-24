@@ -20,23 +20,20 @@ import { NoFilesInterceptor } from '@nestjs/platform-express/multer/interceptors
 
 @Controller('cart')
 export class CartController {
-
   constructor(private readonly cartService: CartService) {}
 
-  // create cart 
+  // create cart
   @UseGuards(JwtAuthGuard)
   @Post('create')
-  addToCart(
-    @Req() req, @Body() dto: CreateCartDto) {
+  async addToCart(@Req() req, @Body() dto: CreateCartDto) {
     const user = req.user.userId;
     return this.cartService.addToCart(user, dto);
   }
 
-
   // update cart item
   @UseGuards(JwtAuthGuard)
   @Patch('update/:cartItemId')
-  updateCartItem(
+  async updateCartItem(
     @Param('cartItemId') cartItemId: string,
     @Body() dto: UpdateCartDto,
   ) {
@@ -44,37 +41,22 @@ export class CartController {
   }
 
   // remove cart item
-   // 🗑 Remove a cart item
   @UseGuards(JwtAuthGuard)
   @Delete('delete/:cartItemId')
-  removeCartItem(@Param('cartItemId') cartItemId: string) {
+  async removeCartItem(@Param('cartItemId') cartItemId: string) {
     return this.cartService.removeCartItem(cartItemId);
   }
-
 
   // My cart list
   @UseGuards(JwtAuthGuard)
   @Get('my-cart')
-  getMyCart(@Req() req) {
+  async getMyCart(@Req() req) {
     const user = req.user.userId;
     return this.cartService.getMyCart(user);
   }
 
-  // my cart with sellers id
-  @UseGuards(JwtAuthGuard)
-  @Get('my-cart/:sellerId')
-  getMyCartBySeller(
-      @Req() req, 
-      @Param('sellerId') sellerId: string) {
-    const userId = req.user.userId;
-    return this.cartService.getMyCartBySeller(userId, sellerId);
-  }
-
+ 
 
 
   
-
-
-
-
 }

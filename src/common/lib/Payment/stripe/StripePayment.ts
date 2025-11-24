@@ -1,11 +1,12 @@
 import stripe from 'stripe';
 import * as fs from 'fs';
+import StripePkg from 'stripe';
 import appConfig from '../../../../config/app.config';
 import { Fetch } from '../../Fetch';
 
 const STRIPE_SECRET_KEY = appConfig().payment.stripe.secret_key;
 
-const Stripe = new stripe(STRIPE_SECRET_KEY, {
+export const Stripe = new StripePkg(STRIPE_SECRET_KEY, {
   apiVersion: '2025-03-31.basil',
 });
 
