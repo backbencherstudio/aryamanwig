@@ -34,8 +34,8 @@ import { DashboradModule } from './modules/dashborad/dashborad.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { BidModule } from './modules/bid/bid.module';
 import { DisposalModule } from './modules/disposal/disposal.module';
-import { FirebaseModule } from './firebase/firebase.module';
-import { FcmModule } from './modules/fcm/fcm.module';
+
+
 
 
 @Module({
@@ -105,8 +105,7 @@ import { FcmModule } from './modules/fcm/fcm.module';
     ProfileModule,
     BidModule,
     DisposalModule,
-    FirebaseModule,
-    FcmModule
+ 
   ],
   controllers: [AppController, OrderController],
   providers: [
