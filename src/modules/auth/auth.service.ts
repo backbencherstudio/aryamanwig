@@ -27,20 +27,19 @@ export class AuthService {
     private mailService: MailService,
     private readonly messageGateway: MessageGateway,
     @InjectRedis() private readonly redis: Redis,
-  ) { }
+  ) {}
 
   // get user details
   async me(userId: string) {
     try {
-
       const useractive = await this.prisma.user.findFirst({
         where: {
           id: userId,
-          status: 1
+          status: 1,
         },
       });
 
-      if(!useractive){
+      if (!useractive) {
         return {
           success: false,
           message: 'User is not active',
@@ -50,7 +49,7 @@ export class AuthService {
       const user = await this.prisma.user.findFirst({
         where: {
           id: userId,
-          status: 1
+          status: 1,
         },
         select: {
           id: true,
@@ -68,7 +67,7 @@ export class AuthService {
         },
       });
 
-      if (!user) { 
+      if (!user) {
         return {
           success: false,
           message: 'User not found',
@@ -107,7 +106,16 @@ export class AuthService {
   }
 
   // register user
-  async register({ name,first_name,last_name,email,location,password,type, contact_number }:{
+  async register({
+    name,
+    first_name,
+    last_name,
+    email,
+    location,
+    password,
+    type,
+    contact_number,
+  }: {
     name: string;
     first_name: string;
     last_name: string;
@@ -145,7 +153,7 @@ export class AuthService {
       if (user == null && user.success == false) {
         return {
           success: false,
-          message: 'Failed to create account', 
+          message: 'Failed to create account',
         };
       }
 
@@ -156,7 +164,7 @@ export class AuthService {
         name: name,
       });
 
-      console.log("Stripe Customer", stripeCustomer);
+      console.log('Stripe Customer', stripeCustomer);
 
       if (stripeCustomer) {
         await this.prisma.user.update({
@@ -175,8 +183,7 @@ export class AuthService {
         isOtp: true,
       });
 
-      console.log("Cteate token : ", token);
-
+      console.log('Cteate token : ', token);
 
       //send otp code to email
       const sndOtp = await this.mailService.sendOtpCodeToEmail({
@@ -184,8 +191,7 @@ export class AuthService {
         name: name,
         otp: token,
       });
-      console.log("Send Otp : ", sndOtp);
-
+      console.log('Send Otp : ', sndOtp);
 
       // add notification for new user registration to admin
       const adminUser = await UserRepository.getAdminUser();
@@ -195,23 +201,21 @@ export class AuthService {
         receiver_id: adminUser.id,
         text: 'New user registered',
         type: 'new_user',
-       }
+      };
 
       const userSocketId = this.messageGateway.clients.get(adminUser.id);
 
-      if(userSocketId){
-        this.messageGateway.server.to(userSocketId).emit("notification", notificationPayload);
+      if (userSocketId) {
+        this.messageGateway.server
+          .to(userSocketId)
+          .emit('notification', notificationPayload);
       }
-      await NotificationRepository.createNotification(
-        notificationPayload
-      );
+      await NotificationRepository.createNotification(notificationPayload);
 
       return {
         success: true,
         message: 'We have sent a verification code to your email',
       };
-
-  
     } catch (error) {
       return {
         success: false,
@@ -221,55 +225,59 @@ export class AuthService {
   }
 
   // login user
-  async login({ email, userId }) {
+  async login({
+    email,
+    userId,
+    fcm_token,
+  }: {
+    email: string;
+    userId: string;
+    fcm_token?: string;
+  }) {
+  
+    const userActive = await this.prisma.user.findFirst({
+      where: {
+        id: userId,
+        status: 1, 
+      },
+    });
 
-     const useractive = await this.prisma.user.findFirst({
-        where: {
-          id: userId,
-          status: 1
-        },
-      });
+    if (!userActive) {
+      return {
+        success: false,
+        message: 'Please wait for admin approval',
+      };
+    }
 
-      if(!useractive){
-        return {
-          success: false,
-          message: 'please wait for admin approved',
-        };
-      }
-
- 
     try {
+      
+      if (fcm_token) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: {
+            fcm_token: fcm_token,
+          },
+        });
+      }
+      // ---------------------------------------------------------
+
       const payload = { email: email, sub: userId, type: 'user' };
 
       const accessToken = this.jwtService.sign(payload, { expiresIn: '10d' });
       const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
+     
       const user = await UserRepository.getUserDetails(userId);
 
-      // store refreshToken
+     
       await this.redis.set(
         `refresh_token:${user.id}`,
         refreshToken,
         'EX',
-        60 * 60 * 24 * 7, // 7 days in seconds
+        60 * 60 * 24 * 7, 
       );
 
-          // send notification to assined user (reseller)
-    /*      
-    const notificationPayload: any = {
-      sender_id: adminUser.id,
-      receiver_id: reseller.user_id,
-      text: 'You have been assigned to this task',
-      type: 'post',
-      entity_id: task.id
-    }
       
-
-    NotificationRepository.createNotification(notificationPayload);
-    this.messageGateway.server.emit("notification", notificationPayload)
-    // End sending notification
-    */
-
       return {
         success: true,
         message: 'Logged in successfully',
@@ -325,7 +333,7 @@ export class AuthService {
       if (updateUserDto.phone_number) {
         data.phone_number = updateUserDto.phone_number;
       }
-     
+
       // if (updateUserDto.zip_code) {
       //   data.zip_code = updateUserDto.zip_code;
       // }
@@ -339,7 +347,6 @@ export class AuthService {
         data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
       }
 
-        
       // ====== Avatar upload ======
 
       if (image) {
@@ -368,7 +375,7 @@ export class AuthService {
       // ====== Cover Photo upload ======
       if (cover_image) {
         // delete old image from storage
-        const oldCoverPhoto = await this.prisma.user.findFirst({  
+        const oldCoverPhoto = await this.prisma.user.findFirst({
           where: { id: userId },
           select: { cover_photo: true },
         });
@@ -416,7 +423,6 @@ export class AuthService {
       };
 
       // return handlePrismaError(error);
-
     }
   }
 
@@ -492,7 +498,7 @@ export class AuthService {
 
   // --------------Google Login -----------------
 
- // *forgot password
+  // *forgot password
   async forgotPassword(email) {
     try {
       const user = await UserRepository.exist({
@@ -568,66 +574,62 @@ export class AuthService {
   // * verify token
 
   async verifyToken({ email, token }) {
-   try {
-     const user = await UserRepository.exist({
-       field: 'email',
-       value: email,
-     });
+    try {
+      const user = await UserRepository.exist({
+        field: 'email',
+        value: email,
+      });
 
-     if (!user) {
-       return {
-         success: false,
-         message: 'Email not found',
-       };
-     }
+      if (!user) {
+        return {
+          success: false,
+          message: 'Email not found',
+        };
+      }
 
-     const didVerify = await UcodeRepository.validateToken3({
-       email: email,
-       token: token,
-     });
+      const didVerify = await UcodeRepository.validateToken3({
+        email: email,
+        token: token,
+      });
 
-     if (didVerify) {
-       return {
-         success: true,
-         message: 'Token verified successfully',
-       };
-     } else {
-       return {
-         success: false,
-         message: 'Invalid, expired, or already used token',
-       };
-     }
-   } catch (error) {
-     return {
-       success: false,
-       message: error.message || 'Failed to verify token',
-     };
-   }
- }
+      if (didVerify) {
+        return {
+          success: true,
+          message: 'Token verified successfully',
+        };
+      } else {
+        return {
+          success: false,
+          message: 'Invalid, expired, or already used token',
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to verify token',
+      };
+    }
+  }
 
   async resetPassword({ email, token, password }) {
     try {
-      
       const verificationCheck = await UcodeRepository.checkVerifiedToken({
         email: email,
         token: token,
       });
 
-    
       if (!verificationCheck.valid) {
         return {
           success: false,
-          message: verificationCheck.message, 
+          message: verificationCheck.message,
         };
       }
 
-      
       await UserRepository.changePassword({
         email: email,
         password: password,
       });
 
-   
       await UcodeRepository.deleteToken({
         email: email,
         token: token,
@@ -645,7 +647,6 @@ export class AuthService {
     }
   }
 
-  
   // *verify email to verify the email
   async verifyEmail({ email, token }) {
     try {
@@ -717,7 +718,7 @@ export class AuthService {
           name: user.name,
           otp: token,
         });
-        console.log("Resend Otp : ", sndOtp);
+        console.log('Resend Otp : ', sndOtp);
 
         return {
           success: true,
@@ -919,7 +920,6 @@ export class AuthService {
     }
   }
 
-
   // --------- 2FA ---------
   async generate2FASecret(user_id: string) {
     try {
@@ -999,10 +999,10 @@ export class AuthService {
     }
   }
   // --------- end 2FA ---------
-  
+
   // google login
   // google log in using passport.js
-  
+
   async googleLogin({ email, userId }: { email: string; userId: string }) {
     try {
       const payload = { email: email, sub: userId };
@@ -1098,7 +1098,4 @@ export class AuthService {
       return { success: false, message: error.message };
     }
   }
-
-
-
 }

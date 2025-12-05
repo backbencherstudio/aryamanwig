@@ -109,17 +109,26 @@ export class MessageService {
     };
 
 
+
     // note: socket implementation for message sending
-   const participants = conversation.participants;
-   const receiver = participants.find(p => p.userId !== sender); 
-    
-    if (receiver) {
-     this.messageGateway.server
-      .to(receiver.userId)
-      .emit('message', {
-        from: sender,
-        data: formatted,
-      });
+    const senderSocketId = this.messageGateway.clients.get(sender);
+
+    if (senderSocketId) {
+        
+        this.messageGateway.server
+            .to(conversationId)     
+            .except(senderSocketId) 
+            .emit('message', {      
+                from: sender,
+                data: formatted,
+            });
+    } else {
+        this.messageGateway.server
+            .to(conversationId)
+            .emit('message', {
+                from: sender,
+                data: formatted,
+            });
     }
 
     /*
@@ -136,8 +145,7 @@ export class MessageService {
   }
 
   // *get all messages for a conversation
- // ... পূর্বের কোড ...
-
+ 
 async findAll(
   conversationId: string,
   userId: string,
@@ -148,7 +156,7 @@ async findAll(
   const take = perPage;
   const whereClause = { conversationId };
 
-  // **১. Authorization এবং Conversation Participants Fetch করা**
+  
   const conversation = await this.prisma.conversation.findUnique({
     where: { id: conversationId },
     include: {
@@ -166,7 +174,7 @@ async findAll(
     throw new NotFoundException('Conversation not found');
   }
 
-  // **২. ইউজারটি Participant কিনা, চেক করা**
+
   const isParticipant = conversation.participants.some(
     (p) => p.userId === userId,
   );
@@ -176,13 +184,11 @@ async findAll(
     );
   }
 
-  // **৩. বর্তমান User (অনুরোধকারী) ছাড়া অন্য Participant-কে Receiver হিসেবে চিহ্নিত করা**
-  // ধরে নেওয়া হচ্ছে এটি One-to-One চ্যাট, তাই রিসিভার একজনই হবে।
   const receiverParticipant = conversation.participants.find(
     (p) => p.userId !== userId,
   );
   
-  // Receiver-এর ডেটা একবার ফরমেট করে রাখা হলো
+ 
   let formattedReceiver = null;
   if (receiverParticipant) {
     formattedReceiver = {
@@ -198,7 +204,7 @@ async findAll(
     };
   }
 
-  // **৪. মেসেজ Count এবং Data Transaction**
+ 
   const [totalMessages, messages] = await this.prisma.$transaction([
     this.prisma.message.count({ where: whereClause }),
     this.prisma.message.findMany({
@@ -207,7 +213,6 @@ async findAll(
         sender: {
           select: { id: true, name: true, email: true, avatar: true },
         },
-        // 'receiver' ইনক্লুড করার দরকার নেই, কারণ আমরা Participant থেকে নিচ্ছি।
       },
       orderBy: { createdAt: 'asc' },
       skip,
@@ -223,7 +228,7 @@ async findAll(
     };
   }
 
-  // **৫. ফরমেটিং এবং Receiver যোগ করা**
+ 
   const formattedMessages = messages.map((msg) => ({
     id: msg.id,
     text: msg.text,
@@ -243,9 +248,7 @@ async findAll(
           )
         : null,
     },
-    // ***এখানে Receiver ডেটা যুক্ত করা হলো***
-    // যদি বর্তমান ম্যাসেজটি এই Receiver-এর পাঠানো না হয়, তবে সেই Receiver-এর ডেটা এখানে থাকবে।
-    // One-to-One চ্যাটের ক্ষেত্রে, ম্যাসেজের sender যদি আপনি না হন, তবে receiver-এর ডেটা অন্য participant-ই হবে।
+    
     receiver: formattedReceiver,
   }));
 

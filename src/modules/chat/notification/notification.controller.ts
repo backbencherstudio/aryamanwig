@@ -1,36 +1,33 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req } from '@nestjs/common';
-import { NotificationService } from './notification.service';
-import { CreateNotificationDto } from './dto/create-notification.dto';
-import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { Controller, Get, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
+import { NotificationService } from './notification.service';
+import { Request } from 'express';
 
-
-@Controller('notification')
-@UseGuards(JwtAuthGuard)
+@Controller('no')
+@UseGuards(JwtAuthGuard) // Ensures that only authenticated users can access these endpoints
 export class NotificationController {
 
   constructor(private readonly notificationService: NotificationService) {}
-  
-  // get all notifications for the authenticated user
+
+  // Get all notifications for the authenticated user
   @Get()
-  getNotifications( @Req() req: any) {
-    const userId = req.user.id;
-    return this.notificationService.getNotificationsForUser(userId);
-  }
+  async getAllUserNotifications(@Req() req: Request) {
+    const userId = req.user.userId; 
+    
+    console.log(`Fetching notifications for user ID: ${userId}`);
 
-  // user unreads a notification
-  @Get('unread-count')
-  getUnreadCount(@Req() req: any) {
-    const userId = req.user.id;
-    return this.notificationService.getUnreadCount(userId);
+    try {
+      const notifications = await this.notificationService.findAllNotificationsForUser(userId);
+      return {
+        success: true,
+        data: notifications,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error fetching notifications',
+        error: error.message,
+      };
+    }
   }
-
-  // mark a notification as read
-  @Patch('read-notification/:id')
-  markAsRead(@Param('id') id: string, @Req() req: any) {
-    const userId = req.user.id;
-    return this.notificationService.markAsRead(id, userId);
-  }
-
-  
 }
