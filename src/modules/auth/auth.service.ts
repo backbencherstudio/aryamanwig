@@ -182,7 +182,6 @@ export class AuthService {
         userId: user.data.id,
         isOtp: true,
       });
-      
 
       //send otp code to email
       const sndOtp = await this.mailService.sendOtpCodeToEmail({
@@ -190,7 +189,6 @@ export class AuthService {
         name: name,
         otp: token,
       });
-     
 
       // add notification for new user registration to admin
       const adminUser = await UserRepository.getAdminUser();
@@ -233,11 +231,10 @@ export class AuthService {
     userId: string;
     fcm_token?: string;
   }) {
-  
     const userActive = await this.prisma.user.findFirst({
       where: {
         id: userId,
-        status: 1, 
+        status: 1,
       },
     });
 
@@ -249,7 +246,6 @@ export class AuthService {
     }
 
     try {
-      
       if (fcm_token) {
         await this.prisma.user.update({
           where: { id: userId },
@@ -265,18 +261,15 @@ export class AuthService {
       const accessToken = this.jwtService.sign(payload, { expiresIn: '10d' });
       const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
-     
       const user = await UserRepository.getUserDetails(userId);
 
-     
       await this.redis.set(
         `refresh_token:${user.id}`,
         refreshToken,
         'EX',
-        60 * 60 * 24 * 7, 
+        60 * 60 * 24 * 7,
       );
 
-      
       return {
         success: true,
         message: 'Logged in successfully',
