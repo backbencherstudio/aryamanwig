@@ -182,8 +182,7 @@ export class AuthService {
         userId: user.data.id,
         isOtp: true,
       });
-
-      console.log('Cteate token : ', token);
+      
 
       //send otp code to email
       const sndOtp = await this.mailService.sendOtpCodeToEmail({
@@ -191,7 +190,7 @@ export class AuthService {
         name: name,
         otp: token,
       });
-      console.log('Send Otp : ', sndOtp);
+     
 
       // add notification for new user registration to admin
       const adminUser = await UserRepository.getAdminUser();
