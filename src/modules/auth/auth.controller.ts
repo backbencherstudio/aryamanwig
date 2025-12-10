@@ -139,10 +139,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Login user' })
   @UseGuards(LocalAuthGuard)
   @Post('login')
-  async login(
-    @Req() req: Request, 
-    @Body() body: { fcm_token?: string }) {
-  
+  async login(@Req() req: Request, @Body() body: { fcm_token?: string }) {
     try {
       const user_id = req.user.id;
       const user_email = req.user.email;
