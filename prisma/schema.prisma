@@ -464,45 +464,7 @@ model RoleUser {
   @@map("role_users")
 }
 
-// this table stores notification event
-// model NotificationEvent {
-//   id         String    @id @default(cuid())
-//   created_at DateTime  @default(now())
-//   updated_at DateTime  @default(now())
-//   deleted_at DateTime?
 
-//   status Int?    @default(1) @db.SmallInt
-//   type   String?
-//   text   String?
-
-//   notifications Notification[]
-
-//   @@map("notification_events")
-// }
-
-// model Notification {
-//   id         String    @id @default(cuid())
-//   created_at DateTime  @default(now())
-//   updated_at DateTime  @default(now())
-//   deleted_at DateTime?
-
-//   read_at DateTime?
-
-//   status Int? @default(1) @db.SmallInt
-
-//   sender_id String?
-//   sender    User?   @relation("sender", fields: [sender_id], references: [id])
-
-//   receiver_id String?
-//   receiver    User?   @relation("receiver", fields: [receiver_id], references: [id])
-
-//   notification_event_id String?
-//   notification_event    NotificationEvent? @relation(fields: [notification_event_id], references: [id])
-
-//   entity_id String?
-
-//   @@map("notifications")
-// }
 
 model UserPaymentMethod {
   id         String    @id @default(cuid())
@@ -700,29 +662,11 @@ model Notification {
   entity_id String?
 }
 
-// model Attachment {
-//   id         String    @id @default(cuid())
-//   created_at DateTime  @default(now())
-//   updated_at DateTime  @default(now())
-//   deleted_at DateTime?
 
-//   name     String?
-//   type     String?
-//   size     Int?
-//   file     String?
-//   file_alt String?
-
-//   messages Message[]
-
-//   @@map("attachments")
-// }
-
-// disposal product related models
-
-enum DisposalType {
-  PICKUP
-  SEND_IN
-}
+    enum DisposalType {
+      PICKUP
+      SEND_IN
+    }
 
 enum DisposalStatus {
   PENDING
