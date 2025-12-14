@@ -32,6 +32,7 @@ export class DisposalService {
     [ProductItemSize.MEDIUM]: 25.0,
     [ProductItemSize.LARGE]: 50.0,
   };
+  //iui
 
   private readonly PICKUP_BASE_FEE = 80.0;
   private readonly MINIMUM_ORDER_VALUE = 120.0;
