@@ -15,7 +15,7 @@ import { getBoostTimeLeft } from 'src/common/utils/date.utils';
 import { last } from 'rxjs';
 import { paginationToken } from 'aws-sdk/clients/supportapp';
 import { paginateResponse, PaginationDto } from 'src/common/pagination';
-import { Prisma } from '@prisma/client';
+import { BoostStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class BidService {
@@ -72,10 +72,17 @@ export class BidService {
         photo: true,
         user_id: true,
         created_at: true,
-        boost_until: true,
         condition: true,
         location: true,
         size: true,
+        boosts: {
+          where: {
+            status: BoostStatus.ACTIVE,
+            end_date: { gte: new Date() },
+          },
+          orderBy: { end_date: 'desc' },
+          take: 1,
+        },
       },
     });
 
@@ -127,7 +134,7 @@ export class BidService {
         // -------------------------
         condition: product.condition,
         size: product.size,
-        boost_until: product.boost_until,
+        boost_until: product.boosts.length > 0 ? product.boosts[0].end_date : null,
       },
       bids: bids.map((bid) => ({
         id: bid.id,
@@ -453,7 +460,6 @@ export class BidService {
           price: product.price,
           photo: photos.length > 0 ? photos[0] : null,
           size: product.size,
-          boost_until: product.boost_until,
           condition: product.condition,
           created_at: product.created_at,
         },

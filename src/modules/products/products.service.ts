@@ -16,16 +16,36 @@ import { formatDate, getBoostTimeLeft } from 'src/common/utils/date.utils';
 import { ca, id } from 'date-fns/locale';
 import { paginateResponse } from 'src/common/pagination/pagination.service';
 import { PaginationDto } from 'src/common/pagination';
-import { ProductStatus, Prisma, BoostPaymentStatus } from '@prisma/client';
+import {
+  ProductStatus,
+  Prisma,
+  BoostPaymentStatus,
+  BoostStatus,
+} from '@prisma/client';
 import { MessageGateway } from '../chat/message/message.gateway';
 import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 import { UserRepository } from 'src/common/repository/user/user.repository';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService,
-     private readonly messageGateway: MessageGateway,
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly messageGateway: MessageGateway,
   ) {}
+
+  //-------------------------------------get active products boost
+  private async getActiveBoost(productId: string) {
+    const nowUTC = new Date();
+    return this.prisma.boost.findFirst({
+      where: {
+        product_id: productId,
+        status: BoostStatus.ACTIVE,
+        end_date: { gte: nowUTC },
+      },
+      orderBy: { end_date: 'desc' },
+    });
+  }
+  //-----------------------------------------------
 
   // create product
   async create(
@@ -94,10 +114,12 @@ export class ProductsService {
         },
       });
 
-      // let photoUrl = null;
-      // if(newProduct.photo) {
-      //    photoUrl = SojebStorage.url(`${appConfig().storageUrl.product}/${newProduct.photo}`);
-      // }
+      let photoUrl = null;
+      if (newProduct.photo) {
+        photoUrl = SojebStorage.url(
+          `${appConfig().storageUrl.product}/${newProduct.photo}`,
+        );
+      }
 
       return {
         success: true,
@@ -109,7 +131,7 @@ export class ProductsService {
           price: newProduct.price,
           stock: newProduct.stock,
           photo: newProduct.photo,
-          // photoUrl,
+          photoUrl,
         },
       };
     }
@@ -136,9 +158,16 @@ export class ProductsService {
           size: true,
           condition: true,
           created_at: true,
-          boost_until: true,
           price: true,
           photo: true,
+          boosts: {
+            where: {
+              status: BoostStatus.ACTIVE,
+              until_date: { gte: new Date() },
+            },
+            orderBy: { until_date: 'desc' },
+            take: 1,
+          },
         },
       }),
     ]);
@@ -163,7 +192,7 @@ export class ProductsService {
       size: product.size,
       condition: product.condition,
       created_time: product.created_at,
-      boost_time: product.boost_until,
+      boost_time: product.boosts.length > 0 ? product.boosts[0].until_date : null,
       price: product.price,
     }));
 
@@ -193,6 +222,14 @@ export class ProductsService {
           take: 1,
           select: { id: true, bid_amount: true },
         },
+        boosts: {
+          where: {
+            status: BoostStatus.ACTIVE,
+            until_date: { gte: new Date() },
+          },
+          orderBy: { until_date: 'desc' },
+          take: 1,
+        },
       },
     });
 
@@ -204,6 +241,8 @@ export class ProductsService {
     const totalItems = await this.prisma.product.count({
       where: { user_id: product.user_id },
     });
+
+    const activeBoost = product.boosts.length > 0 ? product.boosts[0] : null;
 
     return {
       success: true,
@@ -237,7 +276,7 @@ export class ProductsService {
         product_item_size: product.product_item_size,
         color: product.color || 'Not Specified',
         uploaded: product.created_at,
-        remaining_time: product.boost_until,
+        remaining_time: activeBoost ? activeBoost.until_date : null,
         minimum_bid:
           product.bids.length > 0 ? product.bids[0].bid_amount : null,
         category: {
@@ -351,7 +390,6 @@ export class ProductsService {
         stock: updatedProduct.stock,
         condition: updatedProduct.condition,
         photo: updatedProduct.photo,
-        boost_time: updatedProduct.boost_until,
         photoUrls,
         product_owner: updatedProduct.user_id,
       },
@@ -409,12 +447,19 @@ export class ProductsService {
           color: true,
           condition: true,
           created_at: true,
-          boost_until: true,
           price: true,
           photo: true,
           wishlists: {
             where: { user_id: user },
             select: { id: true },
+          },
+          boosts: {
+            where: {
+              status: BoostStatus.ACTIVE,
+              until_date: { gte: new Date() },
+            },
+            orderBy: { until_date: 'desc' },
+            take: 1,
           },
         },
       }),
@@ -446,7 +491,8 @@ export class ProductsService {
       size: product.size,
       color: product.color || 'Not Specified',
       uploaded: product.created_at,
-      remaining_time: product.boost_until,
+      remaining_time:
+        product.boosts.length > 0 ? product.boosts[0].until_date : null,
       is_in_wishlist: product.wishlists.length > 0,
     }));
 
@@ -465,7 +511,7 @@ export class ProductsService {
   }
 
   // get all product for client
-   async getAllProductsForClient(user: string, query: PaginationDto) {
+  async getAllProductsForClient(user: string, query: PaginationDto) {
     const { page, perPage } = query;
     const skip = (page - 1) * perPage;
 
@@ -491,12 +537,19 @@ export class ProductsService {
           color: true,
           condition: true,
           created_at: true,
-          boost_until: true,
           price: true,
           photo: true,
           wishlists: {
             where: { user_id: user },
             select: { id: true },
+          },
+          boosts: {
+            where: {
+              status: BoostStatus.ACTIVE,
+              until_date: { gte: new Date() },
+            },
+            orderBy: { until_date: 'desc' },
+            take: 1,
           },
         },
       }),
@@ -528,7 +581,8 @@ export class ProductsService {
       size: product.size,
       color: product.color || 'Not Specified',
       uploaded: product.created_at,
-      remaining_time: product.boost_until,
+      remaining_time:
+        product.boosts.length > 0 ? product.boosts[0].until_date : null,
       is_in_wishlist: product.wishlists.length > 0,
     }));
 
@@ -544,369 +598,7 @@ export class ProductsService {
       message: 'Products retrieved successfully',
       ...paginatedData,
     };
-  } 
-
-
-
-  /*=================( Boosting Area Start)=================*/
-
-  private readonly TIER_DETAILS = {
-    [BoostTierEnum.TIER_1]: {
-      days: 3,
-      price: 4.9,
-      name: 'Muss Schnell Weg',
-    },
-    [BoostTierEnum.TIER_2]: {
-      days: 5,
-      price: 9.9,
-      name: 'Muss Zackig Weg',
-    },
-    [BoostTierEnum.TIER_3]: {
-      days: 7,
-      price: 19.9,
-      name: 'Muss Sofort Weg',
-    },
-  };
-
-  // boost product
-  async boost(boostProductDto: BoostProductDto, user: string) {
-    const { product_id, boost_tier } = boostProductDto;
-
-    const tierDetails = this.TIER_DETAILS[boost_tier];
-    if (!tierDetails) {
-      throw new ConflictException('Invalid boost tier provided');
-    }
-
-    const product = await this.prisma.product.findUnique({
-      where: { id: product_id },
-    });
-
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${product_id} not found`);
-    }
-
-    if (product.user_id !== user) {
-      throw new ConflictException('You are not allowed to boost this product');
-    }
-
-    if (product.status === ProductStatus.REJECTED) {
-      throw new ConflictException('Rejected products cannot be boosted');
-    }
-
-    if (product.status === ProductStatus.PENDING) {
-      throw new ConflictException('Only approved products can be boosted');
-    }
-
-    const nowUTC = new Date();
-    if (product.boost_until && new Date(product.boost_until) > nowUTC) {
-      const remainingHours = Math.ceil(
-        (new Date(product.boost_until).getTime() - nowUTC.getTime()) /
-          (1000 * 60 * 60),
-      );
-      throw new ConflictException(
-        `This product is already boosted! You can boost again after ${remainingHours} hours.`,
-      );
-    }
-
-    const boostUntil = new Date(
-      nowUTC.getTime() + tierDetails.days * 24 * 60 * 60 * 1000,
-    );
-
-    const updatedProduct = await this.prisma.product.update({
-      where: { id: product_id },
-      data: {
-        is_boosted: true,
-        boost_until: boostUntil,
-        boost_tier: boost_tier,
-        boost_payment_status: 'PENDING',
-        boost_price: tierDetails.price,
-      },
-      select: {
-        id: true,
-        photo: true,
-        product_title: true,
-        size: true,
-        condition: true,
-        created_at: true,
-        boost_until: true,
-        boost_price: true,
-        boost_payment_status: true,
-        boost_tier: true,
-      },
-    });
-
-    const adminUser = await UserRepository.getAdminUser();
-    const userinfo = await UserRepository.getUserById(user);
-
-    const notificationPayload: any = {
-      sender_id: user,
-      receiver_id: adminUser.id,
-      text: `Product "${updatedProduct.product_title}" has been boosted successfully by ${userinfo.name}.`,
-      type: 'Boost_Product',
-      entity_id: updatedProduct.id,
-    };
-
-    const userSocketId = this.messageGateway.clients.get(adminUser.id);
-
-    if(userSocketId){
-      this.messageGateway.server.to(userSocketId).emit("notification", notificationPayload);
-    }
-
-    await NotificationRepository.createNotification(
-      notificationPayload
-    );
-
-
-    return {
-      success: true,
-      message: 'Product boosted successfully',
-      boost_status: updatedProduct.boost_payment_status,
-      data: {
-        id: updatedProduct.id,
-        photo: updatedProduct.photo,
-        product_photo_url:
-          updatedProduct.photo && updatedProduct.photo.length > 0
-            ? updatedProduct.photo.map((p) =>
-                SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
-              )
-            : [],
-        title: updatedProduct.product_title,
-        size: updatedProduct.size,
-        condition: updatedProduct.condition,
-        created_time: updatedProduct.created_at,
-        boost_time: updatedProduct.boost_until,
-        boost_tier_name: tierDetails.name,
-        boost_price: updatedProduct.boost_price,
-      },
-    };
   }
-
-  // *get all boosted products(admin)
-  async getBoostedProducts(page: number, perPage: number) {
-    const nowUTC = new Date();
-    const skip = (page - 1) * perPage;
-
-    const whereClause = {
-      is_boosted: true,
-      boost_until: { gte: nowUTC },
-      boost_payment_status: BoostPaymentStatus.COMPLETED,
-    };
-
-    const [total, boostedProducts] = await this.prisma.$transaction([
-      this.prisma.product.count({ where: whereClause }),
-      this.prisma.product.findMany({
-        where: whereClause,
-        skip,
-        take: perPage,
-        orderBy: { boost_until: 'desc' },
-        select: {
-          id: true,
-          product_title: true,
-          size: true,
-          condition: true,
-          created_at: true,
-          boost_until: true,
-          boost_tier: true,
-          boost_payment_status: true,
-          boost_price: true,
-          photo: true,
-          user:{
-            select: {
-              name:true
-            }
-          },
-        },
-      }),
-    ]);
-
-    if (total === 0) {
-      return {
-        success: true,
-        message: 'No active boosted products found',
-        data: paginateResponse([], total, page, perPage),
-      };
-    }
-
-    const formattedProducts = boostedProducts.map((product) => ({
-      id: product.id,
-      photo:
-        product.photo && product.photo.length > 0
-          ? product.photo.map((p) =>
-              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
-            )
-          : [],
-      title: product.product_title,
-      size: product.size,
-      condition: product.condition,
-      created_time: product.created_at,
-      boost_tier: product.boost_tier,
-      boost_time: product.boost_until,
-      seller_name: product.user.name,
-      boost_payment_status: product.boost_payment_status,
-      boost_price: product.boost_price,
-    }));
-
-    const paginatedData = paginateResponse(
-      formattedProducts,
-      total,
-      page,
-      perPage,
-    );
-
-    return {
-      success: true,
-      message: 'Boosted products retrieved successfully',
-      ...paginatedData,
-    };
-  }
-
-  // paginated boosted products for a user
-  async getUserBoostedProductsPending(user: string, page: number, perPage: number) {
-    const nowUTC = new Date();
-    const skip = (page - 1) * perPage;
-
-    const whereClause = {
-      user_id: user,
-      is_boosted: true,
-      boost_until: { gte: nowUTC },
-      boost_payment_status: BoostPaymentStatus.PENDING,
-    };
-
-    const [total, boostedProducts] = await this.prisma.$transaction([
-      this.prisma.product.count({ where: whereClause }),
-      this.prisma.product.findMany({
-        where: whereClause,
-        skip,
-        take: perPage,
-        orderBy: { created_at: 'desc' },
-        select: {
-          id: true,
-          product_title: true,
-          size: true,
-          condition: true,
-          created_at: true,
-          boost_until: true,
-          boost_price: true,
-          photo: true,
-          boost_payment_status: true,
-        },
-      }),
-    ]);
-
-    if (total === 0) {
-      return {
-        success: true,
-        message: 'No active boosted products found for this user',
-        data: paginateResponse([], total, page, perPage),
-      };
-    }
-
-    const formattedProducts = boostedProducts.map((product) => ({
-      id: product.id,
-      photo:
-        product.photo && product.photo.length > 0
-          ? product.photo.map((p) =>
-              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
-            )
-          : [],
-      title: product.product_title,
-      size: product.size,
-      condition: product.condition,
-      created_time: product.created_at,
-      boost_time_left: product.boost_until,
-      boost_payment_status: product.boost_payment_status,
-      boost_price: product.boost_price,
-    }));
-
-    const paginatedData = paginateResponse(
-      formattedProducts,
-      total,
-      page,
-      perPage,
-    );
-
-    return {
-      success: true,
-      message: 'User boosted products retrieved successfully',
-      ...paginatedData,
-    };
-  }
-
-  // paginated boosted products for a user
-  async getUserBoostedProductsCompleted(user: string, page: number, perPage: number) {
-    const nowUTC = new Date();
-    const skip = (page - 1) * perPage;
-
-    const whereClause = {
-      user_id: user,
-      is_boosted: true,
-      boost_until: { gte: nowUTC },
-      boost_payment_status: BoostPaymentStatus.COMPLETED,
-    };
-
-    const [total, boostedProducts] = await this.prisma.$transaction([
-      this.prisma.product.count({ where: whereClause }),
-      this.prisma.product.findMany({
-        where: whereClause,
-        skip,
-        take: perPage,
-        orderBy: { created_at: 'desc' },
-        select: {
-          id: true,
-          product_title: true,
-          size: true,
-          condition: true,
-          created_at: true,
-          boost_until: true,
-          boost_price: true,
-          photo: true,
-          boost_payment_status: true,
-        },
-      }),
-    ]);
-
-    if (total === 0) {
-      return {
-        success: true,
-        message: 'No active boosted products found for this user',
-        data: paginateResponse([], total, page, perPage),
-      };
-    }
-
-    const formattedProducts = boostedProducts.map((product) => ({
-      id: product.id,
-      photo:
-        product.photo && product.photo.length > 0
-          ? product.photo.map((p) =>
-              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
-            )
-          : [],
-      title: product.product_title,
-      size: product.size,
-      condition: product.condition,
-      created_time: product.created_at,
-      boost_time_left: product.boost_until,
-      boost_payment_status: product.boost_payment_status,
-      boost_price: product.boost_price,
-    }));
-
-    const paginatedData = paginateResponse(
-      formattedProducts,
-      total,
-      page,
-      perPage,
-    );
-
-    return {
-      success: true,
-      message: 'User boosted products retrieved successfully',
-      ...paginatedData,
-    };
-  }
-
- 
-
-  /*=================( Search Area Start)=================*/
 
   // search products
   async searchProducts(paginationDto: PaginationDto, search?: string) {
@@ -940,9 +632,16 @@ export class ProductsService {
           size: true,
           condition: true,
           created_at: true,
-          boost_until: true,
           price: true,
           photo: true,
+          boosts: {
+            where: {
+              status: BoostStatus.ACTIVE,
+              until_date: { gte: new Date() },
+            },
+            orderBy: { until_date: 'desc' },
+            take: 1,
+          },
         },
       }),
     ]);
@@ -961,7 +660,7 @@ export class ProductsService {
       size: product.size,
       condition: product.condition,
       created_time: product.created_at,
-      boost_time: product.boost_until,
+      boost_time: product.boosts.length > 0 ? product.boosts[0].until_date : null,
       price: product.price,
       photo:
         product.photo && product.photo.length > 0
@@ -977,42 +676,47 @@ export class ProductsService {
       ...paginateResponse(formattedProducts, total, page, perPage),
     };
   }
-  /*=================( Filter Area Start)=================*/
-
+  
   // filter products by price range and categories
   async filterProducts(filterDto: FilterProductDto, user: string) {
     const { min_price, max_price, categories, location, time_in_hours } =
       filterDto;
 
-    // 🔹 Time filter
-    let timeFilter: any = {};
+    // 🔹 Base where clause
+    let whereClause: any = {
+      status: ProductStatus.APPROVED,
+    };
+
+    if (min_price) {
+      whereClause.price = { ...whereClause.price, gte: min_price };
+    }
+    if (max_price) {
+      whereClause.price = { ...whereClause.price, lte: max_price };
+    }
+    if (categories && categories.length) {
+      whereClause.category_id = { in: categories };
+    }
+    if (location) {
+      whereClause.location = { contains: location, mode: 'insensitive' };
+    }
+
+    // 🔹 Time filter for boosted products
+    let boostFilter: any = {
+      status: BoostStatus.ACTIVE,
+      until_date: { gte: new Date() },
+    };
+
     if (time_in_hours) {
       const now = new Date();
       const timeThreshold = new Date(
         now.getTime() + time_in_hours * 60 * 60 * 1000,
       );
-      timeFilter = {
-        is_boosted: true,
-        boost_until: { gte: now, lte: timeThreshold },
-      };
+      boostFilter.until_date = { gte: now, lte: timeThreshold };
+      whereClause.boosts = { some: boostFilter };
     }
 
-    // 🔹 Fetch from DB
     const products = await this.prisma.product.findMany({
-      where: {
-        AND: [
-          { status: ProductStatus.APPROVED },
-          min_price ? { price: { gte: min_price } } : {},
-          max_price ? { price: { lte: max_price } } : {},
-          categories && categories.length
-            ? { category_id: { in: categories } }
-            : {},
-          location
-            ? { location: { contains: location, mode: 'insensitive' } }
-            : {},
-          timeFilter,
-        ],
-      },
+      where: whereClause,
       orderBy: {
         created_at: 'desc',
       },
@@ -1023,12 +727,19 @@ export class ProductsService {
         size: true,
         condition: true,
         created_at: true,
-        boost_until: true,
         price: true,
         photo: true,
         wishlists: {
           where: { user_id: user },
           select: { id: true },
+        },
+        boosts: {
+          where: {
+            status: BoostStatus.ACTIVE,
+            until_date: { gte: new Date() },
+          },
+          orderBy: { until_date: 'desc' },
+          take: 1,
         },
       },
     });
@@ -1055,7 +766,7 @@ export class ProductsService {
       size: product.size,
       condition: product.condition,
       created_time: product.created_at,
-      boost_time: product.boost_until,
+      boost_time: product.boosts.length > 0 ? product.boosts[0].until_date : null,
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
     }));
@@ -1107,7 +818,6 @@ export class ProductsService {
           condition: true,
           status: true,
           created_at: true,
-          boost_until: true,
           price: true,
           photo: true,
           wishlists: {
@@ -1118,6 +828,14 @@ export class ProductsService {
             orderBy: { created_at: 'asc' },
             take: 1,
             select: { id: true, bid_amount: true },
+          },
+          boosts: {
+            where: {
+              status: BoostStatus.ACTIVE,
+              until_date: { gte: new Date() },
+            },
+            orderBy: { until_date: 'desc' },
+            take: 1,
           },
         },
       }),
@@ -1144,7 +862,8 @@ export class ProductsService {
       status: product.status,
       condition: product.condition,
       created_time: product.created_at,
-      boost_time_left: product.boost_until,
+      boost_time_left:
+        product.boosts.length > 0 ? product.boosts[0].until_date : null,
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
       minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
@@ -1200,7 +919,6 @@ export class ProductsService {
           status: true,
           condition: true,
           created_at: true,
-          boost_until: true,
           price: true,
           photo: true,
           wishlists: {
@@ -1211,6 +929,14 @@ export class ProductsService {
             orderBy: { created_at: 'asc' },
             take: 1,
             select: { id: true, bid_amount: true },
+          },
+          boosts: {
+            where: {
+              status: BoostStatus.ACTIVE,
+              until_date: { gte: new Date() },
+            },
+            orderBy: { until_date: 'desc' },
+            take: 1,
           },
         },
       }),
@@ -1237,7 +963,8 @@ export class ProductsService {
       size: product.size,
       condition: product.condition,
       created_time: product.created_at,
-      boost_time_left: product.boost_until,
+      boost_time_left:
+        product.boosts.length > 0 ? product.boosts[0].until_date : null,
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
       minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,
@@ -1293,7 +1020,6 @@ export class ProductsService {
           status: true,
           condition: true,
           created_at: true,
-          boost_until: true,
           price: true,
           photo: true,
           wishlists: {
@@ -1304,6 +1030,14 @@ export class ProductsService {
             orderBy: { created_at: 'asc' },
             take: 1,
             select: { id: true, bid_amount: true },
+          },
+          boosts: {
+            where: {
+              status: BoostStatus.ACTIVE,
+              until_date: { gte: new Date() },
+            },
+            orderBy: { until_date: 'desc' },
+            take: 1,
           },
         },
       }),
@@ -1330,7 +1064,8 @@ export class ProductsService {
       size: product.size,
       condition: product.condition,
       created_time: product.created_at,
-      boost_time_left: product.boost_until,
+      boost_time_left:
+        product.boosts.length > 0 ? product.boosts[0].until_date : null,
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
       minimum_bid: product.bids.length > 0 ? product.bids[0].bid_amount : null,

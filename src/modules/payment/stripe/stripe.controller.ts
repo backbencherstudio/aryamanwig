@@ -20,6 +20,7 @@ import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
 import {
   BoostPaymentStatus,
+  BoostStatus,
   DisposalStatus,
   OrderStatus,
   PaymentStatus,
@@ -33,7 +34,6 @@ export class StripeController {
     private readonly stripeService: StripeService,
     private readonly prisma: PrismaService,
   ) {}
-
 
   // =====================================================================
   // ========================== PAYMENT CREATE ============================
@@ -96,31 +96,34 @@ export class StripeController {
         };
       }
 
-       // -----------------------------------
+      // -----------------------------------
       // BOOST PAYMENT
       // -----------------------------------
       else if (type === 'boost') {
-        entity = await this.prisma.product.findUnique({
+        entity = await this.prisma.boost.findUnique({
           where: { id },
           select: {
-            boost_price: true,
+            price: true,
             user_id: true,
-            boost_payment_status: true,
+            payment_status: true,
+            status: true,
             user: { select: { billing_id: true } },
           },
         });
 
         if (!entity) return this.fail(`Boost ${id} not found`);
+
         if (entity.user_id !== buyer_id)
-          return this.fail('Not your boost');
-        if (entity.boost_payment_status !== BoostPaymentStatus.PENDING)
+          return this.fail('This boost does not belong to you');
+
+        if (entity.payment_status !== BoostPaymentStatus.PENDING)
           return {
             success: false,
-            message: `Already ${entity.boost_payment_status}`,
+            message: `Already ${entity.payment_status}`,
             id,
           };
 
-        totalAmount = Number(entity.boost_price);
+        totalAmount = Number(entity.price);
 
         if (isNaN(totalAmount))
           throw new InternalServerErrorException('Invalid boost amount');
@@ -135,7 +138,7 @@ export class StripeController {
         };
       }
 
-       // -----------------------------------
+      // -----------------------------------
       // DISPOSAL PAYMENT
       // -----------------------------------
       else if (type === 'disposal') {
@@ -174,10 +177,10 @@ export class StripeController {
         };
       }
 
-      if (!customerBillingId) 
+      if (!customerBillingId)
         return this.fail('Stripe Customer Billing ID not found!');
 
-       // ------------------------------------
+      // ------------------------------------
       // STRIPE AMOUNT FIX (always integer)
       // ------------------------------------
       const stripeAmount = Number(totalAmount);
@@ -256,12 +259,17 @@ export class StripeController {
               },
             });
           }
+
           if (meta.boost_id) {
-            await this.prisma.product.update({
+            await this.prisma.boost.update({
               where: { id: meta.boost_id },
-              data: { boost_payment_status: BoostPaymentStatus.COMPLETED },
+              data: {
+                payment_status: BoostPaymentStatus.COMPLETED,
+                status: BoostStatus.ACTIVE,
+              },
             });
           }
+
           if (meta.disposal_id) {
             await this.prisma.disposal.update({
               where: { id: meta.disposal_id },
@@ -291,12 +299,17 @@ export class StripeController {
               },
             });
           }
+
           if (meta.boost_id) {
-            await this.prisma.product.update({
+            await this.prisma.boost.update({
               where: { id: meta.boost_id },
-              data: { boost_payment_status: BoostPaymentStatus.FAILED },
+              data: {
+                payment_status: BoostPaymentStatus.FAILED,
+                status: BoostStatus.CANCELLED,
+              },
             });
           }
+
           if (meta.disposal_id) {
             await this.prisma.disposal.update({
               where: { id: meta.disposal_id },
@@ -338,8 +351,7 @@ export class StripeController {
     }
   }
 
-
-   // =====================================================================
+  // =====================================================================
   // ======================= UTILITY RESPONSE METHODS ===================
   // =====================================================================
 
@@ -356,5 +368,4 @@ export class StripeController {
       details: err?.response ?? null,
     };
   }
-
 }

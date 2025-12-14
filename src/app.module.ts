@@ -34,6 +34,7 @@ import { DashboradModule } from './modules/dashborad/dashborad.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { BidModule } from './modules/bid/bid.module';
 import { DisposalModule } from './modules/disposal/disposal.module';
+import { BoostModule } from './modules/boost/boost.module';
 
 
 
@@ -105,6 +106,7 @@ import { DisposalModule } from './modules/disposal/disposal.module';
     ProfileModule,
     BidModule,
     DisposalModule,
+    BoostModule,
  
   ],
   controllers: [AppController, OrderController],

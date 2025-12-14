@@ -29,7 +29,6 @@ export class BidController {
     return this.bidService.create(createBidDto, user);
   }
 
-  
   // *get all bid a single product
   @Get('singleproductbid/:productId')
   getBidsForProduct(@Param('productId') productId: string) {
@@ -45,12 +44,14 @@ export class BidController {
     @Req() req: any,
   ) {
     const productOwner = req.user.userId;
-    return this.bidService.updateBidStatus(bidId, updateStatusBidDto, productOwner);
+    return this.bidService.updateBidStatus(
+      bidId,
+      updateStatusBidDto,
+      productOwner,
+    );
   }
 
-
   // TOPIC: buyer list
-  
 
   // *get my all bids with accepted
   @UseGuards(JwtAuthGuard)
@@ -68,31 +69,27 @@ export class BidController {
     return this.bidService.getMyPendingBids(userId, paginationDto);
   }
 
-
   // TOPIC: seller list
-
 
   // * my product wise request bid
   @UseGuards(JwtAuthGuard)
   @Get('seller-product-bids')
-  getSellerProductWiseBids(@Query() paginationDto: PaginationDto, @Req() req: any) {
+  getSellerProductWiseBids(
+    @Query() paginationDto: PaginationDto,
+    @Req() req: any,
+  ) {
     const sellerId = req.user.userId;
     return this.bidService.getSellerProductWiseBids(sellerId, paginationDto);
   }
 
-  
   // * get my all bids with accepted
   @UseGuards(JwtAuthGuard)
   @Get('seller-accepted-bids')
-  getSellerAcceptedBids(@Query() paginationDto: PaginationDto, @Req() req: any) {
+  getSellerAcceptedBids(
+    @Query() paginationDto: PaginationDto,
+    @Req() req: any,
+  ) {
     const sellerId = req.user.userId;
-    return this.bidService.getSellerAcceptedBids(sellerId, paginationDto); 
+    return this.bidService.getSellerAcceptedBids(sellerId, paginationDto);
   }
-
-
-
-
- 
-
-
 }

@@ -161,7 +161,6 @@ export class WishlistService {
       product_price: item.product.price,
       product_stock: item.product.stock,
       created_at: item.product.created_at,
-      boost_time:item.product.boost_until,
     }));
     
 

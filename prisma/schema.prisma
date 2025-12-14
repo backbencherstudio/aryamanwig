@@ -113,7 +113,8 @@ model User {
   // relation with bid
   bids Bid[] @relation("UserBids")
 
-  // 
+  // user boosts
+  boosts Boost[] @relation("UserBoosts")
 
   approved_at DateTime?
   created_at  DateTime  @default(now())
@@ -150,6 +151,14 @@ enum BoostPaymentStatus {
   FAILED
 }
 
+enum BoostStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+
 enum ProductItemSize {
   SMALL
   MEDIUM
@@ -175,13 +184,6 @@ model Product {
   color    String?
   time     DateTime?
 
-  boost_until DateTime?
-  is_boosted  Boolean   @default(false)
-
-  boost_tier           BoostTier?
-  boost_payment_status BoostPaymentStatus?
-  boost_price          Decimal?            @db.Decimal(10, 2)
-
   condition Condition?    @default(NEW)
   status    ProductStatus @default(PENDING)
 
@@ -202,10 +204,44 @@ model Product {
   // relation with bid
   bids Bid[] @relation("ProductBids")
 
-  payment_transactions PaymentTransaction[] @relation("ProductBoostPayments")
+  // relation with boost
+  boosts Boost[] @relation("ProductBoosts")
+
 
   @@map("products")
 }
+
+model Boost {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  user_id String
+  user    User   @relation("UserBoosts", fields: [user_id], references: [id], onDelete: Cascade)
+
+  product_id String
+  product    Product @relation("ProductBoosts", fields: [product_id], references: [id], onDelete: Cascade)
+
+  tier           BoostTier
+  status         BoostStatus        @default(ACTIVE)
+  payment_status BoostPaymentStatus @default(PENDING)
+  price          Decimal            @db.Decimal(10, 2)
+
+  start_date DateTime  @default(now())
+  end_date   DateTime?
+  until_date DateTime?
+
+  payment_transactions PaymentTransaction[] @relation("BoostPaymentTransactions")
+
+  @@map("boosts")
+}
+
+
+
+//----------------------------------------------------------------------------------------
+
+
 
 model Category {
   id         String    @id @default(cuid())
@@ -464,8 +500,6 @@ model RoleUser {
   @@map("role_users")
 }
 
-
-
 model UserPaymentMethod {
   id         String    @id @default(cuid())
   created_at DateTime  @default(now())
@@ -499,7 +533,7 @@ model PaymentTransaction {
   disposal    Disposal? @relation("DisposalPaymentTransaction", fields: [disposal_id], references: [id], onDelete: Cascade)
 
   boost_id String?
-  boost    Product? @relation("ProductBoostPayments", fields: [boost_id], references: [id], onDelete: Cascade)
+  boost    Boost?  @relation("BoostPaymentTransactions", fields: [boost_id], references: [id], onDelete: Cascade)
 
   type String? @default("order")
 
@@ -662,11 +696,10 @@ model Notification {
   entity_id String?
 }
 
-
-    enum DisposalType {
-      PICKUP
-      SEND_IN
-    }
+enum DisposalType {
+  PICKUP
+  SEND_IN
+}
 
 enum DisposalStatus {
   PENDING
