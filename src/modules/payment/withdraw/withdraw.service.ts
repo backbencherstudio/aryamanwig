@@ -19,7 +19,6 @@ export class WithdrawService {
     userId: string,
     email: string,
   ): Promise<{ accountId: string }> {
-
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -27,7 +26,6 @@ export class WithdrawService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-
 
     if (user.banking_id) {
       throw new BadRequestException('You already have a payout account');
@@ -132,8 +130,6 @@ export class WithdrawService {
         },
       };
     } catch (error) {
-
-    
       // ব্যর্থ transaction record সেভ করি
       await this.prisma.paymentTransaction.create({
         data: {
@@ -154,7 +150,7 @@ export class WithdrawService {
     }
   }
 
- //Withdraw to Connected Account
+  //Withdraw to Connected Account
   async withdrawToAccount(
     userId: string,
     accountId: string,
@@ -171,7 +167,6 @@ export class WithdrawService {
 
     const { amount, currency = 'usd' } = withdrawDto;
 
-   
     if (amount < 1) {
       throw new BadRequestException('Minimum withdraw amount is 1 USD');
     }
@@ -221,17 +216,44 @@ export class WithdrawService {
 
   //Check Connected Account Balance
   async checkAccountBalance(userId: string) {
-
+  
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { banking_id: true },
     });
 
+    if (!user || !user.banking_id) {
+      throw new BadRequestException('No connected account found');
+    }
+
     try {
+
       const balance = await StripePayment.checkBalance(user.banking_id);
+
+      const availableAmount = balance.available?.[0]?.amount || 0;
+      const pendingAmount = balance.pending?.[0]?.amount || 0;
+      const currency = balance.available?.[0]?.currency || 'usd';
+
       return {
         success: true,
-        data: balance,
+        data: {
+          available: {
+            amount: availableAmount / 100, 
+            amount_in_cents: availableAmount,
+            currency: currency,
+            display: `$${(availableAmount / 100).toFixed(2)} ${currency.toUpperCase()}`,
+          },
+          pending: {
+            amount: pendingAmount / 100, 
+            amount_in_cents: pendingAmount,
+            currency: currency,
+            display: `$${(pendingAmount / 100).toFixed(2)} ${currency.toUpperCase()}`,
+          },
+          total: {
+            amount: (availableAmount + pendingAmount) / 100,
+            display: `$${((availableAmount + pendingAmount) / 100).toFixed(2)} ${currency.toUpperCase()}`,
+          },
+        },
       };
     } catch (error) {
       console.error('Error checking balance:', error);

@@ -63,7 +63,7 @@ model User {
   date_of_birth DateTime? @db.Date
 
   fcm_token   String?
-  device_type String? // ঐচ্ছিক: যেমন 'android', 'ios', 'web'
+  device_type String? 
 
   // google id
   googleId     String? @unique // Store Google ID for OAuth
@@ -74,7 +74,7 @@ model User {
   // billing id. e.g. stripe customer id
   billing_id String?
 
-  // stripe connect account id (payout/withdraw এর জন্য)
+  // stripe connect account id 
   banking_id String?
 
   is_two_factor_enabled Int?    @default(0)
@@ -553,72 +553,6 @@ model PaymentTransaction {
   @@map("payment_transactions")
 }
 
-// ---------Start Chat schema---------//
-
-/**
- * enum MessageStatus {
- * PENDING
- * SENT
- * DELIVERED
- * READ
- * }
- * // message is used for conversation
- * model Message {
- * id         String    @id @default(cuid())
- * created_at DateTime  @default(now())
- * updated_at DateTime  @default(now())
- * deleted_at DateTime?
- * status MessageStatus? @default(PENDING)
- * sender_id String?
- * sender    User?   @relation("sender", fields: [sender_id], references: [id])
- * receiver_id String?
- * receiver    User?   @relation("receiver", fields: [receiver_id], references: [id])
- * conversation_id String?
- * conversation    Conversation? @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
- * message         String?
- * attachment_id String?
- * attachment    Attachment? @relation(fields: [attachment_id], references: [id])
- * last_message_conversation Conversation? @relation("last_message")
- * @@map("messages")
- * }
- * // this table stores attachment of message
- * model Attachment {
- * id         String    @id @default(cuid())
- * created_at DateTime  @default(now())
- * updated_at DateTime  @default(now())
- * deleted_at DateTime?
- * name     String?
- * type     String?
- * size     Int?
- * file     String?
- * file_alt String?
- * messages Message[]
- * @@map("attachments")
- * }
- * // this table stores conversation
- * model Conversation {
- * id String @id @default(cuid())
- * creator_id String?
- * creator    User?   @relation("creator", fields: [creator_id], references: [id])
- * participant_id String?
- * participant    User?   @relation("participant", fields: [participant_id], references: [id])
- * last_message_id String?  @unique
- * last_message    Message? @relation("last_message", fields: [last_message_id], references: [id])
- * // deleted
- * deleted_by_creator        Boolean   @default(false)
- * deleted_by_participant    Boolean   @default(false)
- * deleted_by_creator_at     DateTime?
- * deleted_by_participant_at DateTime?
- * // blocked
- * blocked_by_creator     Boolean @default(false)
- * blocked_by_participant Boolean @default(false)
- * messages Message[]
- * created_at DateTime  @default(now())
- * updated_at DateTime  @default(now())
- * deleted_at DateTime?
- * @@map("conversations")
- * }
- */
 
 model Conversation {
   id           String        @id @default(cuid())
