@@ -35,9 +35,7 @@ import { ProfileModule } from './modules/profile/profile.module';
 import { BidModule } from './modules/bid/bid.module';
 import { DisposalModule } from './modules/disposal/disposal.module';
 import { BoostModule } from './modules/boost/boost.module';
-
-
-
+import { WithdrawModule } from './modules/payment/withdraw/withdraw.module';
 
 @Module({
   imports: [
@@ -58,8 +56,7 @@ import { BoostModule } from './modules/boost/boost.module';
       //   port: +appConfig().redis.port,
       // },
     }),
-    
-  
+
     RedisModule.forRoot({
       type: 'single',
       options: {
@@ -107,7 +104,7 @@ import { BoostModule } from './modules/boost/boost.module';
     BidModule,
     DisposalModule,
     BoostModule,
- 
+    WithdrawModule,
   ],
   controllers: [AppController, OrderController],
   providers: [

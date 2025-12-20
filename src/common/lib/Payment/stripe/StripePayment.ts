@@ -138,7 +138,7 @@ export class StripePayment {
     metadata?: stripe.MetadataParam;
   }): Promise<stripe.PaymentIntent> {
     return Stripe.paymentIntents.create({
-      amount: amount * 100, // amount in cents
+      amount: Number(Number(amount * 100).toFixed(2)), // amount in cents
       currency: currency,
       customer: customer_id,
       metadata: metadata,
@@ -290,10 +290,10 @@ export class StripePayment {
 
   // -----------------------payout system start--------------------------------
 
-  // If you are paying users, they need Stripe Connect accounts. You can create Express or Standard accounts.
+ 
   static async createConnectedAccount(email: string) {
     const connectedAccount = await Stripe.accounts.create({
-      type: 'express',
+      type: 'custom',
       email: email,
       country: 'US', // change as per user's country
       // business_profile: {
@@ -307,9 +307,9 @@ export class StripePayment {
       //   },
       // },
       capabilities: {
-        // card_payments: {
-        //   enabled: true,
-        // },
+        card_payments: {
+          requested: true,
+        },
         transfers: {
           // enabled: true,
           requested: true,
@@ -320,16 +320,29 @@ export class StripePayment {
     return connectedAccount;
   }
 
-  // Before making payouts, users must complete Stripe Connect onboarding.
+  /**
+   * Stripe Connect Onboarding Link তৈরি করে
+   * ইউজার এই লিংকে গিয়ে ব্যাংক/কার্ড তথ্য দেবে
+   *
+   * @param account_id - Connected Account ID
+   * @returns Account Link object with URL
+   */
   static async createOnboardingAccountLink(account_id: string) {
-    const accountLink = await Stripe.accountLinks.create({
-      account: account_id,
-      refresh_url: appConfig().app.url,
-      return_url: appConfig().app.url,
-      type: 'account_onboarding',
-    });
+    try {
+      const clientUrl = appConfig().app.client_app_url || appConfig().app.url;
 
-    return accountLink;
+      const accountLink = await Stripe.accountLinks.create({
+        account: account_id,
+        refresh_url: `${clientUrl}/payout/refresh`, // onboarding fail হলে
+        return_url: `${clientUrl}/payout/success`, // onboarding success হলে
+        type: 'account_onboarding',
+      });
+
+      return accountLink;
+    } catch (error) {
+      console.error('Stripe Onboarding Link Error:', error);
+      throw error;
+    }
   }
 
   // transfer money to account

@@ -33,6 +33,16 @@ export class UserRepository {
     return user;
   }
 
+  // get user detail
+  static async getUserDeatil(userId: string) {
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId, 
+      },
+    });
+    return user;
+  }
+
   /**
    * get user details
    * @returns
@@ -237,7 +247,6 @@ export class UserRepository {
           field: 'email',
           value: String(email),
         });
-        
 
         if (userEmailExist) {
           return {
@@ -625,7 +634,7 @@ export class UserRepository {
     });
     return users;
   }
- 
+
   // get user by id
   static async getUserById(user_id: string) {
     const user = await prisma.user.findFirst({
@@ -640,6 +649,4 @@ export class UserRepository {
     });
     return user;
   }
-
-
 }

@@ -27,6 +27,7 @@ import {
 } from '@prisma/client';
 import { DisposalService } from 'src/modules/disposal/disposal.service';
 import { Stripe } from 'stripe';
+import { log } from 'node:console';
 
 @Controller('payment/stripe')
 export class StripeController {
@@ -183,16 +184,9 @@ export class StripeController {
       // ------------------------------------
       // STRIPE AMOUNT FIX (always integer)
       // ------------------------------------
-      const stripeAmount = Number(totalAmount);
+       const stripeAmount = Number(totalAmount);
 
-      console.log({
-        RAW_TOTAL:
-          entity?.grand_total ??
-          entity?.boost_price ??
-          entity?.final_total_amount,
-        PARSED_TOTAL: totalAmount,
-        STRIPE_AMOUNT: stripeAmount,
-      });
+      console.log('Stripe Amount:', stripeAmount);
 
       // ------------------------------------
       // CREATE PAYMENT INTENT
@@ -200,10 +194,12 @@ export class StripeController {
 
       const paymentIntent = await StripePayment.createPaymentIntent({
         customer_id: customerBillingId,
-        amount: stripeAmount,
+        amount: totalAmount,
         currency: 'usd',
         metadata,
       });
+
+      console.log('Payment Intent:', paymentIntent);
 
       await this.prisma.paymentTransaction.create({
         data: {
@@ -229,10 +225,11 @@ export class StripeController {
         totalAmount,
       };
     } catch (error) {
-      console.log(error);
       throw new InternalServerErrorException('Payment processing failed');
     }
   }
+
+  
 
   @Post('webhook')
   async handleWebhook(
@@ -264,7 +261,7 @@ export class StripeController {
             await this.prisma.boost.update({
               where: { id: meta.boost_id },
               data: {
-                payment_status: BoostPaymentStatus.COMPLETED,
+                payment_status: BoostPaymentStatus.PAID,
                 status: BoostStatus.ACTIVE,
               },
             });

@@ -193,7 +193,9 @@ export class BoostService {
             SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
           )
         : [],
-      boost_time: boost.end_date,
+      boost_start_time: boost.start_date,
+      boost_end_time: boost.end_date,
+      boost_until_time: boost.until_date,
       boost_status: boost.status,
       boost_payment_status: boost.payment_status,
     }));
