@@ -7,6 +7,7 @@ import { RolesGuard } from 'src/common/guard/role/roles.guard';
 import { Roles } from 'src/common/guard/role/roles.decorator';
 import { Role } from 'src/common/guard/role/role.enum';
 import { PaginationDto } from 'src/common/pagination';
+import { UpdateOrderStatusDto } from './dto/update-orderstatus.dto';
 
 @Controller('admin/dashborad')
 @UseGuards(JwtAuthGuard,RolesGuard)
@@ -96,8 +97,14 @@ export class DashboradController {
     return this.dashboradService.cancelledOrders(paginationDto);
   }
   
-
-
+  // * update order status
+  @Patch('order-status-update/:orderid')
+  async updateOrderStatus(
+    @Param('orderid') orderid: string,
+    @Body() dto: UpdateOrderStatusDto
+  ) {
+    return this.dashboradService.updateOrderStatus(orderid, dto.status);
+  }
 
 
 

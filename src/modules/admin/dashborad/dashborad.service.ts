@@ -10,6 +10,7 @@ import { OrderStatus, ProductStatus } from '@prisma/client';
 import { MessageGateway } from 'src/modules/chat/message/message.gateway';
 import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 import { UserRepository } from 'src/common/repository/user/user.repository';
+import { recordEarningOnOrderPaid } from 'src/common/repository/userpayment/userpayment.repository';
 
 @Injectable()
 export class DashboradService {
@@ -634,6 +635,52 @@ export class DashboradService {
   }
 
 
+  // * update order status
+  async updateOrderStatus(orderid: string, status: 'DELIVERED' | 'CANCELLED') {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderid },
+        select: { 
+          id: true, 
+          order_status: true,
+          seller_id: true,
+          grand_total: true,
+        },
+      });
+
+      if (!order) {
+        return { success: false, message: 'Order not found' };
+      }
+
+      const newStatus =
+        status === 'DELIVERED' ? OrderStatus.DELIVERED : OrderStatus.CANCELLED;
+
+      if (order.order_status === newStatus) {
+        return { success: true, message: 'Order already in desired status' };
+      }
+
+      // Update order status
+      await this.prisma.order.update({
+        where: { id: orderid },
+        data: { order_status: newStatus },
+      });
+
+      // If status is DELIVERED, create earning immediately
+      if (newStatus === OrderStatus.DELIVERED && order.seller_id) {
+        await recordEarningOnOrderPaid({
+          orderId: order.id,
+          sellerId: order.seller_id,
+          amount: order.grand_total,
+        });
+      }
+
+      return { success: true, message: 'Order status updated successfully' };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+  
+  
 
 
 

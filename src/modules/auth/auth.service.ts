@@ -106,93 +106,102 @@ export class AuthService {
   }
 
   // register user
-  async register({
-    name,
-    first_name,
-    last_name,
-    email,
-    location,
-    password,
-    type,
-    contact_number,
-  }: {
-    name: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    location: string;
-    password: string;
-    contact_number: string;
-    type?: string;
-  }) {
-    try {
-      // Check if email already exist
-      const userEmailExist = await UserRepository.exist({
-        field: 'email',
-        value: String(email),
+  // ...existing code...
+
+// ...existing code...
+
+async register({
+  name,
+  first_name,
+  last_name,
+  email,
+  location,
+  password,
+  type,
+  contact_number,
+}: {
+  name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  location: string;
+  password: string;
+  contact_number: string;
+  type?: string;
+}) {
+  try {
+    // Check if email already exist
+    const userEmailExist = await UserRepository.exist({
+      field: 'email',
+      value: String(email),
+    });
+
+    if (userEmailExist) {
+      return {
+        success: false,
+        statusCode: 401,
+        message: 'Email already exist',
+      };
+    }
+
+    const user = await UserRepository.createUser({
+      name: name,
+      first_name: first_name,
+      last_name: last_name,
+      email: email,
+      password: password,
+      location: location,
+      contact_number: contact_number,
+      type: type,
+    });
+
+    console.log('User Creation Result:', user); // Debug log
+
+    // Fix: Check if user creation failed
+    if (!user || !user.data || !user.data.id) {
+      return {
+        success: false,
+        message: user?.message || 'Failed to create account',
+      };
+    }
+
+    // create stripe customer account
+    const stripeCustomer = await StripePayment.createCustomer({
+      user_id: user.data.id,
+      email: email,
+      name: name,
+    });
+
+    console.log('Stripe Customer', stripeCustomer);
+
+    if (stripeCustomer) {
+      await this.prisma.user.update({
+        where: {
+          id: user.data.id,
+        },
+        data: {
+          billing_id: stripeCustomer.id,
+        },
       });
+    }
 
-      if (userEmailExist) {
-        return {
-          statusCode: 401,
-          message: 'Email already exist',
-        };
-      }
+    //  create otp code
+    const token = await UcodeRepository.createToken({
+      userId: user.data.id,
+      isOtp: true,
+    });
 
-      const user = await UserRepository.createUser({
-        name: name,
-        first_name: first_name,
-        last_name: last_name,
-        email: email,
-        password: password,
-        location: location,
-        contact_number: contact_number,
-        type: type,
-      });
+    //send otp code to email
+    await this.mailService.sendOtpCodeToEmail({
+      email: email,
+      name: name,
+      otp: token,
+    });
 
-      if (user == null && user.success == false) {
-        return {
-          success: false,
-          message: 'Failed to create account',
-        };
-      }
+    // add notification for new user registration to admin
+    const adminUser = await UserRepository.getAdminUser();
 
-      // create stripe customer account
-      const stripeCustomer = await StripePayment.createCustomer({
-        user_id: user.data.id,
-        email: email,
-        name: name,
-      });
-
-      console.log('Stripe Customer', stripeCustomer);
-
-      if (stripeCustomer) {
-        await this.prisma.user.update({
-          where: {
-            id: user.data.id,
-          },
-          data: {
-            billing_id: stripeCustomer.id,
-          },
-        });
-      }
-
-      //  create otp code
-      const token = await UcodeRepository.createToken({
-        userId: user.data.id,
-        isOtp: true,
-      });
-
-      //send otp code to email
-      const sndOtp = await this.mailService.sendOtpCodeToEmail({
-        email: email,
-        name: name,
-        otp: token,
-      });
-
-      // add notification for new user registration to admin
-      const adminUser = await UserRepository.getAdminUser();
-
+    if (adminUser) {
       const notificationPayload: any = {
         sender_id: user.data.id,
         receiver_id: adminUser.id,
@@ -208,18 +217,24 @@ export class AuthService {
           .emit('notification', notificationPayload);
       }
       await NotificationRepository.createNotification(notificationPayload);
-
-      return {
-        success: true,
-        message: 'We have sent a verification code to your email',
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
     }
+
+    return {
+      success: true,
+      message: 'We have sent a verification code to your email',
+    };
+  } catch (error) {
+    console.error('Registration Error:', error);
+    return {
+      success: false,
+      message: error.message || 'Registration failed',
+    };
   }
+}
+
+// ...existing code...
+
+// ...existing code...
 
   // login user
   async login({

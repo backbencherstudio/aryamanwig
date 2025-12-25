@@ -90,9 +90,24 @@ export class WithdrawService {
 
     const { amount, currency = 'usd' } = withdrawDto;
 
-    // Check minimum withdraw amount
-    if (amount < 1) {
-      throw new BadRequestException('Minimum withdraw amount is 1 USD');
+    // Check if user has available balance
+    if (!user.avaliable_balance || user.avaliable_balance.toNumber() <= 0) {
+      throw new BadRequestException('Insufficient balance to withdraw');
+    }
+
+    // Check minimum withdraw amount (minimum $20)
+    if (amount < 2) {
+      throw new BadRequestException('Minimum withdraw amount is $20');
+    }
+
+    // Check if withdraw amount exceeds available balance
+    if (
+      amount > user.avaliable_balance.toNumber?.() ||
+      amount > Number(user.avaliable_balance)
+    ) {
+      throw new BadRequestException(
+        'Withdraw amount exceeds available balance',
+      );
     }
 
     try {
@@ -102,6 +117,16 @@ export class WithdrawService {
         amount,
         currency,
       );
+
+      // Update user's available balance
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          avaliable_balance: {
+            decrement: amount,
+          },
+        },
+      });
 
       // Save transaction record
       await this.prisma.paymentTransaction.create({
@@ -130,6 +155,14 @@ export class WithdrawService {
         },
       };
     } catch (error) {
+      
+      console.error('Withdraw processing error:', error);
+      // console.error('Error details:', {
+      //   message: error?.message,
+      //   stack: error?.stack,
+      //   response: error?.response,
+      // });
+
       // ব্যর্থ transaction record সেভ করি
       await this.prisma.paymentTransaction.create({
         data: {
@@ -143,10 +176,15 @@ export class WithdrawService {
         },
       });
 
-      throw new HttpException(
-        'Failed to process withdraw. Please try again later.',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      // Handle specific Stripe errors
+      let errorMessage = 'Failed to process withdraw. Please try again later.';
+
+      if (error?.code === 'balance_insufficient') {
+        errorMessage =
+          'Stripe account have not enough balance. Please try again later.';
+      }
+
+      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -167,8 +205,24 @@ export class WithdrawService {
 
     const { amount, currency = 'usd' } = withdrawDto;
 
-    if (amount < 1) {
-      throw new BadRequestException('Minimum withdraw amount is 1 USD');
+    // Check if user has available balance
+    if (!user.avaliable_balance || user.avaliable_balance.toNumber() <= 0) {
+      throw new BadRequestException('Insufficient balance to withdraw');
+    }
+
+    // Check minimum withdraw amount (minimum $20)
+    if (amount < 20) {
+      throw new BadRequestException('Minimum withdraw amount is $20');
+    }
+
+    // Check if withdraw amount exceeds available balance
+    if (
+      amount > user.avaliable_balance.toNumber?.() ||
+      amount > Number(user.avaliable_balance)
+    ) {
+      throw new BadRequestException(
+        'Withdraw amount exceeds available balance',
+      );
     }
 
     try {
@@ -178,6 +232,16 @@ export class WithdrawService {
         amount,
         currency,
       );
+
+      // Update user's available balance
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          avaliable_balance: {
+            decrement: amount,
+          },
+        },
+      });
 
       // Save transaction record
       await this.prisma.paymentTransaction.create({
@@ -207,16 +271,21 @@ export class WithdrawService {
       };
     } catch (error) {
       console.error('Withdraw processing error:', error);
-      throw new HttpException(
-        'Failed to process withdraw. Please try again later.',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+
+      // Handle specific Stripe errors
+      let errorMessage = 'Failed to process withdraw. Please try again later.';
+
+      if (error?.code === 'balance_insufficient') {
+        errorMessage =
+          'Stripe account এ পর্যাপ্ত টাকা নেই। অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন।';
+      }
+
+      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   //Check Connected Account Balance
   async checkAccountBalance(userId: string) {
-  
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { banking_id: true },
@@ -227,7 +296,6 @@ export class WithdrawService {
     }
 
     try {
-
       const balance = await StripePayment.checkBalance(user.banking_id);
 
       const availableAmount = balance.available?.[0]?.amount || 0;
@@ -238,13 +306,13 @@ export class WithdrawService {
         success: true,
         data: {
           available: {
-            amount: availableAmount / 100, 
+            amount: availableAmount / 100,
             amount_in_cents: availableAmount,
             currency: currency,
             display: `$${(availableAmount / 100).toFixed(2)} ${currency.toUpperCase()}`,
           },
           pending: {
-            amount: pendingAmount / 100, 
+            amount: pendingAmount / 100,
             amount_in_cents: pendingAmount,
             currency: currency,
             display: `$${(pendingAmount / 100).toFixed(2)} ${currency.toUpperCase()}`,

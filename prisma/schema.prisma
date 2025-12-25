@@ -62,6 +62,8 @@ model User {
   gender        String?
   date_of_birth DateTime? @db.Date
 
+  avaliable_balance Decimal @default(0.0) @db.Decimal(10, 2)
+
   fcm_token   String?
   device_type String? 
 
@@ -118,6 +120,9 @@ model User {
 
   // user boosts
   boosts Boost[] @relation("UserBoosts")
+
+  // user earnings
+  userEarnings UserEarning[]
 
   approved_at DateTime?
   created_at  DateTime  @default(now())
@@ -241,8 +246,35 @@ model Boost {
 }
 
 
+enum EarningStatus {
+  PENDING   
+  SCHEDULED 
+  RELEASED  
+}
 
-//----------------------------------------------------------------------------------------
+
+model UserEarning {
+  id           String    @id @default(cuid())
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @default(now())
+  deleted_at   DateTime?
+
+  order_id String?
+  order    Order?   @relation(fields: [order_id], references: [id])
+
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id])
+
+  amount       Decimal   @db.Decimal(10, 2) // gross
+  fee_percent  Decimal   @default(10.0)     // 10%
+  fee_amount   Decimal?  @db.Decimal(10, 2)
+  net_amount   Decimal?  @db.Decimal(10, 2) // amount - fee
+  earning_date DateTime  @default(now())
+  release_at   DateTime? // earning_date + 3 days
+  status       EarningStatus @default(PENDING)
+
+  @@map("user_earnings")
+}
 
 
 
@@ -376,6 +408,9 @@ model Order {
 
   payment_transactions PaymentTransaction[] @relation("OrderPaymentTransaction")
 
+  
+  userEarnings UserEarning[]
+  
   order_items OrderItem[]
   User        User?       @relation(fields: [userId], references: [id])
   userId      String?
@@ -394,6 +429,11 @@ model OrderItem {
 
   @@map("order_items")
 }
+
+
+// 
+
+
 
 model Bid {
   id         String   @id @default(cuid())

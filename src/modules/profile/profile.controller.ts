@@ -40,8 +40,6 @@ export class ProfileController {
    
 
 
-
-
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async Me( @Req() req: any ) {

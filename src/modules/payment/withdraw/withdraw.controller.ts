@@ -69,6 +69,7 @@ export class WithdrawController {
   ) {
     try {
       const userId = req.user.userId;
+      console.log('Withdraw request for user:', userId);
       const result = await this.withdrawService.processWithdraw(
         userId,
         withdrawDto,
