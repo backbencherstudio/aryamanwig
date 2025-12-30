@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from "../prisma";
 
 export class TransactionRepository {
   /**
@@ -12,7 +10,7 @@ export class TransactionRepository {
     amount,
     currency,
     reference_number,
-    status = 'pending',
+    status = "pending",
   }: {
     booking_id: string;
     amount?: number;
@@ -22,19 +20,19 @@ export class TransactionRepository {
   }) {
     const data = {};
     if (booking_id) {
-      data['booking_id'] = booking_id;
+      data["booking_id"] = booking_id;
     }
     if (amount) {
-      data['amount'] = Number(amount);
+      data["amount"] = Number(amount);
     }
     if (currency) {
-      data['currency'] = currency;
+      data["currency"] = currency;
     }
     if (reference_number) {
-      data['reference_number'] = reference_number;
+      data["reference_number"] = reference_number;
     }
     if (status) {
-      data['status'] = status;
+      data["status"] = status;
     }
     return await prisma.paymentTransaction.create({
       data: {
@@ -49,7 +47,7 @@ export class TransactionRepository {
    */
   static async updateTransaction({
     reference_number,
-    status = 'pending',
+    status = "pending",
     paid_amount,
     paid_currency,
     raw_status,
@@ -63,20 +61,20 @@ export class TransactionRepository {
     const data = {};
     const order_data = {};
     if (status) {
-      data['status'] = status;
-      order_data['payment_status'] = status;
+      data["status"] = status;
+      order_data["payment_status"] = status;
     }
     if (paid_amount) {
-      data['paid_amount'] = Number(paid_amount);
-      order_data['paid_amount'] = Number(paid_amount);
+      data["paid_amount"] = Number(paid_amount);
+      order_data["paid_amount"] = Number(paid_amount);
     }
     if (paid_currency) {
-      data['paid_currency'] = paid_currency;
-      order_data['paid_currency'] = paid_currency;
+      data["paid_currency"] = paid_currency;
+      order_data["paid_currency"] = paid_currency;
     }
     if (raw_status) {
-      data['raw_status'] = raw_status;
-      order_data['payment_raw_status'] = raw_status;
+      data["raw_status"] = raw_status;
+      order_data["payment_raw_status"] = raw_status;
     }
 
     const paymentTransaction = await prisma.paymentTransaction.findMany({

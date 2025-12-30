@@ -293,10 +293,6 @@ export class ProfileService {
     
   }
 
-
-
-
-
   // *get user profile view
   async Me(userId: string) {
       try {
@@ -392,8 +388,7 @@ export class ProfileService {
       }
   }
 
-
-  // user profile with average review and average rating
+  // *user profile with average review and average rating
   async getUserReviews(userId: string) {
 
     // get user details
@@ -447,7 +442,7 @@ export class ProfileService {
   }
 
    
-  // client user profile view
+  // *client user profile view
    async Client(userId: string) {
       try {
       
@@ -541,7 +536,7 @@ export class ProfileService {
   }
 
   
-  // user profile with average review and average rating
+  // *user profile with average review and average rating
   async getClientReviews(userId: string) {
 
     // get user details
@@ -593,5 +588,5 @@ export class ProfileService {
 
 
   }
-
+  
 }

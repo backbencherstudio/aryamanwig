@@ -1,14 +1,11 @@
-import * as crypto from 'crypto';
-import { randomInt } from 'crypto';
-import { v4 as uuid } from 'uuid';
-import { PrismaClient } from '@prisma/client';
-import { DateHelper } from '../../helper/date.helper';
-import { UserRepository } from '../user/user.repository';
-
-const prisma = new PrismaClient();
+import * as crypto from "crypto";
+import { randomInt } from "crypto";
+import { v4 as uuid } from "uuid";
+import { DateHelper } from "../../helper/date.helper";
+import { UserRepository } from "../user/user.repository";
+import { prisma } from "../prisma";
 
 export class UcodeRepository {
-  
   /**
    * create ucode token
    * @returns
@@ -69,7 +66,7 @@ export class UcodeRepository {
     forEmailChange?: boolean;
   }) {
     const userDetails = await UserRepository.exist({
-      field: 'email',
+      field: "email",
       value: email,
     });
 
@@ -138,8 +135,7 @@ export class UcodeRepository {
     }
   }
 
-
-    static async validateToken3({
+  static async validateToken3({
     email,
     token,
   }: {
@@ -149,7 +145,6 @@ export class UcodeRepository {
     try {
       const now = new Date(Date.now());
 
-      
       const existToken = await prisma.ucode.findFirst({
         where: {
           email: email,
@@ -158,20 +153,17 @@ export class UcodeRepository {
       });
 
       if (!existToken) {
-        return false; 
+        return false;
       }
 
-     
       if (existToken.token_verify) {
-        return false; 
+        return false;
       }
 
-      
       if (existToken.expired_at && existToken.expired_at < now) {
-        return false; 
+        return false;
       }
 
-      
       await prisma.ucode.update({
         where: {
           id: existToken.id,
@@ -187,8 +179,7 @@ export class UcodeRepository {
     }
   }
 
-
-   static async checkVerifiedToken({
+  static async checkVerifiedToken({
     email,
     token,
   }: {
@@ -203,28 +194,25 @@ export class UcodeRepository {
     });
 
     if (!ucode) {
-      return { valid: false, message: 'Invalid token.' };
+      return { valid: false, message: "Invalid token." };
     }
 
-    
     if (!ucode.token_verify) {
-      return { valid: false, message: 'Token has not been verified.' };
+      return { valid: false, message: "Token has not been verified." };
     }
 
-  
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     if (ucode.token_verify < fiveMinutesAgo) {
       return {
         valid: false,
-        message: 'Verification session expired (5 minutes). Please verify again.',
+        message:
+          "Verification session expired (5 minutes). Please verify again.",
       };
     }
 
- 
-    return { valid: true, message: 'Token is valid for reset.' };
+    return { valid: true, message: "Token is valid for reset." };
   }
 
-  
   /**
    * delete ucode token
    * @returns
@@ -242,7 +230,7 @@ export class UcodeRepository {
     email: string;
   }) {
     try {
-      const token = crypto.randomBytes(32).toString('hex');
+      const token = crypto.randomBytes(32).toString("hex");
 
       const ucode = await prisma.ucode.create({
         data: {

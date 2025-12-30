@@ -1,12 +1,10 @@
-import * as bcrypt from 'bcrypt';
-import * as speakeasy from 'speakeasy';
-import * as QRCode from 'qrcode';
-import { PrismaClient } from '@prisma/client';
-import appConfig from '../../../config/app.config';
-import { ArrayHelper } from '../../helper/array.helper';
-import { Role } from '../../guard/role/role.enum';
-
-const prisma = new PrismaClient();
+import * as bcrypt from "bcrypt";
+import * as speakeasy from "speakeasy";
+import * as QRCode from "qrcode";
+import appConfig from "../../../config/app.config";
+import { ArrayHelper } from "../../helper/array.helper";
+import { Role } from "../../guard/role/role.enum";
+import { prisma } from "../prisma";
 
 export class UserRepository {
   /**
@@ -37,7 +35,7 @@ export class UserRepository {
   static async getUserDeatil(userId: string) {
     const user = await prisma.user.findFirst({
       where: {
-        id: userId, 
+        id: userId,
       },
     });
     return user;
@@ -98,7 +96,7 @@ export class UserRepository {
           username: username,
           email: email,
           password: password,
-          type: 'su_admin',
+          type: "su_admin",
         },
       });
       return user;
@@ -209,7 +207,7 @@ export class UserRepository {
     password,
     phone_number,
     role_id = null,
-    type = 'user',
+    type = "user",
   }: {
     name?: string;
     first_name?: string;
@@ -225,50 +223,50 @@ export class UserRepository {
     try {
       const data = {};
       if (name) {
-        data['name'] = name;
+        data["name"] = name;
       }
       if (first_name) {
-        data['first_name'] = first_name;
+        data["first_name"] = first_name;
       }
       if (last_name) {
-        data['last_name'] = last_name;
+        data["last_name"] = last_name;
       }
       if (phone_number) {
-        data['phone_number'] = phone_number;
+        data["phone_number"] = phone_number;
       }
 
       if (contact_number) {
-        data['contact_number'] = contact_number;
+        data["contact_number"] = contact_number;
       }
 
       if (email) {
         // Check if email already exist
         const userEmailExist = await UserRepository.exist({
-          field: 'email',
+          field: "email",
           value: String(email),
         });
 
         if (userEmailExist) {
           return {
             success: false,
-            message: 'Email already exist',
+            message: "Email already exist",
           };
         }
 
-        data['email'] = email;
+        data["email"] = email;
       }
       if (password) {
-        data['password'] = await bcrypt.hash(
+        data["password"] = await bcrypt.hash(
           password,
           appConfig().security.salt,
         );
       }
       if (location) {
-        data['location'] = location;
+        data["location"] = location;
       }
 
       if (type && ArrayHelper.inArray(type, Object.values(Role))) {
-        data['type'] = type;
+        data["type"] = type;
 
         // if (type == Role.VENDOR) {
         //   data['approved_at'] = DateHelper.now();
@@ -292,13 +290,13 @@ export class UserRepository {
 
         return {
           success: true,
-          message: 'User created successfully',
+          message: "User created successfully",
           data: user,
         };
       } else {
         return {
           success: false,
-          message: 'User creation failed',
+          message: "User creation failed",
         };
       }
     } catch (error) {
@@ -321,7 +319,7 @@ export class UserRepository {
       email,
       password,
       role_id = null,
-      type = 'user',
+      type = "user",
     }: {
       name?: string;
       email?: string;
@@ -333,36 +331,36 @@ export class UserRepository {
     try {
       const data = {};
       if (name) {
-        data['name'] = name;
+        data["name"] = name;
       }
       if (email) {
         // Check if email already exist
         const userEmailExist = await UserRepository.exist({
-          field: 'email',
+          field: "email",
           value: String(email),
         });
 
         if (userEmailExist) {
           return {
             success: false,
-            message: 'Email already exist',
+            message: "Email already exist",
           };
         }
-        data['email'] = email;
+        data["email"] = email;
       }
       if (password) {
-        data['password'] = await bcrypt.hash(
+        data["password"] = await bcrypt.hash(
           password,
           appConfig().security.salt,
         );
       }
 
       if (ArrayHelper.inArray(type, Object.values(Role))) {
-        data['type'] = type;
+        data["type"] = type;
       } else {
         return {
           success: false,
-          message: 'Invalid user type',
+          message: "Invalid user type",
         };
       }
 
@@ -375,7 +373,7 @@ export class UserRepository {
       if (!existUser) {
         return {
           success: false,
-          message: 'User not found',
+          message: "User not found",
         };
       }
 
@@ -399,13 +397,13 @@ export class UserRepository {
 
         return {
           success: true,
-          message: 'User updated successfully',
+          message: "User updated successfully",
           data: user,
         };
       } else {
         return {
           success: false,
-          message: 'User update failed',
+          message: "User update failed",
         };
       }
     } catch (error) {
@@ -432,7 +430,7 @@ export class UserRepository {
       if (!existUser) {
         return {
           success: false,
-          message: 'User not found',
+          message: "User not found",
         };
       }
 
@@ -443,7 +441,7 @@ export class UserRepository {
       });
       return {
         success: true,
-        message: 'User deleted successfully',
+        message: "User deleted successfully",
       };
     } catch (error) {
       return {
@@ -522,19 +520,19 @@ export class UserRepository {
   }
 
   // convert user type to admin/vendor
-  static async convertTo(user_id: string, type: string = 'vendor') {
+  static async convertTo(user_id: string, type: string = "vendor") {
     try {
       const userDetails = await UserRepository.getUserDetails(user_id);
       if (!userDetails) {
         return {
           success: false,
-          message: 'User not found',
+          message: "User not found",
         };
       }
-      if (userDetails.type == 'vendor') {
+      if (userDetails.type == "vendor") {
         return {
           success: false,
-          message: 'User is already a vendor',
+          message: "User is already a vendor",
         };
       }
       await prisma.user.update({
@@ -544,7 +542,7 @@ export class UserRepository {
 
       return {
         success: true,
-        message: 'Converted to ' + type + ' successfully',
+        message: "Converted to " + type + " successfully",
       };
     } catch (error) {
       return {
@@ -563,7 +561,7 @@ export class UserRepository {
     if (!user) {
       return {
         success: false,
-        message: 'User not found',
+        message: "User not found",
       };
     }
 
@@ -579,7 +577,7 @@ export class UserRepository {
 
     return {
       success: true,
-      message: '2FA secret generated successfully',
+      message: "2FA secret generated successfully",
       data: {
         secret: secret.base32,
         qrCode: qrCode,
@@ -595,7 +593,7 @@ export class UserRepository {
 
     const isValid = speakeasy.totp.verify({
       secret: user.two_factor_secret,
-      encoding: 'base32',
+      encoding: "base32",
       token,
     });
 
@@ -624,7 +622,7 @@ export class UserRepository {
   static async getAdminUser() {
     const users = await prisma.user.findFirst({
       where: {
-        type: 'admin',
+        type: "admin",
       },
       select: {
         id: true,

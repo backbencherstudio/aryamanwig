@@ -1,7 +1,6 @@
+import { EarningStatus, Prisma } from "@prisma/client";
+import { prisma } from "../prisma";
 
-import { PrismaClient, EarningStatus, Prisma } from '@prisma/client';
-
-const prisma = new PrismaClient();
 const HOLD_DAYS = 3;
 
 export async function recordEarningOnOrderPaid(params: {
@@ -43,10 +42,9 @@ export async function releaseDueEarnings() {
 
   for (const earning of due) {
     await prisma.$transaction([
-           prisma.user.update({
+      prisma.user.update({
         where: { id: earning.user_id! },
         data: {
-         
           avaliable_balance: {
             increment: new Prisma.Decimal(earning.net_amount!),
           },
