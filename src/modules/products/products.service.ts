@@ -1,30 +1,31 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { Condition, CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { FilterProductDto } from './dto/filter-product.dto';
-import { BoostProductDto, BoostTierEnum } from './dto/boost-product.dto';
-import { StringHelper } from 'src/common/helper/string.helper';
-import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
-import appConfig from 'src/config/app.config';
-import { subHours } from 'date-fns';
-import { formatDate, getBoostTimeLeft } from 'src/common/utils/date.utils';
-import { ca, id } from 'date-fns/locale';
-import { paginateResponse } from 'src/common/pagination/pagination.service';
-import { PaginationDto } from 'src/common/pagination';
+} from "@nestjs/common";
+import { Condition, CreateProductDto } from "./dto/create-product.dto";
+import { UpdateProductDto } from "./dto/update-product.dto";
+import { PrismaService } from "src/prisma/prisma.service";
+import { FilterProductDto } from "./dto/filter-product.dto";
+import { BoostProductDto, BoostTierEnum } from "./dto/boost-product.dto";
+import { StringHelper } from "src/common/helper/string.helper";
+import { SojebStorage } from "src/common/lib/Disk/SojebStorage";
+import appConfig from "src/config/app.config";
+import { subHours } from "date-fns";
+import { formatDate, getBoostTimeLeft } from "src/common/utils/date.utils";
+import { ca, id } from "date-fns/locale";
+import { paginateResponse } from "src/common/pagination/pagination.service";
+import { PaginationDto } from "src/common/pagination";
 import {
   ProductStatus,
   Prisma,
   BoostPaymentStatus,
   BoostStatus,
-} from '@prisma/client';
-import { MessageGateway } from '../chat/message/message.gateway';
-import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
-import { UserRepository } from 'src/common/repository/user/user.repository';
+} from "@prisma/client";
+import { MessageGateway } from "../chat/message/message.gateway";
+import { NotificationRepository } from "src/common/repository/notification/notification.repository";
+import { UserRepository } from "src/common/repository/user/user.repository";
 
 @Injectable()
 export class ProductsService {
@@ -42,7 +43,7 @@ export class ProductsService {
         status: BoostStatus.ACTIVE,
         end_date: { gte: nowUTC },
       },
-      orderBy: { end_date: 'desc' },
+      orderBy: { end_date: "desc" },
     });
   }
   //-----------------------------------------------
@@ -72,69 +73,71 @@ export class ProductsService {
     });
 
     if (existingProduct) {
-      throw new ConflictException('Product with this title already exists');
+      throw new ConflictException("Product with this title already exists");
     }
 
     const category = await this.prisma.category.findUnique({
       where: { id: category_id },
     });
     if (!category) {
-      throw new ConflictException('Category does not exist');
+      throw new ConflictException("Category does not exist");
+    }
+
+    if (!images || images.length === 0) {
+      throw new BadRequestException("At least one product image is required");
     }
 
     let photos: string[] = [];
-    if (images && images.length > 0) {
-      for (const image of images) {
-        const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
+    for (const image of images) {
+      const fileName = `${StringHelper.randomString(8)}_${image.originalname}`;
 
-        await SojebStorage.put(
-          appConfig().storageUrl.product + '/' + fileName,
-          image.buffer,
-        );
+      await SojebStorage.put(
+        appConfig().storageUrl.product + "/" + fileName,
+        image.buffer,
+      );
 
-        photos.push(fileName);
-      }
-
-      // Create product in DB
-      const newProduct = await this.prisma.product.create({
-        data: {
-          product_title,
-          product_description,
-          price,
-          stock,
-          photo: photos,
-          location,
-          size,
-          color,
-          time,
-          condition,
-          user_id: user,
-          category_id,
-          product_item_size,
-        },
-      });
-
-      let photoUrl = null;
-      if (newProduct.photo) {
-        photoUrl = SojebStorage.url(
-          `${appConfig().storageUrl.product}/${newProduct.photo}`,
-        );
-      }
-
-      return {
-        success: true,
-        message: 'Product created successfully',
-        data: {
-          id: newProduct.id,
-          product_title: newProduct.product_title,
-          product_description: newProduct.product_description,
-          price: newProduct.price,
-          stock: newProduct.stock,
-          photo: newProduct.photo,
-          photoUrl,
-        },
-      };
+      photos.push(fileName);
     }
+
+    // Create product in DB
+    const newProduct = await this.prisma.product.create({
+      data: {
+        product_title,
+        product_description,
+        price,
+        stock,
+        photo: photos,
+        location,
+        size,
+        color,
+        time,
+        condition,
+        user_id: user,
+        category_id,
+        product_item_size,
+      },
+    });
+
+    let photoUrl = null;
+    if (newProduct.photo) {
+      photoUrl = SojebStorage.url(
+        `${appConfig().storageUrl.product}/${newProduct.photo}`,
+      );
+    }
+
+    return {
+      success: true,
+      message: "Product created successfully",
+      data: {
+        id: newProduct.id,
+        product_title: newProduct.product_title,
+        product_description: newProduct.product_description,
+        price: newProduct.price,
+        stock: newProduct.stock,
+        photo: newProduct.photo,
+        photoUrl,
+      },
+    };
   }
 
   // Get all products
@@ -151,7 +154,7 @@ export class ProductsService {
         where: whereClause,
         skip,
         take: perPage,
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: "desc" },
         select: {
           id: true,
           product_title: true,
@@ -165,7 +168,7 @@ export class ProductsService {
               status: BoostStatus.ACTIVE,
               until_date: { gte: new Date() },
             },
-            orderBy: { until_date: 'desc' },
+            orderBy: { until_date: "desc" },
             take: 1,
           },
         },
@@ -175,7 +178,7 @@ export class ProductsService {
     if (total === 0) {
       return {
         success: true,
-        message: 'No products found',
+        message: "No products found",
         data: paginateResponse([], total, page, perPage),
       };
     }
@@ -192,7 +195,8 @@ export class ProductsService {
       size: product.size,
       condition: product.condition,
       created_time: product.created_at,
-      boost_time: product.boosts.length > 0 ? product.boosts[0].until_date : null,
+      boost_time:
+        product.boosts.length > 0 ? product.boosts[0].until_date : null,
       price: product.price,
     }));
 
@@ -205,7 +209,7 @@ export class ProductsService {
 
     return {
       success: true,
-      message: 'Products retrieved successfully',
+      message: "Products retrieved successfully",
       ...paginatedData,
     };
   }
@@ -218,7 +222,7 @@ export class ProductsService {
         category: true,
         user: true,
         bids: {
-          orderBy: { created_at: 'asc' },
+          orderBy: { created_at: "asc" },
           take: 1,
           select: { id: true, bid_amount: true },
         },
@@ -227,7 +231,7 @@ export class ProductsService {
             status: BoostStatus.ACTIVE,
             until_date: { gte: new Date() },
           },
-          orderBy: { until_date: 'desc' },
+          orderBy: { until_date: "desc" },
           take: 1,
         },
       },
@@ -246,7 +250,7 @@ export class ProductsService {
 
     return {
       success: true,
-      message: 'Product retrieved successfully',
+      message: "Product retrieved successfully",
       data: {
         seller_Info: {
           user_id: product.user.id,
@@ -271,10 +275,10 @@ export class ProductsService {
         location: product.location,
         price: product.price,
         description: product.product_description,
-        condition: product.condition === 'NEW' ? 'Like New' : product.condition,
+        condition: product.condition === "NEW" ? "Like New" : product.condition,
         size: product.size,
         product_item_size: product.product_item_size,
-        color: product.color || 'Not Specified',
+        color: product.color || "Not Specified",
         uploaded: product.created_at,
         remaining_time: activeBoost ? activeBoost.until_date : null,
         minimum_bid:
@@ -303,7 +307,7 @@ export class ProductsService {
     if (!product)
       throw new NotFoundException(`Product with ID ${id} not found`);
     if (product.user_id !== user)
-      throw new ConflictException('You are not allowed to update this product');
+      throw new ConflictException("You are not allowed to update this product");
 
     let photos: string[] = product.photo || [];
 
@@ -334,7 +338,7 @@ export class ProductsService {
       });
 
       if (!category) {
-        throw new ConflictException('Category does not exist');
+        throw new ConflictException("Category does not exist");
       }
     }
 
@@ -347,21 +351,21 @@ export class ProductsService {
       });
 
       if (existingProduct) {
-        throw new ConflictException('Product with this title already exists');
+        throw new ConflictException("Product with this title already exists");
       }
     }
 
     // Validate price
     if (updateProductDto.price) {
       if (updateProductDto.price <= 0) {
-        throw new ConflictException('Price must be greater than 0');
+        throw new ConflictException("Price must be greater than 0");
       }
     }
 
     // Validate stock
     if (updateProductDto.stock) {
       if (updateProductDto.stock < 0) {
-        throw new ConflictException('Stock cannot be less than 0');
+        throw new ConflictException("Stock cannot be less than 0");
       }
     }
 
@@ -380,7 +384,7 @@ export class ProductsService {
 
     return {
       success: true,
-      message: 'Product updated successfully',
+      message: "Product updated successfully",
       data: {
         id: updatedProduct.id,
         product_title: updatedProduct.product_title,
@@ -407,7 +411,7 @@ export class ProductsService {
     }
 
     if (product.user_id !== user) {
-      throw new ConflictException('You are not allowed to delete this product');
+      throw new ConflictException("You are not allowed to delete this product");
     }
 
     await this.prisma.product.delete({
@@ -416,7 +420,7 @@ export class ProductsService {
 
     return {
       success: true,
-      message: 'Product deleted successfully',
+      message: "Product deleted successfully",
     };
   }
 
@@ -437,7 +441,7 @@ export class ProductsService {
         where: { user_id: user, ...whereClause },
         skip,
         take: perPage,
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: "desc" },
         select: {
           id: true,
           product_title: true,
@@ -458,7 +462,7 @@ export class ProductsService {
               status: BoostStatus.ACTIVE,
               until_date: { gte: new Date() },
             },
-            orderBy: { until_date: 'desc' },
+            orderBy: { until_date: "desc" },
             take: 1,
           },
         },
@@ -468,7 +472,7 @@ export class ProductsService {
     if (total === 0) {
       return {
         success: true,
-        message: 'No products found for this user',
+        message: "No products found for this user",
         data: paginateResponse([], total, page, perPage),
       };
     }
@@ -487,9 +491,9 @@ export class ProductsService {
       price: product.price,
       description: product.product_description,
       location: product.location,
-      condition: product.condition === 'NEW' ? 'Like New' : product.condition,
+      condition: product.condition === "NEW" ? "Like New" : product.condition,
       size: product.size,
-      color: product.color || 'Not Specified',
+      color: product.color || "Not Specified",
       uploaded: product.created_at,
       remaining_time:
         product.boosts.length > 0 ? product.boosts[0].until_date : null,
@@ -505,7 +509,7 @@ export class ProductsService {
 
     return {
       success: true,
-      message: 'Products retrieved successfully',
+      message: "Products retrieved successfully",
       ...paginatedData,
     };
   }
@@ -527,7 +531,7 @@ export class ProductsService {
         where: { user_id: user, ...whereClause },
         skip,
         take: perPage,
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: "desc" },
         select: {
           id: true,
           product_title: true,
@@ -548,7 +552,7 @@ export class ProductsService {
               status: BoostStatus.ACTIVE,
               until_date: { gte: new Date() },
             },
-            orderBy: { until_date: 'desc' },
+            orderBy: { until_date: "desc" },
             take: 1,
           },
         },
@@ -558,7 +562,7 @@ export class ProductsService {
     if (total === 0) {
       return {
         success: true,
-        message: 'No products found for this user',
+        message: "No products found for this user",
         data: paginateResponse([], total, page, perPage),
       };
     }
@@ -577,9 +581,9 @@ export class ProductsService {
       price: product.price,
       description: product.product_description,
       location: product.location,
-      condition: product.condition === 'NEW' ? 'Like New' : product.condition,
+      condition: product.condition === "NEW" ? "Like New" : product.condition,
       size: product.size,
-      color: product.color || 'Not Specified',
+      color: product.color || "Not Specified",
       uploaded: product.created_at,
       remaining_time:
         product.boosts.length > 0 ? product.boosts[0].until_date : null,
@@ -595,7 +599,7 @@ export class ProductsService {
 
     return {
       success: true,
-      message: 'Products retrieved successfully',
+      message: "Products retrieved successfully",
       ...paginatedData,
     };
   }
@@ -609,12 +613,12 @@ export class ProductsService {
       status: ProductStatus.APPROVED,
     };
 
-    if (search && search.trim() !== '') {
+    if (search && search.trim() !== "") {
       whereClause = {
         ...whereClause,
         product_title: {
           contains: search,
-          mode: 'insensitive',
+          mode: "insensitive",
         },
       };
     }
@@ -625,7 +629,7 @@ export class ProductsService {
         where: whereClause,
         skip,
         take: perPage,
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: "desc" },
         select: {
           id: true,
           product_title: true,
@@ -639,7 +643,7 @@ export class ProductsService {
               status: BoostStatus.ACTIVE,
               until_date: { gte: new Date() },
             },
-            orderBy: { until_date: 'desc' },
+            orderBy: { until_date: "desc" },
             take: 1,
           },
         },
@@ -649,7 +653,7 @@ export class ProductsService {
     if (total === 0) {
       return {
         success: true,
-        message: 'No products found matching your search',
+        message: "No products found matching your search",
         ...paginateResponse([], total, page, perPage),
       };
     }
@@ -660,7 +664,8 @@ export class ProductsService {
       size: product.size,
       condition: product.condition,
       created_time: product.created_at,
-      boost_time: product.boosts.length > 0 ? product.boosts[0].until_date : null,
+      boost_time:
+        product.boosts.length > 0 ? product.boosts[0].until_date : null,
       price: product.price,
       photo:
         product.photo && product.photo.length > 0
@@ -672,11 +677,11 @@ export class ProductsService {
 
     return {
       success: true,
-      message: 'Products retrieved successfully',
+      message: "Products retrieved successfully",
       ...paginateResponse(formattedProducts, total, page, perPage),
     };
   }
-  
+
   // filter products by price range and categories
   async filterProducts(filterDto: FilterProductDto, user: string) {
     const { min_price, max_price, categories, location, time_in_hours } =
@@ -697,7 +702,7 @@ export class ProductsService {
       whereClause.category_id = { in: categories };
     }
     if (location) {
-      whereClause.location = { contains: location, mode: 'insensitive' };
+      whereClause.location = { contains: location, mode: "insensitive" };
     }
 
     // 🔹 Time filter for boosted products
@@ -718,7 +723,7 @@ export class ProductsService {
     const products = await this.prisma.product.findMany({
       where: whereClause,
       orderBy: {
-        created_at: 'desc',
+        created_at: "desc",
       },
       select: {
         id: true,
@@ -738,7 +743,7 @@ export class ProductsService {
             status: BoostStatus.ACTIVE,
             until_date: { gte: new Date() },
           },
-          orderBy: { until_date: 'desc' },
+          orderBy: { until_date: "desc" },
           take: 1,
         },
       },
@@ -748,7 +753,7 @@ export class ProductsService {
       return {
         success: false,
         total: 0,
-        message: 'No products found',
+        message: "No products found",
         data: [],
       };
     }
@@ -766,14 +771,15 @@ export class ProductsService {
       size: product.size,
       condition: product.condition,
       created_time: product.created_at,
-      boost_time: product.boosts.length > 0 ? product.boosts[0].until_date : null,
+      boost_time:
+        product.boosts.length > 0 ? product.boosts[0].until_date : null,
       price: product.price,
       is_in_wishlist: product.wishlists.length > 0,
     }));
 
     return {
       success: true,
-      message: 'Products retrieved successfully',
+      message: "Products retrieved successfully",
       data: {
         products: formattedProducts,
         product_count: products.length,
@@ -810,7 +816,7 @@ export class ProductsService {
         where: whereClause,
         skip,
         take: perPage,
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: "desc" },
         select: {
           id: true,
           product_title: true,
@@ -825,7 +831,7 @@ export class ProductsService {
             select: { id: true },
           },
           bids: {
-            orderBy: { created_at: 'asc' },
+            orderBy: { created_at: "asc" },
             take: 1,
             select: { id: true, bid_amount: true },
           },
@@ -834,7 +840,7 @@ export class ProductsService {
               status: BoostStatus.ACTIVE,
               until_date: { gte: new Date() },
             },
-            orderBy: { until_date: 'desc' },
+            orderBy: { until_date: "desc" },
             take: 1,
           },
         },
@@ -844,7 +850,7 @@ export class ProductsService {
     if (total === 0) {
       return {
         success: true,
-        message: 'No products found in this category',
+        message: "No products found in this category",
         data: paginateResponse([], total, page, perPage),
       };
     }
@@ -878,7 +884,7 @@ export class ProductsService {
 
     return {
       success: true,
-      message: 'Products retrieved successfully',
+      message: "Products retrieved successfully",
       ...paginatedData,
     };
   }
@@ -911,7 +917,7 @@ export class ProductsService {
         where: whereClause,
         skip,
         take: perPage,
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: "desc" },
         select: {
           id: true,
           product_title: true,
@@ -926,7 +932,7 @@ export class ProductsService {
             select: { id: true },
           },
           bids: {
-            orderBy: { created_at: 'asc' },
+            orderBy: { created_at: "asc" },
             take: 1,
             select: { id: true, bid_amount: true },
           },
@@ -935,7 +941,7 @@ export class ProductsService {
               status: BoostStatus.ACTIVE,
               until_date: { gte: new Date() },
             },
-            orderBy: { until_date: 'desc' },
+            orderBy: { until_date: "desc" },
             take: 1,
           },
         },
@@ -945,7 +951,7 @@ export class ProductsService {
     if (total === 0) {
       return {
         success: true,
-        message: 'No products found in this category',
+        message: "No products found in this category",
         ...paginateResponse([], total, page, perPage),
       };
     }
@@ -979,7 +985,7 @@ export class ProductsService {
 
     return {
       success: true,
-      message: 'Latest products retrieved successfully',
+      message: "Latest products retrieved successfully",
       ...paginatedData,
     };
   }
@@ -1012,7 +1018,7 @@ export class ProductsService {
         where: whereClause,
         skip,
         take: perPage,
-        orderBy: { created_at: 'asc' },
+        orderBy: { created_at: "asc" },
         select: {
           id: true,
           product_title: true,
@@ -1027,7 +1033,7 @@ export class ProductsService {
             select: { id: true },
           },
           bids: {
-            orderBy: { created_at: 'asc' },
+            orderBy: { created_at: "asc" },
             take: 1,
             select: { id: true, bid_amount: true },
           },
@@ -1036,7 +1042,7 @@ export class ProductsService {
               status: BoostStatus.ACTIVE,
               until_date: { gte: new Date() },
             },
-            orderBy: { until_date: 'desc' },
+            orderBy: { until_date: "desc" },
             take: 1,
           },
         },
@@ -1046,7 +1052,7 @@ export class ProductsService {
     if (total === 0) {
       return {
         success: true,
-        message: 'No products found in this category',
+        message: "No products found in this category",
         ...paginateResponse([], total, page, perPage),
       };
     }
@@ -1080,7 +1086,7 @@ export class ProductsService {
 
     return {
       success: true,
-      message: 'Oldest products retrieved successfully',
+      message: "Oldest products retrieved successfully",
       ...paginatedData,
     };
   }

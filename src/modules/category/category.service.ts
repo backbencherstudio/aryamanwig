@@ -33,7 +33,7 @@ export class CategoryService {
       throw new ConflictException("Category with this name already exists");
     }
 
-    // 📸 Handle photo upload if provided
+    // Handle photo upload if provided
     let photo: string | null = null;
 
     if (image) {
@@ -122,6 +122,11 @@ export class CategoryService {
         category_id: category.id,
         category_name: category.category_name,
         category_description: category.category_description,
+        photo: category.photo
+          ? SojebStorage.url(
+              `${appConfig().storageUrl.category}/${category.photo}`,
+            )
+          : null,
         status: category.status,
       },
     };

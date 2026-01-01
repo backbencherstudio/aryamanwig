@@ -18,13 +18,11 @@ export class ProfileService {
   // *user dashboard with profile and products
   async getProfileAndProductsandReviews(userId: string, query: PaginationDto) {
      
-      
       const { page, perPage } = query;
       const skip = (page - 1) * perPage;
       const productWhereClause = { user_id: userId };
       const reviewWhereClause = { review_receiver: userId };
-
-     
+      
       const [
         //aggregate and profile data
         user,
