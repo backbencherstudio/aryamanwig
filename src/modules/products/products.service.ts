@@ -222,7 +222,7 @@ export class ProductsService {
         category: true,
         user: true,
         bids: {
-          orderBy: { created_at: "asc" },
+          orderBy: { created_at: "desc" },
           take: 1,
           select: { id: true, bid_amount: true },
         },
@@ -831,7 +831,7 @@ export class ProductsService {
             select: { id: true },
           },
           bids: {
-            orderBy: { created_at: "asc" },
+            orderBy: { created_at: "desc" },
             take: 1,
             select: { id: true, bid_amount: true },
           },
@@ -932,7 +932,7 @@ export class ProductsService {
             select: { id: true },
           },
           bids: {
-            orderBy: { created_at: "asc" },
+            orderBy: { created_at: "desc" },
             take: 1,
             select: { id: true, bid_amount: true },
           },
@@ -1033,7 +1033,7 @@ export class ProductsService {
             select: { id: true },
           },
           bids: {
-            orderBy: { created_at: "asc" },
+            orderBy: { created_at: "desc" },
             take: 1,
             select: { id: true, bid_amount: true },
           },

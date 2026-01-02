@@ -10,26 +10,26 @@ import {
   ForbiddenException,
   InternalServerErrorException,
   Query,
-} from '@nestjs/common';
-import { StripeService } from './stripe.service';
-import { Request } from 'express';
-import { TransactionRepository } from '../../../common/repository/transaction/transaction.repository';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { OrderService } from 'src/modules/order/order.service';
-import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
-import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
+} from "@nestjs/common";
+import { StripeService } from "./stripe.service";
+import { Request } from "express";
+import { TransactionRepository } from "../../../common/repository/transaction/transaction.repository";
+import { PrismaService } from "src/prisma/prisma.service";
+import { OrderService } from "src/modules/order/order.service";
+import { JwtAuthGuard } from "src/modules/auth/guards/jwt-auth.guard";
+import { StripePayment } from "src/common/lib/Payment/stripe/StripePayment";
 import {
   BoostPaymentStatus,
   BoostStatus,
   DisposalStatus,
   OrderStatus,
   PaymentStatus,
-} from '@prisma/client';
-import { DisposalService } from 'src/modules/disposal/disposal.service';
-import { Stripe } from 'stripe';
-import { log } from 'node:console';
+} from "@prisma/client";
+import { DisposalService } from "src/modules/disposal/disposal.service";
+import { Stripe } from "stripe";
+import { log } from "node:console";
 
-@Controller('payment/stripe')
+@Controller("payment/stripe")
 export class StripeController {
   constructor(
     private readonly stripeService: StripeService,
@@ -40,12 +40,12 @@ export class StripeController {
   // ========================== PAYMENT CREATE ============================
   // =====================================================================
 
-  @Post('pay/:id')
+  @Post("pay/:id")
   @UseGuards(JwtAuthGuard)
   async pay(
     @Req() req: any,
-    @Param('id') id: string,
-    @Query('type') type: 'order' | 'disposal' | 'boost' = 'order',
+    @Param("id") id: string,
+    @Query("type") type: "order" | "disposal" | "boost" = "order",
   ) {
     try {
       const buyer_id = req.user.userId;
@@ -58,7 +58,7 @@ export class StripeController {
       // -----------------------------------
       // ORDER PAYMENT
       // -----------------------------------
-      if (type === 'order') {
+      if (type === "order") {
         entity = await this.prisma.order.findUnique({
           where: { id },
           select: {
@@ -73,7 +73,7 @@ export class StripeController {
         if (!entity) return this.fail(`Order ${id} not found`);
 
         if (entity.buyer_id !== buyer_id)
-          return this.fail('This order does not belong to you');
+          return this.fail("This order does not belong to you");
 
         if (entity.payment_status !== PaymentStatus.DUE)
           return {
@@ -86,10 +86,10 @@ export class StripeController {
         customerBillingId = entity.buyer.billing_id;
 
         if (isNaN(totalAmount))
-          throw new InternalServerErrorException('Invalid order amount');
+          throw new InternalServerErrorException("Invalid order amount");
 
         metadata = {
-          type: 'order',
+          type: "order",
           order_id: id,
           buyer_id,
           seller_id: entity.seller_id,
@@ -100,7 +100,7 @@ export class StripeController {
       // -----------------------------------
       // BOOST PAYMENT
       // -----------------------------------
-      else if (type === 'boost') {
+      else if (type === "boost") {
         entity = await this.prisma.boost.findUnique({
           where: { id },
           select: {
@@ -115,7 +115,7 @@ export class StripeController {
         if (!entity) return this.fail(`Boost ${id} not found`);
 
         if (entity.user_id !== buyer_id)
-          return this.fail('This boost does not belong to you');
+          return this.fail("This boost does not belong to you");
 
         if (entity.payment_status !== BoostPaymentStatus.PENDING)
           return {
@@ -127,12 +127,12 @@ export class StripeController {
         totalAmount = Number(entity.price);
 
         if (isNaN(totalAmount))
-          throw new InternalServerErrorException('Invalid boost amount');
+          throw new InternalServerErrorException("Invalid boost amount");
 
         customerBillingId = entity.user.billing_id;
 
         metadata = {
-          type: 'boost',
+          type: "boost",
           boost_id: id,
           user_id: buyer_id,
           total_pay: totalAmount.toString(),
@@ -142,7 +142,7 @@ export class StripeController {
       // -----------------------------------
       // DISPOSAL PAYMENT
       // -----------------------------------
-      else if (type === 'disposal') {
+      else if (type === "disposal") {
         entity = await this.prisma.disposal.findUnique({
           where: { id, status: DisposalStatus.CONFIRMED },
           select: {
@@ -155,7 +155,7 @@ export class StripeController {
 
         if (!entity) return this.fail(`Disposal ${id} not found`);
         if (entity.user_id !== buyer_id)
-          return this.fail('This disposal does not belong to you');
+          return this.fail("This disposal does not belong to you");
         if (entity.payment_status !== PaymentStatus.DUE)
           return {
             success: false,
@@ -166,12 +166,12 @@ export class StripeController {
         totalAmount = Number(entity.final_total_amount ?? 0);
 
         if (isNaN(totalAmount))
-          throw new InternalServerErrorException('Invalid disposal amount');
+          throw new InternalServerErrorException("Invalid disposal amount");
 
         customerBillingId = entity.user.billing_id;
 
         metadata = {
-          type: 'disposal',
+          type: "disposal",
           disposal_id: id,
           user_id: buyer_id,
           total_pay: totalAmount.toString(),
@@ -179,14 +179,14 @@ export class StripeController {
       }
 
       if (!customerBillingId)
-        return this.fail('Stripe Customer Billing ID not found!');
+        return this.fail("Stripe Customer Billing ID not found!");
 
       // ------------------------------------
       // STRIPE AMOUNT FIX (always integer)
       // ------------------------------------
-       const stripeAmount = Number(totalAmount);
+      const stripeAmount = Number(totalAmount);
 
-      console.log('Stripe Amount:', stripeAmount);
+      console.log("Stripe Amount:", stripeAmount);
 
       // ------------------------------------
       // CREATE PAYMENT INTENT
@@ -195,45 +195,44 @@ export class StripeController {
       const paymentIntent = await StripePayment.createPaymentIntent({
         customer_id: customerBillingId,
         amount: totalAmount,
-        currency: 'usd',
+        currency: "usd",
         metadata,
       });
 
-      console.log('Payment Intent:', paymentIntent);
+      console.log("Payment Intent:", paymentIntent);
 
       await this.prisma.paymentTransaction.create({
         data: {
           user_id: buyer_id,
-          order_id: type === 'order' ? id : null,
-          disposal_id: type === 'disposal' ? id : null,
-          boost_id: type === 'boost' ? id : null,
+          order_id: type === "order" ? id : null,
+          disposal_id: type === "disposal" ? id : null,
+          boost_id: type === "boost" ? id : null,
           type,
-          provider: 'stripe',
+          provider: "stripe",
           reference_number: paymentIntent.id,
           amount: totalAmount,
-          currency: 'usd',
-          status: 'pending',
+          currency: "usd",
+          status: "pending",
         },
       });
 
       return {
         success: true,
-        message: 'Payment Intent created',
+        message: "Payment Intent created",
         clientSecret: paymentIntent.client_secret,
         id,
         type,
         totalAmount,
       };
     } catch (error) {
-      throw new InternalServerErrorException('Payment processing failed');
+      console.error("Payment Error:", error);
+      throw new InternalServerErrorException("Payment processing failed");
     }
   }
 
-  
-
-  @Post('webhook')
+  @Post("webhook")
   async handleWebhook(
-    @Headers('stripe-signature') signature: string,
+    @Headers("stripe-signature") signature: string,
     @Req() req: Request,
   ) {
     try {
@@ -246,7 +245,7 @@ export class StripeController {
       const meta = pi.metadata || {};
 
       switch (event.type) {
-        case 'payment_intent.succeeded':
+        case "payment_intent.succeeded":
           if (meta.order_id) {
             await this.prisma.order.update({
               where: { id: meta.order_id },
@@ -279,14 +278,14 @@ export class StripeController {
 
           await TransactionRepository.updateTransaction({
             reference_number: pi.id,
-            status: 'succeeded',
+            status: "succeeded",
             paid_amount: (pi.amount_received ?? 0) / 100,
             paid_currency: pi.currency,
             raw_status: pi.status,
           });
           break;
 
-        case 'payment_intent.payment_failed':
+        case "payment_intent.payment_failed":
           if (meta.order_id) {
             await this.prisma.order.update({
               where: { id: meta.order_id },
@@ -316,23 +315,23 @@ export class StripeController {
 
           await TransactionRepository.updateTransaction({
             reference_number: pi.id,
-            status: 'failed',
+            status: "failed",
             raw_status: pi.status,
           });
           break;
 
-        case 'payment_intent.canceled':
+        case "payment_intent.canceled":
           await TransactionRepository.updateTransaction({
             reference_number: pi.id,
-            status: 'canceled',
+            status: "canceled",
             raw_status: pi.status,
           });
           break;
 
-        case 'payment_intent.requires_action':
+        case "payment_intent.requires_action":
           await TransactionRepository.updateTransaction({
             reference_number: pi.id,
-            status: 'requires_action',
+            status: "requires_action",
             raw_status: pi.status,
           });
           break;
@@ -343,7 +342,7 @@ export class StripeController {
 
       return { received: true };
     } catch (error) {
-      console.error('Webhook error', error);
+      console.error("Webhook error", error);
       return { received: false };
     }
   }
@@ -357,11 +356,11 @@ export class StripeController {
   }
 
   private error(err: any) {
-    console.error('PAYMENT ERROR:', err);
+    console.error("PAYMENT ERROR:", err);
 
     return {
       success: false,
-      message: err?.message ?? 'Payment failed',
+      message: err?.message ?? "Payment failed",
       details: err?.response ?? null,
     };
   }

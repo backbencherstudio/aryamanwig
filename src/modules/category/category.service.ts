@@ -83,6 +83,11 @@ export class CategoryService {
         skip,
         take: perPage,
         orderBy: { created_at: "desc" },
+        include: {
+          _count: {
+            select: { products: true },
+          },
+        },
       }),
     ]);
 
@@ -91,6 +96,7 @@ export class CategoryService {
       category_name: category.category_name,
       category_description: category.category_description,
       status: category.status,
+      product_count: category._count.products,
       photo: category.photo
         ? SojebStorage.url(
             `${appConfig().storageUrl.category}/${category.photo}`,
