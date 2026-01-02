@@ -1,14 +1,14 @@
 // dashborad.service.ts
 
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { OrderStatus, Prisma, ProductStatus } from '@prisma/client';
-import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
-import appConfig from 'src/config/app.config';
-import { paginateResponse, PaginationDto } from 'src/common/pagination';
-import { Product } from '../products/entities/product.entity';
-import { MonthWithDay } from 'src/common/utils/date.utils';
-import { id } from 'date-fns/locale';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "src/prisma/prisma.service";
+import { OrderStatus, Prisma, ProductStatus } from "@prisma/client";
+import { SojebStorage } from "src/common/lib/Disk/SojebStorage";
+import appConfig from "src/config/app.config";
+import { paginateResponse, PaginationDto } from "src/common/pagination";
+import { Product } from "../products/entities/product.entity";
+import { MonthWithDay } from "src/common/utils/date.utils";
+import { id } from "date-fns/locale";
 
 @Injectable()
 export class DashboradService {
@@ -16,17 +16,25 @@ export class DashboradService {
 
   private async fetchOrders(
     userId: string,
-    role: 'buyer' | 'seller',
+    role: "buyer" | "seller",
     paginationDto: PaginationDto,
-    status?: OrderStatus,
+    status?: OrderStatus | OrderStatus[],
   ) {
     const { page, perPage } = paginationDto;
     const skip = (page - 1) * perPage;
 
     const whereCondition: Prisma.OrderWhereInput = {};
-    if (role === 'buyer') whereCondition.buyer_id = userId;
-    if (role === 'seller') whereCondition.seller_id = userId;
-    if (status) whereCondition.order_status = status;
+    if (role === "buyer") whereCondition.buyer_id = userId;
+    if (role === "seller") whereCondition.seller_id = userId;
+
+    // Support single status or array of statuses
+    if (status) {
+      if (Array.isArray(status)) {
+        whereCondition.order_status = { in: status };
+      } else {
+        whereCondition.order_status = status;
+      }
+    }
 
     const [total, orders] = await this.prisma.$transaction([
       this.prisma.order.count({ where: whereCondition }),
@@ -34,7 +42,7 @@ export class DashboradService {
         where: whereCondition,
         skip,
         take: perPage,
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: "desc" },
 
         select: {
           id: true,
@@ -69,7 +77,7 @@ export class DashboradService {
       order_status: order.order_status,
       // If the user is a 'buyer', show the 'seller' info, and vice-versa.
       order_partner:
-        role === 'buyer'
+        role === "buyer"
           ? {
               id: order.seller?.id,
               name: order.seller?.name,
@@ -115,12 +123,13 @@ export class DashboradService {
     const { page, perPage } = paginationDto;
     const { total, orders } = await this.fetchOrders(
       userId,
-      'buyer',
+      "buyer",
       paginationDto,
+      ["PROCESSING", "CANCELLED", "DELIVERED"],
     );
     return {
       success: true,
-      message: 'Total brought items fetched successfully',
+      message: "Total brought items fetched successfully",
       ...paginateResponse(orders, total, page, perPage),
     };
   }
@@ -129,13 +138,13 @@ export class DashboradService {
     const { page, perPage } = paginationDto;
     const { total, orders } = await this.fetchOrders(
       userId,
-      'buyer',
+      "buyer",
       paginationDto,
-      'PROCESSING',
+      "PROCESSING",
     );
     return {
       success: true,
-      message: 'Bought pending items fetched successfully',
+      message: "Bought pending items fetched successfully",
       ...paginateResponse(orders, total, page, perPage),
     };
   }
@@ -144,13 +153,13 @@ export class DashboradService {
     const { page, perPage } = paginationDto;
     const { total, orders } = await this.fetchOrders(
       userId,
-      'buyer',
+      "buyer",
       paginationDto,
-      'DELIVERED',
+      "DELIVERED",
     );
     return {
       success: true,
-      message: 'Bought delivered items fetched successfully',
+      message: "Bought delivered items fetched successfully",
       ...paginateResponse(orders, total, page, perPage),
     };
   }
@@ -159,13 +168,13 @@ export class DashboradService {
     const { page, perPage } = paginationDto;
     const { total, orders } = await this.fetchOrders(
       userId,
-      'buyer',
+      "buyer",
       paginationDto,
-      'CANCELLED',
+      "CANCELLED",
     );
     return {
       success: true,
-      message: 'Bought cancelled items fetched successfully',
+      message: "Bought cancelled items fetched successfully",
       ...paginateResponse(orders, total, page, perPage),
     };
   }
@@ -176,12 +185,13 @@ export class DashboradService {
     const { page, perPage } = paginationDto;
     const { total, orders } = await this.fetchOrders(
       userId,
-      'seller',
+      "seller",
       paginationDto,
+      ["PROCESSING", "CANCELLED", "DELIVERED"],
     );
     return {
       success: true,
-      message: 'Total selling items fetched successfully',
+      message: "Total selling items fetched successfully",
       ...paginateResponse(orders, total, page, perPage),
     };
   }
@@ -190,13 +200,13 @@ export class DashboradService {
     const { page, perPage } = paginationDto;
     const { total, orders } = await this.fetchOrders(
       userId,
-      'seller',
+      "seller",
       paginationDto,
-      'PROCESSING',
+      "PROCESSING",
     );
     return {
       success: true,
-      message: 'Selling pending items fetched successfully',
+      message: "Selling pending items fetched successfully",
       ...paginateResponse(orders, total, page, perPage),
     };
   }
@@ -205,13 +215,13 @@ export class DashboradService {
     const { page, perPage } = paginationDto;
     const { total, orders } = await this.fetchOrders(
       userId,
-      'seller',
+      "seller",
       paginationDto,
-      'DELIVERED',
+      "DELIVERED",
     );
     return {
       success: true,
-      message: 'Selling delivered items fetched successfully',
+      message: "Selling delivered items fetched successfully",
       ...paginateResponse(orders, total, page, perPage),
     };
   }
@@ -220,13 +230,13 @@ export class DashboradService {
     const { page, perPage } = paginationDto;
     const { total, orders } = await this.fetchOrders(
       userId,
-      'seller',
+      "seller",
       paginationDto,
-      'CANCELLED',
+      "CANCELLED",
     );
     return {
       success: true,
-      message: 'Selling cancelled items fetched successfully',
+      message: "Selling cancelled items fetched successfully",
       ...paginateResponse(orders, total, page, perPage),
     };
   }

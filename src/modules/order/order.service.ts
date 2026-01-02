@@ -2,15 +2,15 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { OrderStatus, Prisma } from '@prisma/client';
-import { Decimal, Or } from '@prisma/client/runtime/library';
-import { CreateOrderDto } from './dto/create-order.dto';
-import appConfig from 'src/config/app.config';
-import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
-import { paginateResponse, PaginationDto } from 'src/common/pagination';
-import { handlePrismaError } from 'src/common/utils/prisma-error-handler';
+} from "@nestjs/common";
+import { PrismaService } from "src/prisma/prisma.service";
+import { OrderStatus, Prisma } from "@prisma/client";
+import { Decimal, Or } from "@prisma/client/runtime/library";
+import { CreateOrderDto } from "./dto/create-order.dto";
+import appConfig from "src/config/app.config";
+import { SojebStorage } from "src/common/lib/Disk/SojebStorage";
+import { paginateResponse, PaginationDto } from "src/common/pagination";
+import { handlePrismaError } from "src/common/utils/prisma-error-handler";
 
 @Injectable()
 export class OrderService {
@@ -42,10 +42,10 @@ export class OrderService {
       },
     });
 
-    if (!cartItems.length) throw new NotFoundException('Cart items not found');
+    if (!cartItems.length) throw new NotFoundException("Cart items not found");
 
     if (cartItems.length !== cartItemIds.length)
-      throw new BadRequestException('Some cart items do not belong to you');
+      throw new BadRequestException("Some cart items do not belong to you");
 
     // Ensure all items are from the same seller
     const sellerIds = [
@@ -53,7 +53,7 @@ export class OrderService {
     ];
     if (sellerIds.length > 1) {
       throw new BadRequestException(
-        'You cannot order products from multiple sellers at the same time.',
+        "You cannot order products from multiple sellers at the same time.",
       );
     }
 
@@ -118,18 +118,18 @@ export class OrderService {
 
     return {
       success: true,
-      message: 'Order created successfully.',
+      message: "Order created successfully.",
       order_id: newOrder.id,
       grand_total: totalAmount,
     };
   }
 
   // get my all orders
-  async getMyOrders(userId: string, paginationDto: PaginationDto) {
+  async getMyOrdersWithPending(userId: string, paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
     const skip = (page - 1) * perPage;
 
-    const whereClause = { buyer_id: userId,order_status: OrderStatus.PENDING };
+    const whereClause = { buyer_id: userId, order_status: OrderStatus.PENDING };
 
     const [total, orders] = await this.prisma.$transaction([
       this.prisma.order.count({ where: whereClause }),
@@ -137,7 +137,7 @@ export class OrderService {
         where: whereClause,
         skip,
         take: perPage,
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: "desc" },
         include: {
           seller: {
             select: { id: true, name: true, avatar: true },
@@ -161,7 +161,7 @@ export class OrderService {
     if (total === 0) {
       return {
         success: true,
-        message: 'No orders found',
+        message: "No orders found",
         ...paginateResponse([], total, page, perPage),
       };
     }
@@ -203,7 +203,87 @@ export class OrderService {
 
     return {
       success: true,
-      message: 'Orders fetched successfully',
+      message: "Orders fetched successfully",
+      ...paginatedData,
+    };
+  }
+
+  // get my all orders
+  async getMyOrders(userId: string, paginationDto: PaginationDto) {
+    const { page, perPage } = paginationDto;
+    const skip = (page - 1) * perPage;
+    const whereClause = { buyer_id: userId };
+
+    const [total, orders] = await this.prisma.$transaction([
+      this.prisma.order.count({ where: whereClause }),
+      this.prisma.order.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { created_at: "desc" },
+        include: {
+          seller: {
+            select: { id: true, name: true, avatar: true },
+          },
+          order_items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  product_title: true,
+                  price: true,
+                  photo: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+    if (total === 0) {
+      return {
+        success: true,
+        message: "No orders found",
+        ...paginateResponse([], total, page, perPage),
+      };
+    }
+    const formattedOrders = orders.map((o) => ({
+      order_id: o.id,
+      seller: {
+        id: o.seller.id,
+        name: o.seller.name,
+        avatar: o.seller.avatar
+          ? SojebStorage.url(
+              `${appConfig().storageUrl.avatar}/${o.seller.avatar}`,
+            )
+          : null,
+      },
+      total: o.grand_total,
+      status: o.order_status,
+      created_at: o.created_at,
+      items: o.order_items.map((i) => ({
+        product_id: i.product.id,
+        title: i.product.product_title,
+        price: i.product.price,
+        photo: i.product.photo
+          ? i.product.photo.map((p: string) =>
+              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+            )
+          : [],
+        quantity: i.quantity,
+        total_price: i.total_price,
+      })),
+    }));
+    const paginatedData = paginateResponse(
+      formattedOrders,
+      total,
+      page,
+      perPage,
+    );
+
+    return {
+      success: true,
+      message: "Orders fetched successfully",
       ...paginatedData,
     };
   }
@@ -230,7 +310,7 @@ export class OrderService {
       },
     });
 
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException("Order not found");
 
     const baseUrl = appConfig().storageUrl.product;
 
@@ -257,7 +337,7 @@ export class OrderService {
 
     return {
       success: true,
-      message: 'Order details fetched successfully',
+      message: "Order details fetched successfully",
       data: {
         order_id: order.id,
         grand_total: order.grand_total,

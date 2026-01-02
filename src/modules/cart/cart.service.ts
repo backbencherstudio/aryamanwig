@@ -28,9 +28,9 @@ export class CartService {
 
     if (!product) throw new NotFoundException('Product not found');
 
-    // if (product.user_id === userId) {
-    //   throw new NotFoundException('Cannot add your own product to cart');
-    // } 
+    if (product.user_id === userId) {
+      throw new NotFoundException('Cannot add your own product to cart');
+    } 
 
 
     const checkBid = await this.prisma.bid.findFirst({

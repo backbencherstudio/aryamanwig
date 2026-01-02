@@ -246,7 +246,8 @@ export class StripeController {
 
       switch (event.type) {
         case "payment_intent.succeeded":
-          if (meta.order_id) {
+     
+         if(meta.order_id) {
             await this.prisma.order.update({
               where: { id: meta.order_id },
               data: {
@@ -256,7 +257,7 @@ export class StripeController {
             });
           }
 
-          if (meta.boost_id) {
+          if(meta.boost_id) {
             await this.prisma.boost.update({
               where: { id: meta.boost_id },
               data: {
@@ -266,7 +267,7 @@ export class StripeController {
             });
           }
 
-          if (meta.disposal_id) {
+          if(meta.disposal_id) {
             await this.prisma.disposal.update({
               where: { id: meta.disposal_id },
               data: {
