@@ -42,7 +42,7 @@ export class ProfileService {
           where: { id: userId },
           select: {
             id: true, name: true, avatar: true, cover_photo: true,
-            country: true, city: true, address: true,
+            country: true, city: true, address: true,avaliable_balance:true,
           },
         }),
 
@@ -63,6 +63,7 @@ export class ProfileService {
         }),
 
         this.prisma.product.count({ where: productWhereClause }),
+        
         this.prisma.product.findMany({
           where: productWhereClause,
           skip,
@@ -70,10 +71,12 @@ export class ProfileService {
           orderBy: { created_at: 'desc' },
           select: {
             id: true, product_title: true, price: true,
-            photo: true, status: true,
+            photo: true, status: true,size:true,condition:true,
           },
         }),
+
         this.prisma.review.count({ where: reviewWhereClause }),
+
         this.prisma.review.findMany({
           where: reviewWhereClause,
           skip,
@@ -130,7 +133,7 @@ export class ProfileService {
             location: user.country || user.city || user.address,
             rating: Number(reviewStats._avg.rating?.toFixed(2)) || 0,
             review_count: reviewStats._count.id,
-            total_earning: totalEarnings._sum.grand_total ?? 0,
+            total_earning: user.avaliable_balance ?? 0,
             total_penalties: totalPenalties._sum.penalty_amount ?? 0,
           },
           products: {
@@ -182,7 +185,7 @@ export class ProfileService {
           where: { id: userId },
           select: {
             id: true, name: true, avatar: true, cover_photo: true,
-            country: true, city: true, address: true,
+            country: true, city: true, address: true,avaliable_balance:true,
           },
         }),
         this.prisma.review.aggregate({
@@ -268,7 +271,7 @@ export class ProfileService {
             location: user.country || user.city || user.address,
             rating: Number(reviewStats._avg.rating?.toFixed(2)) || 0,
             review_count: reviewStats._count.id,
-            total_earning: totalEarnings._sum.grand_total ?? 0,
+            total_earning: user.avaliable_balance ?? 0,
             total_penalties: totalPenalties._sum.penalty_amount ?? 0,
           },
           products: {
