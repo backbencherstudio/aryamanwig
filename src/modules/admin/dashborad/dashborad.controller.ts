@@ -106,7 +106,13 @@ export class DashboradController {
     return this.dashboradService.updateOrderStatus(orderid, dto.status);
   }
 
+  // topic: boost
 
+  // * recent boost requests
+  @Get('all-boost-list')
+  getRecentBoostRequests(@Query() paginationDto: PaginationDto) {
+    return this.dashboradService.recentBoostRequests(paginationDto);
+  }
 
 
   

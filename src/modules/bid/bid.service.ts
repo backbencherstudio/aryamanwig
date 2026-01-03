@@ -2,24 +2,29 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { CreateBidDto } from './dto/create-bid.dto';
-import { UpdateBidDto } from './dto/update-bid.dto';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { Decimal } from '@prisma/client/runtime/library';
-import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
-import appConfig from 'src/config/app.config';
-import { UpdateStatusBidDto } from './dto/status-update-bid.dto';
-import { log } from 'node:console';
-import { getBoostTimeLeft } from 'src/common/utils/date.utils';
-import { last } from 'rxjs';
-import { paginationToken } from 'aws-sdk/clients/supportapp';
-import { paginateResponse, PaginationDto } from 'src/common/pagination';
-import { BoostStatus, Prisma } from '@prisma/client';
+} from "@nestjs/common";
+import { CreateBidDto } from "./dto/create-bid.dto";
+import { UpdateBidDto } from "./dto/update-bid.dto";
+import { PrismaService } from "src/prisma/prisma.service";
+import { Decimal } from "@prisma/client/runtime/library";
+import { SojebStorage } from "src/common/lib/Disk/SojebStorage";
+import appConfig from "src/config/app.config";
+import { UpdateStatusBidDto } from "./dto/status-update-bid.dto";
+import { log } from "node:console";
+import { getBoostTimeLeft } from "src/common/utils/date.utils";
+import { last } from "rxjs";
+import { paginationToken } from "aws-sdk/clients/supportapp";
+import { paginateResponse, PaginationDto } from "src/common/pagination";
+import { BoostStatus, Prisma } from "@prisma/client";
+import { NotificationRepository } from "src/common/repository/notification/notification.repository";
+import { MessageGateway } from "../chat/message/message.gateway";
 
 @Injectable()
 export class BidService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly messageGateway: MessageGateway,
+  ) {}
 
   // *create bid
   async create(createBidDto: CreateBidDto, userId: string) {
@@ -35,15 +40,15 @@ export class BidService {
     });
 
     if (!product) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException("Product not found");
     }
 
     if (product.user_id === userId) {
-      throw new ConflictException('You cannot bid on your own product');
+      throw new ConflictException("You cannot bid on your own product");
     }
 
     if (new Decimal(bid_amount).greaterThanOrEqualTo(product.price)) {
-      throw new ConflictException('Bid amount must be less than product price');
+      throw new ConflictException("Bid amount must be less than product price");
     }
 
     const bid = await this.prisma.bid.create({
@@ -56,7 +61,7 @@ export class BidService {
 
     return {
       success: true,
-      message: 'Bid created successfully',
+      message: "Bid created successfully",
       data: bid,
     };
   }
@@ -80,16 +85,14 @@ export class BidService {
             status: BoostStatus.ACTIVE,
             end_date: { gte: new Date() },
           },
-          orderBy: { end_date: 'desc' },
+          orderBy: { end_date: "desc" },
           take: 1,
         },
       },
     });
 
-    
-
     if (!product) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException("Product not found");
     }
 
     const bids = await this.prisma.bid.findMany({
@@ -105,21 +108,21 @@ export class BidService {
         },
       },
       orderBy: {
-        bid_amount: 'desc',
+        bid_amount: "desc",
       },
     });
 
     if (bids.length === 0) {
       return {
         success: true,
-        message: 'No bids found for this product',
+        message: "No bids found for this product",
         data: [],
       };
     }
 
     return {
       success: true,
-      message: 'Bids fetched successfully',
+      message: "Bids fetched successfully",
       product: {
         id: product.id,
         product_title: product.product_title,
@@ -134,7 +137,8 @@ export class BidService {
         // -------------------------
         condition: product.condition,
         size: product.size,
-        boost_until: product.boosts.length > 0 ? product.boosts[0].end_date : null,
+        boost_until:
+          product.boosts.length > 0 ? product.boosts[0].end_date : null,
       },
       bids: bids.map((bid) => ({
         id: bid.id,
@@ -169,11 +173,11 @@ export class BidService {
     });
 
     if (!bid) {
-      throw new NotFoundException('Bid not found');
+      throw new NotFoundException("Bid not found");
     }
 
     if (bid.product.user_id !== productOwner) {
-      throw new ConflictException('You are not the owner of this product');
+      throw new ConflictException("You are not the owner of this product");
     }
 
     if (bid.status === status) {
@@ -184,6 +188,32 @@ export class BidService {
       where: { id: bidId },
       data: { status },
     });
+
+    // Send notification to bidder
+    const isApproved = status === "ACCEPTED";
+    const notificationType = isApproved ? "bid_approved" : "bid_rejected";
+    const notificationText = isApproved
+      ? `Your bid of $${bid.bid_amount} on "${bid.product.product_title}" has been accepted!`
+      : `Your bid of $${bid.bid_amount} on "${bid.product.product_title}" has been rejected.`;
+
+    const notificationPayload: any = {
+      sender_id: productOwner,
+      receiver_id: bid.user_id,
+      text: notificationText,
+      type: notificationType,
+      entity_id: bidId,
+    };
+
+    // Send real-time notification via socket
+    const userSocketId = this.messageGateway.clients.get(bid.user_id);
+    if (userSocketId) {
+      this.messageGateway.server
+        .to(userSocketId)
+        .emit("notification", notificationPayload);
+    }
+
+    // Save notification to database
+    await NotificationRepository.createNotification(notificationPayload);
 
     return {
       success: true,
@@ -217,14 +247,14 @@ export class BidService {
       const total = await tx.bid.count({
         where: {
           user_id: userId,
-          status: 'ACCEPTED',
+          status: "ACCEPTED",
         },
       });
 
       const myBids = await tx.bid.findMany({
         where: {
           user_id: userId,
-          status: 'ACCEPTED',
+          status: "ACCEPTED",
         },
         skip,
         take: perPage,
@@ -241,14 +271,14 @@ export class BidService {
           },
         },
         orderBy: {
-          created_at: 'desc',
+          created_at: "desc",
         },
       });
 
       if (myBids.length === 0) {
         return {
           success: true,
-          message: 'No bids found for this user',
+          message: "No bids found for this user",
           data: [],
           total,
         };
@@ -289,7 +319,7 @@ export class BidService {
 
       return {
         success: true,
-        message: 'Bids fetched successfully',
+        message: "Bids fetched successfully",
         data: paginatedData,
       };
     });
@@ -306,14 +336,14 @@ export class BidService {
       const total = await tx.bid.count({
         where: {
           user_id: userId,
-          status: 'PENDING',
+          status: "PENDING",
         },
       });
 
       const myBids = await tx.bid.findMany({
         where: {
           user_id: userId,
-          status: 'PENDING',
+          status: "PENDING",
         },
         skip,
         take: perPage,
@@ -330,14 +360,14 @@ export class BidService {
           },
         },
         orderBy: {
-          created_at: 'desc',
+          created_at: "desc",
         },
       });
 
       if (myBids.length === 0) {
         return {
           success: true,
-          message: 'No bids found for this user',
+          message: "No bids found for this user",
           data: [],
           total,
         };
@@ -378,7 +408,7 @@ export class BidService {
 
       return {
         success: true,
-        message: 'Bids fetched successfully',
+        message: "Bids fetched successfully",
         data: paginatedData,
       };
     });
@@ -388,30 +418,24 @@ export class BidService {
 
   // topic: seller list
 
-
   // *get product wise request bids
-   async getSellerProductWiseBids(
+  async getSellerProductWiseBids(
     sellerId: string,
     paginationDto: PaginationDto,
   ) {
     const { page, perPage } = paginationDto;
     const skip = (page - 1) * perPage;
 
-     const whereClause = {
+    const whereClause = {
       user_id: sellerId,
       bids: { some: {} },
     };
 
-   
-
     const [totalProducts, products] = await this.prisma.$transaction([
-      
       this.prisma.product.count({
-        where: whereClause
-          
+        where: whereClause,
       }),
 
-     
       this.prisma.product.findMany({
         where: whereClause,
         skip,
@@ -427,24 +451,22 @@ export class BidService {
                 },
               },
             },
-            orderBy: { bid_amount: 'desc' },
+            orderBy: { bid_amount: "desc" },
           },
         },
-        orderBy: { created_at: 'desc' },
+        orderBy: { created_at: "desc" },
       }),
     ]);
 
-    
     if (products.length === 0) {
       return {
         success: true,
-        message: 'No products with bids found for this seller',
+        message: "No products with bids found for this seller",
         data: [],
         total: totalProducts,
       };
     }
 
-   
     const formatted = products.map((product) => {
       const photos =
         product.photo && product.photo.length > 0
@@ -481,22 +503,22 @@ export class BidService {
       };
     });
 
-   
-    const paginatedData = paginateResponse(formatted, totalProducts, page, perPage);
+    const paginatedData = paginateResponse(
+      formatted,
+      totalProducts,
+      page,
+      perPage,
+    );
 
     return {
       success: true,
-      message: 'Products with bids fetched successfully',
+      message: "Products with bids fetched successfully",
       data: paginatedData,
     };
   }
- 
 
   //  * get my all bids with accepted
-  async getSellerAcceptedBids(
-    sellerId: string,
-    paginationDto: PaginationDto,
-  ) {
+  async getSellerAcceptedBids(sellerId: string, paginationDto: PaginationDto) {
     const { page, perPage } = paginationDto;
     const skip = (page - 1) * perPage;
 
@@ -504,9 +526,8 @@ export class BidService {
       product: {
         user_id: sellerId,
       },
-      status: 'ACCEPTED',
+      status: "ACCEPTED",
     };
-
 
     const [totalBids, bids] = await this.prisma.$transaction([
       this.prisma.bid.count({
@@ -537,16 +558,15 @@ export class BidService {
           },
         },
         orderBy: {
-          created_at: 'desc',
+          created_at: "desc",
         },
       }),
     ]);
 
-
     if (bids.length === 0) {
       return {
         success: true,
-        message: 'No accepted bids found for this seller',
+        message: "No accepted bids found for this seller",
         data: [],
         total: totalBids,
       };
@@ -562,7 +582,7 @@ export class BidService {
 
       return {
         bid_id: bid.id,
-        bid_amount: bid.bid_amount, 
+        bid_amount: bid.bid_amount,
         status: bid.status,
         bid_created_at: bid.created_at,
         product: {
@@ -585,18 +605,17 @@ export class BidService {
       };
     });
 
-    const paginatedData = paginateResponse(formattedBids, totalBids, page, perPage);
+    const paginatedData = paginateResponse(
+      formattedBids,
+      totalBids,
+      page,
+      perPage,
+    );
 
     return {
       success: true,
-      message: 'Accepted bids fetched successfully',
+      message: "Accepted bids fetched successfully",
       data: paginatedData,
     };
   }
-
-
-
-  
-
-  
 }

@@ -61,9 +61,9 @@ export class DisposalService {
     }
 
     // todo remove this comment later
-    // if (product.user_id && product.user_id !== userId) {
-    //   throw new ForbiddenException('You do not own this product.');
-    // }
+    if (product.user_id && product.user_id !== userId) {
+      throw new ForbiddenException('You do not own this product.');
+    }
 
     if (!productname) {
       throw new BadRequestException('Please add product name.');
@@ -193,7 +193,6 @@ export class DisposalService {
     await NotificationRepository.createNotification(
          notificationPayload
     );
-
 
 
     return {
@@ -588,4 +587,6 @@ export class DisposalService {
       message: `Request status has been updated to ${newStatus.toLowerCase()}.`,
     };
   }
+
+  
 }

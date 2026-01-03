@@ -31,7 +31,11 @@ type NotificationType =
   | "Review_Product"
   | "user_approval"
   | "disposal"
-  | "Boost_Product";
+  | "Boost_Product"
+  | "bid_approved"
+  | "bid_rejected"
+  | "order_delivered"
+  | "order_cancelled";
 
 export class NotificationRepository {
   static async createNotification(payload: {

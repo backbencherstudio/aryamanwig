@@ -22,4 +22,5 @@ export class UpdateDisposalHistoryDto {
   @IsNotEmpty({ message: 'Comment is required for penalty status.' })
   @IsString()
   comment: string;
+  
 }
