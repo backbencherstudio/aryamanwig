@@ -1,13 +1,19 @@
-
-import { IsInt, IsOptional, IsString, Min, Max, IsNotEmpty } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+  IsNotEmpty,
+} from "class-validator";
+import { Transform, Type } from "class-transformer";
 
 export class CreateReviewDto {
-
-
   @IsString()
-  @IsNotEmpty({ message: 'Order ID Must be provided' })
+  @IsNotEmpty({ message: "Order ID Must be provided" })
   order_id: string;
 
+  @Transform(({ value }) => parseInt(value, 10))
   @IsInt()
   @Min(1)
   @Max(5)
@@ -17,10 +23,7 @@ export class CreateReviewDto {
   @IsString()
   comment?: string;
 
-  @IsNotEmpty({ message: 'Review receiver Must be provided' })
-  @IsString()
-  review_receiver: string; // receiver user id
-
   @IsOptional()
+  @Type(() => Number)
   status?: number;
 }
