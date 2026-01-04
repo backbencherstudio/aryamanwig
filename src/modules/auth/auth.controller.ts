@@ -31,7 +31,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guard/role/roles.guard';
 import { Roles } from 'src/common/guard/role/roles.decorator';
 import { Role } from 'src/common/guard/role/role.enum';
-import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { AppleAuthGuard } from './guards/apple-auth.guard';
 
 @ApiTags('auth')
@@ -572,29 +571,25 @@ export class AuthController {
 
   // Google login
   @Get('google')
-  @UseGuards(GoogleAuthGuard)
+  @UseGuards(AuthGuard('google'))
   async googleAuth(@Req() req) {
-    return HttpStatus.OK;
+    // Initiates Google OAuth2 login
   }
+
 
   // Route that Google will redirect to after login
-  @Get('google/redirect')
-  @UseGuards(GoogleAuthGuard)
-  async googleAuthRedirect(@Req() req, @Res() res: Response) {
-    const { user, loginResponse } = req.user;
-
-    // Now, return the JWT tokens and the user info
-    return res.json({
-      message: 'Logged in successfully via Google',
-      authorization: loginResponse.authorization,
-      user: {
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        picture: user.picture,
-      },
-    });
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  googleAuthRedirect(@Req() req) {
+    if (req.user) {
+      console.log('Google Callback Successful', req.user);
+      return { message: 'Authentication successful', user: req.user };
+    } else {
+      return { message: 'Authentication failed. Please try again.' };
+    }
   }
+
+  // ------------- end Google Login --------------
 
   // apple login
   @Get('apple')

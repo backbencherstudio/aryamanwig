@@ -122,4 +122,11 @@ export class DashboradController {
   getTransactions(@Query() dto: TransactionFilterDto) {
     return this.dashboradService.transactions(dto);
   }
+
+  //  total user,sell,order,revenue 
+  @Get("summary")
+  getSummary() {
+    return this.dashboradService.getSummary();
+  }
+
 }
