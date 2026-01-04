@@ -9,7 +9,7 @@ export async function recordEarningOnOrderPaid(params: {
   amount: Prisma.Decimal | number;
 }) {
   const amount = new Prisma.Decimal(params.amount);
-  const feePercent = new Prisma.Decimal(10);
+  const feePercent = new Prisma.Decimal(10); // 10% platform fee
   const feeAmount = amount.mul(feePercent).div(100);
   const netAmount = amount.sub(feeAmount);
   const releaseAt = new Date(Date.now() + HOLD_DAYS * 24 * 60 * 60 * 1000);

@@ -798,4 +798,107 @@ export class DashboradService {
       ...paginateResponse(formattedBoosts, total, page, perPage),
     };
   }
+
+  // topic: transaction
+
+  // * Transactions list for admin dashboard (as shown in UI design)
+  async transactions(dto: { page: number; perPage: number; filter?: string }) {
+    const { page, perPage, filter } = dto;
+    const skip = (page - 1) * perPage;
+
+    // Build filter based on month/time period
+    let dateFilter = {};
+    if (filter === "monthly") {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      dateFilter = {
+        created_at: {
+          gte: startOfMonth,
+        },
+      };
+    } else if (filter === "weekly") {
+      const startOfWeek = new Date();
+      startOfWeek.setDate(startOfWeek.getDate() - 7);
+      startOfWeek.setHours(0, 0, 0, 0);
+      dateFilter = {
+        created_at: {
+          gte: startOfWeek,
+        },
+      };
+    } else if (filter === "daily") {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      dateFilter = {
+        created_at: {
+          gte: startOfDay,
+        },
+      };
+    }
+
+    const whereClause = {
+      ...dateFilter,
+    };
+
+    const [total, earnings] = await this.prisma.$transaction([
+      this.prisma.userEarning.count({ where: whereClause }),
+      this.prisma.userEarning.findMany({
+        where: whereClause,
+        skip,
+        take: perPage,
+        orderBy: { created_at: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          order: {
+            select: {
+              id: true,
+              grand_total: true,
+              order_items: {
+                include: {
+                  product: {
+                    select: {
+                      id: true,
+                      product_title: true,
+                      price: true,
+                      photo: true,
+                    },
+                  },
+                },
+                take: 1,
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const formattedTransactions = earnings.map((earning, index) => {
+      const product = earning.order?.order_items?.[0]?.product;
+      return {
+        no: String(skip + index + 1).padStart(2, "0"),
+        seller_name: earning.user?.name ?? "N/A",
+        product_name: product?.product_title ?? "N/A",
+        product_photo: product?.photo?.[0]
+          ? SojebStorage.url(
+              `${appConfig().storageUrl.product}/${product.photo[0]}`,
+            )
+          : null,
+        product_price: product?.price ?? 0,
+        payment_amount: earning.amount ?? 0,
+        sellers_amount: earning.net_amount ?? 0,
+        earning: earning.fee_amount ?? 0, // 5% platform fee
+      };
+    });
+
+    return {
+      success: true,
+      message: "Transactions fetched successfully",
+      ...paginateResponse(formattedTransactions, total, page, perPage),
+    };
+  }
 }
