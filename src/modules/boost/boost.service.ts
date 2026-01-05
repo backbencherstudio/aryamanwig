@@ -182,7 +182,7 @@ export class BoostService {
     ]);
 
     const formattedProducts = boostedProducts.map((boost) => ({
-      id: boost.product.id,
+      id: boost.id,
       title: boost.product.product_title,
       price: boost.product.price,
       condition: boost.product.condition,
