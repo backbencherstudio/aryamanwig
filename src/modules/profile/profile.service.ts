@@ -53,12 +53,12 @@ export class ProfileService {
         }),
 
         this.prisma.order.aggregate({
-          where: { seller_id: userId, payment_status: 'PAID' },
+          where: { seller_id: userId },
           _sum: { grand_total: true },
         }),
 
         this.prisma.disposal.aggregate({
-          where: { user_id: userId },
+          where: { user_id: userId ,},
           _sum: { penalty_amount: true },
         }),
 
@@ -159,13 +159,12 @@ export class ProfileService {
   // *client dashboard with profile and products
   async getProfileAndProducts(userId: string, query: PaginationDto) {
    
-      
       const { page, perPage } = query;
       const skip = (page - 1) * perPage;
       const productWhereClause = { user_id: userId };
       const reviewWhereClause = { review_receiver: userId };
 
-     
+
       const [
       
         user,

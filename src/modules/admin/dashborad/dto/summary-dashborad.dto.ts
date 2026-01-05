@@ -1,7 +1,7 @@
 import { Type } from "class-transformer";
 import { IsInt, IsOptional, IsString, Min } from "class-validator";
 
-export class TransactionFilterDto {
+export class SummaryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -16,5 +16,5 @@ export class TransactionFilterDto {
 
   @IsOptional()
   @IsString()
-  filter?: string; 
+  month?: string; // 'daily' | 'weekly' | 'monthly'
 }

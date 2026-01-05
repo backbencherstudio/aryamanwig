@@ -19,6 +19,7 @@ import { Role } from "src/common/guard/role/role.enum";
 import { PaginationDto } from "src/common/pagination";
 import { UpdateOrderStatusDto } from "./dto/update-orderstatus.dto";
 import { TransactionFilterDto } from "./dto/transaction-filter.dto";
+import { SummaryDto } from "./dto/summary-dashborad.dto";
 
 @Controller("admin/dashborad")
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -125,7 +126,7 @@ export class DashboradController {
 
   //  total user,sell,order,revenue 
   @Get("summary")
-  getSummary() {
+  async getSummary() {
     return this.dashboradService.getSummary();
   }
 

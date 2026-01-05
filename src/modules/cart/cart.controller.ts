@@ -40,7 +40,7 @@ export class CartController {
     return this.cartService.updateCartItem(cartItemId, dto);
   }
 
-  // remove cart item
+  // remove cart ite
   @UseGuards(JwtAuthGuard)
   @Delete('delete/:cartItemId')
   async removeCartItem(@Param('cartItemId') cartItemId: string) {

@@ -433,8 +433,6 @@ model OrderItem {
 
 // 
 
-
-
 model Bid {
   id         String   @id @default(cuid())
   created_at DateTime @default(now())
@@ -687,6 +685,13 @@ enum DisposalStatus {
   PENALTY
 }
 
+enum DisposalPaymentStatus {
+  DUE
+  PAID
+  FAILED
+  REFUNDED
+}
+
 model Disposal {
   id         String    @id @default(cuid())
   created_at DateTime  @default(now())
@@ -721,6 +726,7 @@ model Disposal {
   // admin comment
   admin_comment  String?
   penalty_amount Decimal? @db.Decimal(10, 2)
+  disposal_payment DisposalPaymentStatus? @default(DUE)
 
   product_id String
   product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)

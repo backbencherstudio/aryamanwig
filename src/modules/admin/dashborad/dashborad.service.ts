@@ -904,21 +904,32 @@ export class DashboradService {
 
   //  total user,sell,order,revenue
   async getSummary() {
+    
     const totalUsers = await this.prisma.user.count({});
-    const totalProducts = await this.prisma.product.count();
     const totalOrders = await this.prisma.order.count();
-    const totalRevenueResult = await this.prisma.order.aggregate({
+
+     const totalSellResult = await this.prisma.order.aggregate({
       _sum: {
         grand_total: true,
       },
     });
-    const totalRevenue = totalRevenueResult._sum.grand_total || 0;
+
+    const totalSell = totalSellResult._sum.grand_total ?? 0;
+
+
+    const totalRevenueResult = await this.prisma.userEarning.aggregate({
+      _sum: {
+        fee_amount: true,
+      },
+    });
+
+    const totalRevenue = totalRevenueResult._sum.fee_amount || 0;
     return {
       success: true,
       message: "Summary fetched successfully",
       data: {
         total_users: totalUsers,
-        total_products: totalProducts,
+        total_sell: totalSell,
         total_orders: totalOrders,
         total_revenue: totalRevenue,
       },
