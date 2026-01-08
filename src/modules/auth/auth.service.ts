@@ -3,6 +3,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRedis } from "@nestjs-modules/ioredis";
 import Redis from "ioredis";
+import * as admin from "firebase-admin";
 
 //internal imports
 import appConfig from "../../config/app.config";
@@ -1005,6 +1006,100 @@ export class AuthService {
     }
   }
   // --------- end 2FA ---------
+
+  // Firebase Google Authentication
+  async firebaseGoogleAuth(idToken: string, fcm_token?: string) {
+    try {
+      // Verify the Firebase ID token
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      const { uid, email, name, picture } = decodedToken;
+
+      if (!email) {
+        throw new UnauthorizedException("Email not found in Firebase token");
+      }
+
+      // Check if user already exists
+      let user = await this.prisma.user.findUnique({
+        where: { email: email },
+      });
+
+      // If user doesn't exist, create a new user
+      if (!user) {
+        const nameParts = name ? name.split(" ") : ["", ""];
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
+
+        user = await this.prisma.user.create({
+          data: {
+            email: email,
+            first_name: firstName,
+            last_name: lastName,
+            avatar: picture || null,
+            googleId: uid,
+            email_verified_at: new Date(),
+            status: 1,
+          },
+        });
+
+        // Create Stripe customer
+        const stripeCustomer = await StripePayment.createCustomer({
+          user_id: user.id,
+          name: name || email,
+          email: email,
+        });
+
+        if (stripeCustomer) {
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { billing_id: stripeCustomer.id },
+          });
+        }
+      }
+
+      // Update FCM token if provided
+      if (fcm_token) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { fcm_token: fcm_token },
+        });
+      }
+
+      // Generate JWT tokens
+      const payload = { email: user.email, sub: user.id };
+      const accessToken = this.jwtService.sign(payload, { expiresIn: "1h" });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: "7d" });
+
+      // Store refresh token in Redis
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        "EX",
+        60 * 60 * 24 * 7, // 7 days
+      );
+
+      return {
+        success: true,
+        message: "Logged in successfully via Firebase",
+        authorization: {
+          type: "bearer",
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        user: {
+          id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          avatar: user.avatar,
+          type: user.type,
+        },
+      };
+    } catch (error) {
+      throw new UnauthorizedException(
+        `Firebase authentication failed: ${error.message}`,
+      );
+    }
+  }
 
   // google login
   // google log in using passport.js

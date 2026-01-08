@@ -16,7 +16,65 @@ import { paginateResponse, PaginationDto } from "src/common/pagination";
 export class WishlistService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // add to wishlist
+  // toggle wishlist (add if not exists, remove if exists)
+  async toggleWishlist(createWishlistDto: CreateWishlistDto, user: string) {
+    const { product_id } = createWishlistDto;
+
+    const product = await this.prisma.product.findUnique({
+      where: { id: product_id },
+    });
+
+    if (!product) {
+      throw new ConflictException("Product not found");
+    }
+
+    if (product.user_id === user) {
+      throw new ConflictException(
+        "You cannot add your own product to wishlist",
+      );
+    }
+
+    const existingWishlistItem = await this.prisma.wishlist.findFirst({
+      where: { product_id, user_id: user },
+    });
+
+    // If exists, remove it (false/toggle off)
+    if (existingWishlistItem) {
+      await this.prisma.wishlist.delete({
+        where: { id: existingWishlistItem.id },
+      });
+
+      return {
+        success: true,
+        message: "Product removed from wishlist",
+        data: {
+          isInWishlist: false,
+          product_id: product_id,
+        },
+      };
+    }
+
+    // If doesn't exist, add it (true/toggle on)
+    const newWishlistItem = await this.prisma.wishlist.create({
+      data: {
+        product_id,
+        user_id: user,
+      },
+    });
+
+    return {
+      success: true,
+      message: "Product added to wishlist",
+      data: {
+        isInWishlist: true,
+        id: newWishlistItem.id,
+        product_id: newWishlistItem.product_id,
+        user_id: newWishlistItem.user_id,
+      },
+    };
+  }
+
+  // add to wishlist (old method - kept for backward compatibility)
   async addToWishlist(createWishlistDto: CreateWishlistDto, user: string) {
     const { product_id } = createWishlistDto;
 

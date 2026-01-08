@@ -1,16 +1,20 @@
 // external imports
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import helmet from 'helmet';
-import { join } from 'path';
+import { NestFactory } from "@nestjs/core";
+import { ValidationPipe } from "@nestjs/common";
+import { NestExpressApplication } from "@nestjs/platform-express";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import helmet from "helmet";
+import { join } from "path";
 // import express from 'express';
 // internal imports
-import { AppModule } from './app.module';
-import appConfig from './config/app.config';
-import { CustomExceptionFilter } from './common/exception/custom-exception.filter';
-import { SojebStorage } from './common/lib/Disk/SojebStorage';
+import { AppModule } from "./app.module";
+import appConfig from "./config/app.config";
+import { CustomExceptionFilter } from "./common/exception/custom-exception.filter";
+import { SojebStorage } from "./common/lib/Disk/SojebStorage";
+import initializeFirebase from "./config/firebase.config";
+
+// Initialize Firebase
+initializeFirebase();
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -20,7 +24,7 @@ async function bootstrap() {
   // Handle raw body for webhooks
   // app.use('/payment/stripe/webhook', express.raw({ type: 'application/json' }));
 
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix("api");
   app.enableCors();
   app.use(helmet());
   // Enable it, if special charactrers not encoding perfectly
@@ -32,32 +36,28 @@ async function bootstrap() {
   //   next();
   // });
 
-  app.useStaticAssets(join(__dirname, '..', 'public'), {
+  app.useStaticAssets(join(__dirname, "..", "public"), {
     index: false,
-    prefix: '/public',
+    prefix: "/public",
   });
-  app.useStaticAssets(join(__dirname, '..', 'public/storage'), {
+  app.useStaticAssets(join(__dirname, "..", "public/storage"), {
     index: false,
-    prefix: '/storage',
+    prefix: "/storage",
   });
 
   // app.useStaticAssets(join(__dirname, '..', 'public'), {
   // prefix: '/',  // কোনো extra /public লাগবে না
   // });
 
-
-
-
-
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,               
-      forbidNonWhitelisted: true,    
-      transform: true,   
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
       transformOptions: {
         enableImplicitConversion: true,
-      },     
+      },
     }),
   );
 
@@ -65,7 +65,7 @@ async function bootstrap() {
 
   // storage setup
   SojebStorage.config({
-    driver: 'local',
+    driver: "local",
     connection: {
       rootUrl: appConfig().storageUrl.rootUrl,
       publicUrl: appConfig().storageUrl.rootUrlPublic,
@@ -88,14 +88,14 @@ async function bootstrap() {
   const options = new DocumentBuilder()
     .setTitle(`${process.env.APP_NAME} api`)
     .setDescription(`${process.env.APP_NAME} api docs`)
-    .setVersion('1.0')
+    .setVersion("1.0")
     .addTag(`${process.env.APP_NAME}`)
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, options);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup("api/docs", app, document);
   // end swagger
 
-  await app.listen(process.env.PORT ?? 4000, '0.0.0.0');
+  await app.listen(process.env.PORT ?? 4000, "0.0.0.0");
 }
 bootstrap();
