@@ -592,6 +592,32 @@ export class AuthController {
     }
   }
 
+  // ------------- Firebase Apple Authentication --------------
+
+  @ApiOperation({ summary: "Firebase Apple Authentication" })
+  @Post("firebase/apple")
+  async firebaseAppleAuth(@Body() firebaseAuthDto: FirebaseAuthDto) {
+    try {
+      const { idToken, fcm_token } = firebaseAuthDto;
+
+      if (!idToken) {
+        throw new HttpException(
+          "ID Token not provided",
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      return await this.authService.firebaseAppleAuth(idToken, fcm_token);
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // ------------- end Firebase Apple Authentication --------------
+
   // ------------- end Firebase Google Authentication --------------
 
   // ------------- Google Login (Passport.js - Old Method) --------------

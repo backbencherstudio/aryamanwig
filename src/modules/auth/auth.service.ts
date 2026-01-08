@@ -1101,6 +1101,91 @@ export class AuthService {
     }
   }
 
+  // Firebase Apple Authentication
+  async firebaseAppleAuth(idToken: string, fcm_token?: string) {
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      const { uid, email, name, picture } = decodedToken;
+
+      if (!email) {
+        throw new UnauthorizedException("Email not found in Firebase token");
+      }
+
+      let user = await this.prisma.user.findUnique({ where: { email } });
+
+      if (!user) {
+        const nameParts = name ? name.split(" ") : ["", ""];
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
+
+        user = await this.prisma.user.create({
+          data: {
+            email,
+            first_name: firstName,
+            last_name: lastName,
+            avatar: picture || null,
+            apple_id: uid,
+            email_verified_at: new Date(),
+            status: 1,
+          },
+        });
+
+        const stripeCustomer = await StripePayment.createCustomer({
+          user_id: user.id,
+          name: name || email,
+          email,
+        });
+
+        if (stripeCustomer) {
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { billing_id: stripeCustomer.id },
+          });
+        }
+      }
+
+      if (fcm_token) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { fcm_token },
+        });
+      }
+
+      const payload = { email: user.email, sub: user.id };
+      const accessToken = this.jwtService.sign(payload, { expiresIn: "1h" });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: "7d" });
+
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        "EX",
+        60 * 60 * 24 * 7,
+      );
+
+      return {
+        success: true,
+        message: "Logged in successfully via Firebase (Apple)",
+        authorization: {
+          type: "bearer",
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        user: {
+          id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          avatar: user.avatar,
+          type: user.type,
+        },
+      };
+    } catch (error) {
+      throw new UnauthorizedException(
+        `Firebase authentication failed: ${error.message}`,
+      );
+    }
+  }
+
   // google login
   // google log in using passport.js
 
