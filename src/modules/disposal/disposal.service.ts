@@ -313,11 +313,13 @@ export class DisposalService {
     const requests = await this.prisma.disposal.findMany({
       where: whereClause,
       select: {
+        
         id: true,
         productname: true,
         producttype: true,
         productquantity: true,
         final_total_amount: true,
+        product_id: true,
         productphoto: true,
         status: true,
         payment_status: true,
@@ -345,6 +347,7 @@ export class DisposalService {
 
     return requests.map((request) => ({
       disposalId: request.id,
+      productId: request.product_id,
       productname: request.productname,
       productsize: request.product.size,
       condition: request.product.condition,

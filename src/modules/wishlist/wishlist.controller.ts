@@ -20,16 +20,7 @@ import { PaginationDto } from "src/common/pagination/dto/offset-pagination.dto";
 export class WishlistController {
   constructor(private readonly wishlistService: WishlistService) {}
 
-  // toggle wishlist (add/remove)
-  @UseGuards(JwtAuthGuard)
-  @Post("toggle")
-  toggle(@Body() createWishlistDto: CreateWishlistDto, @Req() req: any) {
-    const user = req.user.userId;
-
-    return this.wishlistService.toggleWishlist(createWishlistDto, user);
-  }
-
-  // add to wishlist (old endpoint - kept for backward compatibility)
+  // add to wishlist
   @UseGuards(JwtAuthGuard)
   @Post("create")
   create(@Body() createWishlistDto: CreateWishlistDto, @Req() req: any) {
