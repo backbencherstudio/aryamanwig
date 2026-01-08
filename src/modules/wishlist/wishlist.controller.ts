@@ -10,6 +10,19 @@ export class WishlistController {
 
   constructor(private readonly wishlistService: WishlistService) {}
 
+
+
+  //togole wishlist
+  @UseGuards(JwtAuthGuard)
+  @Post('toggle')
+  toggleWishlist(
+    @Body() createWishlistDto: CreateWishlistDto,
+    @Req() req: any
+  ) {
+    const user = req.user.userId;
+    return this.wishlistService.toggleWishlist(createWishlistDto, user);
+  }
+
   // add to wishlist
   @UseGuards(JwtAuthGuard)
   @Post('create')
