@@ -156,23 +156,25 @@ export class WishlistService {
     }
 
     // Format the response data
-    const formattedItems = items.map((item) => ({
-      id: item.id,
-      user_id: item.user_id,
-      product_id: item.product_id,
-      product_title: item.product.product_title,
-      product_photo:
-        item.product.photo && item.product.photo.length > 0
-          ? item.product.photo.map((p) =>
-              SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
-            )
-          : [],
-      product_size: item.product.size,
-      product_condition: item.product.condition,
-      product_price: item.product.price,
-      product_stock: item.product.stock,
-      created_at: item.product.created_at,
-    }));
+    const formattedItems = items
+      .filter((item) => item.product !== null) // Filter out items with deleted products
+      .map((item) => ({
+        id: item.id,
+        user_id: item.user_id,
+        product_id: item.product_id,
+        product_title: item.product.product_title,
+        product_photo:
+          item.product.photo && item.product.photo.length > 0
+            ? item.product.photo.map((p) =>
+                SojebStorage.url(`${appConfig().storageUrl.product}/${p}`),
+              )
+            : [],
+        product_size: item.product.size,
+        product_condition: item.product.condition,
+        product_price: item.product.price,
+        product_stock: item.product.stock,
+        created_at: item.product.created_at,
+      }));
 
     const paginatedData = paginateResponse(
       formattedItems,
@@ -199,6 +201,10 @@ export class WishlistService {
 
     if (!item) {
       throw new NotFoundException("Wishlist item not found");
+    }
+
+    if (!item.product) {
+      throw new NotFoundException("Product no longer exists");
     }
 
     return {
